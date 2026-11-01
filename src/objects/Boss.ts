@@ -28,6 +28,8 @@ export interface Boss {
   readonly vulnerable: boolean;
   /** Encostar machuca Íris agora. */
   readonly dangerous: boolean;
+  /** Estado atual para avisos específicos de antecipação de ataque. */
+  readonly state?: string;
   start(): void;
   update(dt: number): void;
   /** Íris acertou (golpe ou pisão). Devolve true se contou. */
