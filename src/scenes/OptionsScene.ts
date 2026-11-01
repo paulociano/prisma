@@ -36,12 +36,12 @@ export class OptionsScene extends Phaser.Scene {
     applyColorblind(this);
     const cx = GAME_W / 2, cy = GAME_H / 2;
     this.add.rectangle(0, 0, GAME_W, GAME_H, 0x120d1a, this.from === 'Title' ? 0.92 : 0.6).setOrigin(0);
-    panel(this, cx, cy, 660, 760);
-    this.add.text(cx, cy - 305, 'Opções', textStyle(40, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 6);
+    panel(this, cx, cy, 660, 680);
+    this.add.text(cx, cy - 293, 'Opções', textStyle(40, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 6);
 
     // dificuldade
-    this.add.text(cx, cy - 250, 'Dificuldade', textStyle(22, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
-    const diffNote = this.add.text(cx, cy - 165, '', SMALL).setOrigin(0.5, 0);
+    this.add.text(cx, cy - 237, 'Dificuldade', textStyle(22, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
+    const diffNote = this.add.text(cx, cy - 153, '', SMALL).setOrigin(0.5, 0);
     const diffLabel = () => `◀  ${DIFFICULTY_LABEL[getSettings().difficulty]}  ▶`;
     const cycleDiff = (d: number) => {
       const i = LEVELS.indexOf(getSettings().difficulty);
@@ -52,9 +52,9 @@ export class OptionsScene extends Phaser.Scene {
     };
 
     // modo daltônico
-    this.add.text(cx, cy - 95, 'Modo daltônico', textStyle(22, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
-    RAINBOW.forEach((c, i) => this.add.circle(cx + (i - 3) * 46, cy + 38, 15, c).setStrokeStyle(3, 0xffffff));
-    const cbNote = this.add.text(cx, cy + 67, '', SMALL).setOrigin(0.5, 0);
+    this.add.text(cx, cy - 102, 'Modo daltônico', textStyle(22, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
+    RAINBOW.forEach((c, i) => this.add.circle(cx + (i - 3) * 46, cy + 4, 15, c).setStrokeStyle(3, 0xffffff));
+    const cbNote = this.add.text(cx, cy + 31, '', SMALL).setOrigin(0.5, 0);
     const cbLabel = () => `◀  ${COLORBLIND_LABEL[getSettings().colorblind]}  ▶`;
     const updateCbNote = () =>
       cbNote.setText(
@@ -71,8 +71,8 @@ export class OptionsScene extends Phaser.Scene {
       playSfx(this, 'menu_move');
     };
 
-    const diff = button(this, cx, cy - 200, 460, diffLabel(), () => cycleDiff(1));
-    const mode = button(this, cx, cy - 34, 460, cbLabel(), () => cycleCb(1));
+    const diff = button(this, cx, cy - 190, 460, diffLabel(), () => cycleDiff(1));
+    const mode = button(this, cx, cy - 59, 460, cbLabel(), () => cycleCb(1));
     const toggle = (y: number, key: 'reduceFlashes' | 'reduceCameraShake' | 'extraVisualSignals', name: string) => {
       const label = () => `${name}: ${getSettings()[key] ? 'Ligado' : 'Desligado'}`;
       const b = button(this, cx, y, 460, label(), () => {
@@ -82,10 +82,10 @@ export class OptionsScene extends Phaser.Scene {
       });
       return b;
     };
-    const flashes = toggle(cy + 142, 'reduceFlashes', 'Reduzir flashes');
-    const shake = toggle(cy + 205, 'reduceCameraShake', 'Reduzir tremor');
-    const signals = toggle(cy + 268, 'extraVisualSignals', 'Sinais extras');
-    const back = button(this, cx, cy + 330, 300, 'Voltar', () => this.back());
+    const flashes = toggle(cy + 110, 'reduceFlashes', 'Reduzir flashes');
+    const shake = toggle(cy + 170, 'reduceCameraShake', 'Reduzir tremor');
+    const signals = toggle(cy + 230, 'extraVisualSignals', 'Sinais extras');
+    const back = button(this, cx, cy + 292, 300, 'Voltar', () => this.back());
     const buttons = [diff, mode, flashes, shake, signals, back];
     menuNav(this, buttons);
     diffNote.setText(DIFFICULTY_NOTE[getSettings().difficulty] + (this.from === 'Title' ? '' : '\n(vale a partir da próxima fase)'));
