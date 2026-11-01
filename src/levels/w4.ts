@@ -8,6 +8,7 @@ export function level4_1() {
   const b = new LevelBuilder('4-1', 'Trilha das Samambaias', 4, 130);
 
   b.ground(0, 14, 2).add('player', 2, 9).coins(6, 10, 9);
+  b.hint(7, 4, 'Treino: encoste numa parede e pule novamente para usar o pulo na parede.'); // prática em área inicial segura
   b.ground(17, 30, 2).coinArc(14, 8, 3).add('snapper', 24, 9);
   b.hint(21, 5, 'Plantas mordedoras dão bote: espere a boca fechar!');
 
