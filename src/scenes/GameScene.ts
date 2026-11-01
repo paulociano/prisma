@@ -843,12 +843,22 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const dangerous = !!b?.dangerous;
     if (dangerous && !this.wasBossDangerous) this.dangerUntil = this.time.now + 850;
     this.wasBossDangerous = dangerous;
-    const warn = dangerous && this.time.now < this.dangerUntil && !b?.vulnerable;
+    const attacks: Record<string, string> = {
+      slamWind: '⚠ IMPACTO', throwWind: '⚠ PROJÉTEIS', stompWind: '⚠ PISÃO',
+      spitWind: '⚠ DISPAROS', stormWind: '⚠ TEMPESTADE', warn: '⚠ ERUPÇÃO',
+      dropWind: '⚠ QUEDA', charge: '⚠ INVESTIDA',
+      lashWind: '⚠ CHICOTE', eruptWind: '⚠ ESPINHOS', rollWind: '⚠ ROLAGEM',
+      riseWind: '⚠ SUBIDA', sweepWind: '⚠ VARREDURA', inkWind: '⚠ TINTA',
+      gustWind: '⚠ RAJADA', orbsWind: '⚠ ESFERAS',
+      masksWind: '⚠ MÁSCARAS', spikesWind: '⚠ ESPINHOS', bouldersWind: '⚠ PEDRAS', tornadoWind: '⚠ TORNADO',
+    };
+    const attackLabel = b?.state ? attacks[b.state] : undefined;
+    const warn = !!attackLabel || (dangerous && this.time.now < this.dangerUntil && !b?.vulnerable);
     if (warn && !this.dangerMarker) {
       this.dangerMarker = this.add.text(0, 0, '⚠  CUIDADO', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#fff4b8', stroke: '#24133a', strokeThickness: 5 }).setOrigin(0.5).setDepth(15);
     }
     if (!warn) { this.dangerMarker?.destroy(); this.dangerMarker = undefined; }
-    else this.dangerMarker!.setPosition(b!.hit.x, b!.body.top - 48);
+    else this.dangerMarker!.setText(attackLabel ?? '⚠ CUIDADO').setPosition(b!.hit.x, b!.body.top - 48);
     const show = !!b && b.vulnerable;
     if (show && !this.bossMarker) {
       this.bossMarker = this.add
