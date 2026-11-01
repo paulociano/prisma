@@ -55,3 +55,14 @@ Em **Opções**, além dos modos de daltonismo, é possível ativar de forma ind
 - **Sinais extras**: exibe indicadores adicionais de vulnerabilidade de chefões, mesmo sem filtro daltônico.
 
 Essas preferências são armazenadas separadamente do progresso do jogo. Os controles são aplicados à cena principal de gameplay; outras cenas e efeitos ainda exigem revisão de acessibilidade.
+
+## Jogar no GitHub Pages
+
+O workflow `.github/workflows/deploy-pages.yml` cria os assets com `npm run assets`, compila com `npm run build` e publica o diretório `dist/` após cada push na branch `main`.
+
+1. No GitHub, abra **Settings → Pages**.
+2. Em **Build and deployment → Source**, escolha **GitHub Actions**.
+3. Execute **Deploy PRISMA to GitHub Pages** em **Actions** (ou faça push na `main`).
+4. Quando o deploy terminar, abra https://paulociano.github.io/prisma/ .
+
+O Vite usa `base: './'`, adequado para publicar em `/prisma/` e também para builds portáveis. Os saves continuam armazenados no navegador/dispositivo usado; mudar a origem de hospedagem não transfere o progresso automaticamente.
