@@ -99,8 +99,8 @@ export class OptionsScene extends Phaser.Scene {
       else if (f === 1) cycleCb(d);
     };
     const kb = this.input.keyboard!;
-    for (const k of ['LEFT', 'A']) kb.on(`keydown-${k}`, () => change(-1));
-    for (const k of ['RIGHT', 'D']) kb.on(`keydown-${k}`, () => change(1));
+    for (const k of ['LEFT', 'A']) kb.on(`keydown-${k}`, (event: KeyboardEvent) => { if (!event.repeat) change(-1); });
+    for (const k of ['RIGHT', 'D']) kb.on(`keydown-${k}`, (event: KeyboardEvent) => { if (!event.repeat) change(1); });
     kb.on('keydown-ESC', () => this.back());
   }
 
