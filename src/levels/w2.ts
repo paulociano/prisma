@@ -8,6 +8,7 @@ export function level2_1() {
   const b = new LevelBuilder('2-1', 'Trilha do Entardecer', 2, 130);
 
   b.ground(0, 14, 2).add('player', 2, 9).coins(6, 10, 9);
+  b.hint(7, 4, 'Treino: salte e aperte PULAR novamente no ar para usar o pulo duplo.'); // prática em área inicial segura
   b.ground(17, 30, 2).coinArc(14, 8, 3).add('scorpion', 24, 9);
   b.hint(22, 5, 'Escorpiões se enterram: espere sair da areia!');
 
