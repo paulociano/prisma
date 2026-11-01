@@ -51,7 +51,7 @@ export class WorldMapScene extends Phaser.Scene {
   private cursor = 0; // índice dentro do mundo (0..3)
   private token!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   private info!: Phaser.GameObjects.Text;
-  private markers: Phaser.GameObjects.GameObject[] = [];
+  private markers: (Phaser.GameObjects.Image | Phaser.GameObjects.Arc)[] = [];
   private leaving = false;
 
   constructor() {
