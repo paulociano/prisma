@@ -1,12 +1,11 @@
-// Progresso salvo no navegador. Tudo protegido com try/catch: em janela anônima
-// ou com armazenamento bloqueado o jogo funciona normalmente, só não lembra o progresso.
-
+// Persistência de progresso no navegador, com validação de dados e tolerância a storage bloqueado.
+// A chave v1 é mantida para preservar saves das versões anteriores.
 const KEY = 'prisma-save-v1';
+const LEVEL_ID = /^[1-7]-[1-4]$/;
+const MAX_LEVEL_INDEX = 27;
 
 export interface SaveData {
-  /** Última fase jogada (índice em LEVELS): onde o cursor do mapa começa. */
   level: number;
-  /** Ids das fases concluídas ("1-1", "1-2"...). */
   completed: string[];
   doubleJump: boolean;
   dash: boolean;
@@ -15,43 +14,80 @@ export interface SaveData {
   shot: boolean;
   pound: boolean;
   extraHeart: boolean;
-  /** Jogo zerado (Monocromo restaurado). */
   finished: boolean;
-  /** Fragmentos coletados por fase (id da fase → 3 booleanos). */
   shards: Record<string, boolean[]>;
 }
 
-const fresh = (): SaveData => ({ level: 0, completed: [], doubleJump: false, dash: false, wallJump: false, glide: false, shot: false, pound: false, extraHeart: false, finished: false, shards: {} });
+const fresh = (): SaveData => ({
+  level: 0, completed: [], doubleJump: false, dash: false, wallJump: false,
+  glide: false, shot: false, pound: false, extraHeart: false, finished: false, shards: {},
+});
+
+const abilities = ['doubleJump', 'dash', 'wallJump', 'glide', 'shot', 'pound', 'extraHeart', 'finished'] as const;
+
+export function normalizeSave(value: unknown): SaveData {
+  const result = fresh();
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return result;
+  const data = value as Record<string, unknown>;
+
+  if (typeof data.level === 'number' && Number.isFinite(data.level)) {
+    result.level = Math.max(0, Math.min(MAX_LEVEL_INDEX, Math.trunc(data.level)));
+  }
+
+  if (Array.isArray(data.completed)) {
+    result.completed = [...new Set(data.completed.filter((id): id is string =>
+      typeof id === 'string' && LEVEL_ID.test(id)
+    ))];
+  }
+
+  for (const ability of abilities) {
+    if (typeof data[ability] === 'boolean') result[ability] = data[ability] as boolean;
+  }
+
+  if (data.shards && typeof data.shards === 'object' && !Array.isArray(data.shards)) {
+    for (const [id, values] of Object.entries(data.shards)) {
+      if (!LEVEL_ID.test(id) || !Array.isArray(values)) continue;
+      result.shards[id] = Array.from({ length: 3 }, (_, index) => values[index] === true);
+    }
+  }
+  return result;
+}
 
 export function loadSave(): SaveData {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...fresh(), ...(JSON.parse(raw) as Partial<SaveData>) } : fresh();
+    return raw ? normalizeSave(JSON.parse(raw) as unknown) : fresh();
   } catch {
     return fresh();
   }
 }
 
-export function writeSave(data: SaveData) {
+/** Retorna false quando o navegador não permitir persistência; nunca interrompe o jogo. */
+export function writeSave(data: SaveData): boolean {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
-  } catch {
-    // sem armazenamento disponível: segue sem salvar
-  }
-}
-
-export function hasSave() {
-  try {
-    return localStorage.getItem(KEY) !== null;
+    localStorage.setItem(KEY, JSON.stringify(normalizeSave(data)));
+    return true;
   } catch {
     return false;
   }
 }
 
-export function clearSave() {
+export function hasSave(): boolean {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return false;
+    const value: unknown = JSON.parse(raw);
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  } catch {
+    return false;
+  }
+}
+
+export function clearSave(): boolean {
   try {
     localStorage.removeItem(KEY);
+    return true;
   } catch {
-    // nada a fazer
+    return false;
   }
 }
