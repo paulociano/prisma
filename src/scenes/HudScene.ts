@@ -22,6 +22,7 @@ interface Result {
 export class HudScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
   private coinText!: Phaser.GameObjects.Text;
+  private shardLabel!: Phaser.GameObjects.Text;
   private shardIcons: Phaser.GameObjects.Image[] = [];
   private overlay?: Phaser.GameObjects.Container;
 
@@ -58,6 +59,7 @@ export class HudScene extends Phaser.Scene {
     this.coinText = this.add.text(hx + 26, 88, '0', this.style(26)).setOrigin(0, 0.5);
 
     for (let i = 0; i < 3; i++) this.shardIcons.push(this.icon(GAME_W - 130 + i * 46, 44, F.hud.shardEmpty, 'shard'));
+    this.shardLabel = this.add.text(GAME_W - 84, 84, 'Fragmentos: 0/3', this.style(17)).setOrigin(0.5);
 
     const game = this.scene.get('Game');
     game.events.on('hud', this.refresh, this);
@@ -111,7 +113,8 @@ export class HudScene extends Phaser.Scene {
     while (this.hearts.length < s.maxHp) this.hearts.push(this.icon(hx + this.hearts.length * 46, 40, F.hud.heart, 'heart'));
     this.hearts.forEach((h, i) => (i < s.hp ? this.setIcon(h, F.hud.heart, 'heart') : this.setIcon(h, F.hud.heartEmpty, 'heart_empty')));
     // faíscas da fase e o progresso até o próximo coração (a cada 50)
-    this.coinText.setText(`${s.coins}  ·  ${s.coinBank}/50 ♥`);
+    this.coinText.setText(`Faíscas: ${s.coins}  ·  Próximo coração: ${s.coinBank}/50`);
+    this.shardLabel.setVisible(s.showShards).setText(`Fragmentos: ${s.shards.filter(Boolean).length}/3`);
     this.shardIcons.forEach((icon, i) => {
       icon.setVisible(s.showShards);
       if (this.art) icon.setFrame(String(s.shards[i] ? F.hud.shard : F.hud.shardEmpty));
@@ -142,7 +145,7 @@ export class HudScene extends Phaser.Scene {
       ? [`A cor voltou ao ${r.worldName}!`, `Próximo destino: ${r.nextWorld}`]
       : [`Faíscas: ${r.coins}`, `Fragmentos: ${r.shards} / 3`, `Desbotados restaurados: ${r.restored} / ${r.enemies}`];
     const body = this.add.text(GAME_W / 2, GAME_H / 2 + 5, lines.join('\n'), { ...this.style(26), align: 'center', lineSpacing: 8 }).setOrigin(0.5);
-    const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 110, 'aperte qualquer tecla para voltar ao mapa', this.style(18)).setOrigin(0.5);
+    const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 110, 'Pressione uma tecla para voltar ao mapa', this.style(22)).setOrigin(0.5);
     this.overlay = this.add.container(0, 0, [bg, title, body, hint]).setAlpha(0);
     this.tweens.add({ targets: this.overlay, alpha: 1, duration: 500, delay: 600 });
   }
