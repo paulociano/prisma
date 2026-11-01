@@ -10,7 +10,8 @@
     "assets": "node scripts/process-assets.mjs",
     "check-levels": "esbuild scripts/reach-check.ts --bundle --platform=node --format=esm --outfile=.debug/reach.mjs --log-level=error && node .debug/reach.mjs",
     "test:save": "esbuild src/systems/Save.ts --bundle --platform=node --format=esm --outfile=.debug/save.mjs --log-level=error && node --test tests/save.test.mjs",
-    "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs"
+    "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs",
+    "test:levels": "esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"
