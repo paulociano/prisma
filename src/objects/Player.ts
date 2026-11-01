@@ -99,6 +99,7 @@ export class Player {
     this.attackCd = Math.max(0, this.attackCd - dt);
     this.attackTime = Math.max(0, this.attackTime - dt);
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    this.shotCd = Math.max(0, this.shotCd - dt);
 
     if (this.frozen || this.dead) {
       b.setVelocityX(approach(b.velocity.x, 0, PHYS.decelGround * dt));
@@ -242,7 +243,6 @@ export class Player {
       this.attackCd = 0.32;
       this.scene.events.emit('player-attack', this);
     }
-    this.shotCd = Math.max(0, this.shotCd - 1 / 60);
     if (c.shootPressed && this.canShoot && this.shotCd <= 0) {
       this.shotCd = 0.4;
       this.shootTime = 0.22;
