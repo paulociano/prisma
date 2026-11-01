@@ -149,7 +149,7 @@ function buildSegment(w: number, v: number, h: number, rows: number) {
   const b = new LevelBuilder('seg', 'seg', w, 120, rows);
   const s: Seg = { b, x: 0, h, rows };
   flat(s, 3);
-  b.add('checkpoint', 1, top(s) - 1);
+  b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
   const beats = WORLD[w].beats;
   // 4 desafios por fase, começando num ponto diferente da lista a cada fase
   for (let k = 0; k < 4; k++) {
@@ -211,6 +211,12 @@ export function extendLevel(l: LevelData, variant: number): LevelData {
 
   const tiles = l.tiles.map((row, r) => [...row.slice(0, at), ...seg.tiles[r].slice(0, width), ...row.slice(at)]);
   const shift = <E extends { col: number }>(e: E) => (e.col >= at ? { ...e, col: e.col + width } : e);
-  const entities = [...l.entities.map(shift), ...seg.entities.filter((e) => e.col < width).map((e) => ({ ...e, col: e.col + at }))];
+  const existing = l.entities.map(shift);
+  const inserted = seg.entities.filter((e) => e.col < width).map((e) => ({ ...e, col: e.col + at }));
+  // Um novo checkpoint muito perto de outro cria duas ativações consecutivas sem desafio.
+  // Mantém os checkpoints autorais e evita inserir um duplicado no segmento.
+  const MIN_CHECKPOINT_GAP = 12;
+  const checkpoints = existing.filter((e) => e.type === 'checkpoint');
+  const entities = [...existing, ...inserted.filter((e) => e.type !== 'checkpoint' || checkpoints.every((old) => Math.abs(old.col - e.col) >= MIN_CHECKPOINT_GAP))];
   return { ...l, cols: l.cols + width, tiles, entities, hints: l.hints.map(shift) };
 }

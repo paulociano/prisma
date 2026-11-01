@@ -51,6 +51,7 @@ export class WorldMapScene extends Phaser.Scene {
   private cursor = 0; // índice dentro do mundo (0..3)
   private token!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   private info!: Phaser.GameObjects.Text;
+  private markers: (Phaser.GameObjects.Image | Phaser.GameObjects.Arc)[] = [];
   private leaving = false;
 
   constructor() {
@@ -61,6 +62,7 @@ export class WorldMapScene extends Phaser.Scene {
     applyColorblind(this);
     this.save = loadSave();
     this.leaving = false;
+    this.markers = [];
     this.world = data.world;
     this.levels = LEVEL_META.filter((l) => l.world === this.world);
     const focus = this.levels.findIndex((l) => l.index === data.focus);
@@ -96,6 +98,7 @@ export class WorldMapScene extends Phaser.Scene {
       const node = has(this, 'map_icons')
         ? this.add.image(p.x, p.y, 'map_icons', String(frame)).setScale(l.boss ? 0.7 : 0.55)
         : this.add.circle(p.x, p.y, 26, open ? 0xffe9a8 : 0x777777);
+      this.markers.push(node);
       if (open && !done) this.tweens.add({ targets: node, scale: node.scale * 1.08, duration: 700, yoyo: true, repeat: -1 });
       if (open) node.setInteractive({ useHandCursor: true }).on('pointerdown', () => (i === this.cursor ? this.play() : this.select(i)));
 
@@ -110,9 +113,11 @@ export class WorldMapScene extends Phaser.Scene {
       : this.add.circle(p0.x, p0.y - 34, 16, 0xb06cf0);
     this.bob();
 
-    panel(this, GAME_W / 2, GAME_H - 58, 760, 84);
-    this.info = this.add.text(GAME_W / 2, GAME_H - 60, '', textStyle(24, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
-    this.add.text(GAME_W - 16, GAME_H - 26, '← → fase · ENTER jogar · ESC mapa-múndi', textStyle(15)).setOrigin(1, 0.5).setAlpha(0.85);
+    // Painel e instruções ficam dentro da área segura do mapa, sem escapar da ilustração.
+    const panelY = GAME_H - 77;
+    panel(this, GAME_W / 2, panelY, 900, 118);
+    this.info = this.add.text(GAME_W / 2, panelY - 17, '', { ...textStyle(24, '#3b2252'), align: 'center', wordWrap: { width: 810, useAdvancedWrap: true } }).setOrigin(0.5).setStroke('#ffffff', 4);
+    this.add.text(GAME_W / 2, panelY + 39, '← → escolher fase   ·   ENTER jogar   ·   ESC mapa-múndi', textStyle(16, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 2);
 
     const kb = this.input.keyboard!;
     const step = (d: number) => {
@@ -145,6 +150,8 @@ export class WorldMapScene extends Phaser.Scene {
   private select(i: number, instant = false) {
     if (!instant) playSfx(this, 'menu_move');
     this.cursor = i;
+    // A clareira já faz parte da arte; não sobrepor o ícone de fase ao token da Íris.
+    this.markers.forEach((marker, index) => marker.setVisible(index !== i));
     const l = this.levels[i];
     this.info.setText(`${l.id} · ${l.name}`);
     const p = this.pts[i];
