@@ -884,10 +884,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private buildHints() {
     this.hintBubbles = [];
     for (const h of this.level.hints) {
+      const hintText = h.text.replace('← →  andar', '← → / analógico  andar').replace('ESPAÇO  pular', 'ESPAÇO / A  pular').replace('X  golpe de echarpe', 'X / botão X  golpe de echarpe');
       const text = this.add
-        .text(0, 0, h.text, {
+        .text(0, 0, hintText, {
           fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
-          fontSize: '18px',
+          fontSize: '21px',
           color: '#fff6ec',
           align: 'center',
           wordWrap: { width: 420 },
@@ -909,7 +910,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private updateHints(dt: number) {
     const px = this.player.hit.x;
     for (const b of this.hintBubbles) {
-      const near = Math.abs(b.x - px) < 7 * TILE;
+      const near = Math.abs(b.x - px) < 7 * TILE && Math.abs(b.y - this.player.hit.y) < 5 * TILE;
       b.alpha += ((near ? 1 : 0) - b.alpha) * Math.min(1, dt * 4);
       b.y = (b.getData('baseY') as number) + Math.sin(this.time.now / 700 + b.x) * 3; // flutua de leve
     }
