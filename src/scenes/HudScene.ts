@@ -92,12 +92,13 @@ export class HudScene extends Phaser.Scene {
 
   private toast(text: string) {
     this.lastToast?.destroy(); // um aviso por vez
+    const isAbility = text.startsWith('Novo poder:') || text.startsWith('Escudo de Ás:');
     const t =this.add.text(GAME_W / 2, GAME_H * 0.42, text, { ...this.style(34), align: 'center', color: '#ffd93d' }).setOrigin(0.5).setScale(0.6).setAlpha(0);
     this.tweens.chain({
       targets: t,
       tweens: [
         { alpha: 1, scale: 1, duration: 350, ease: 'Back.Out' },
-        { alpha: 0, y: t.y - 30, duration: 500, delay: 1800 },
+        { alpha: 0, y: t.y - 30, duration: 500, delay: isAbility ? 4500 : 1800 },
       ],
       onComplete: () => t.destroy(),
     });
