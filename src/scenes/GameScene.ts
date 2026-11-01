@@ -116,6 +116,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private levelIndex = 0;
   private save!: SaveData;
+  private saveWarningShown = false;
   private movers: Mover[] = [];
   private cages!: Phaser.Physics.Arcade.StaticGroup;
   private guardian?: Guardian;
@@ -133,6 +134,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   create(data: { level?: number }) {
     applyColorblind(this);
     this.save = loadSave();
+    this.saveWarningShown = false;
     this.levelIndex = Phaser.Math.Clamp(data?.level ?? this.save.level, 0, LEVELS.length - 1);
     this.level = LEVELS[this.levelIndex]();
     this.enemies = [];
@@ -696,7 +698,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.time.delayedCall(700, () =>
       this.talk(story.guardianFreed, () => {
         this.save[story.ability] = true;
-        writeSave(this.save);
+        this.persistProgress();
         const p = this.player;
         ({ doubleJump: () => (p.canDoubleJump = true), dash: () => (p.canDash = true), wallJump: () => (p.canWallJump = true), glide: () => (p.canGlide = true), shot: () => (p.canShoot = true), pound: () => (p.canPound = true),
           extraHeart: () => {
@@ -804,7 +806,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private toEnding() {
     if (!this.save.completed.includes(this.level.id)) this.save.completed.push(this.level.id);
     this.save.finished = true;
-    writeSave(this.save);
+    this.persistProgress();
     this.cameras.main.fadeOut(1200, 255, 255, 255);
     this.time.delayedCall(1250, () => {
       this.scene.stop('Hud');
@@ -1196,7 +1198,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.sparkle(s.x, s.y, s.tintTopLeft);
     } else if (kind === 'shard') {
       this.sfx('shard', 0);
-      this.shards[s.getData('index') as number] = true;
+      const index = s.getData('index') as number;
+      this.shards[index] = true;
+      const previous = this.save.shards[this.level.id] ?? [false, false, false];
+      this.save.shards[this.level.id] = Array.from({ length: 3 }, (_, i) => previous[i] === true || this.shards[i]);
+      this.persistProgress();
       this.color.add(COLOR_POINTS.shard);
       this.burst(s.x, s.y, 30);
       this.hitStop(80);
@@ -1284,6 +1290,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     });
   }
 
+  /** Salva progresso importante e informa uma única vez se o armazenamento falhar. */
+  private persistProgress() {
+    if (!writeSave(this.save) && !this.saveWarningShown) {
+      this.saveWarningShown = true;
+      this.events.emit('toast', 'Não foi possível salvar o progresso neste navegador.');
+    }
+  }
+
   private finish() {
     this.finished = true;
     this.player.frozen = true;
@@ -1301,7 +1315,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (!this.save.completed.includes(this.level.id)) this.save.completed.push(this.level.id);
     const next = this.levelIndex + 1;
     this.save.level = next < LEVELS.length ? next : this.levelIndex;
-    writeSave(this.save);
+    this.persistProgress();
 
     this.events.emit('level-complete', {
       coins: this.coins,
