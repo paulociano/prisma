@@ -40,6 +40,7 @@ export function button(scene: Phaser.Scene, x: number, y: number, w: number, lab
   const setFrame = (frame: number) => {
     if (art) (bg as Phaser.GameObjects.NineSlice).setFrame(String(frame));
   };
+  let pressing = false;
   const b: Button = {
     root,
     setFocus(on) {
@@ -47,9 +48,11 @@ export function button(scene: Phaser.Scene, x: number, y: number, w: number, lab
       root.setScale(on ? 1.06 : 1);
     },
     press() {
+      if (pressing || !root.active || !scene.sys.isActive()) return;
+      pressing = true;
       playSfx(scene, 'menu_select', 0);
       setFrame(UI.buttonDown);
-      scene.tweens.add({ targets: root, scale: 0.94, duration: 60, yoyo: true, onComplete: onPress });
+      scene.tweens.add({ targets: root, scale: 0.94, duration: 60, yoyo: true, onComplete: () => { pressing = false; if (scene.sys.isActive() && root.active) onPress(); } });
     },
   };
   root.on('pointerover', () => b.setFocus(true));
@@ -68,11 +71,12 @@ export function menuNav(scene: Phaser.Scene, buttons: Button[], start = 0) {
   };
   focus(i, true);
   const kb = scene.input.keyboard!;
-  kb.on('keydown-UP', () => focus(i - 1));
-  kb.on('keydown-W', () => focus(i - 1));
-  kb.on('keydown-DOWN', () => focus(i + 1));
-  kb.on('keydown-S', () => focus(i + 1));
-  for (const k of ['ENTER', 'SPACE', 'Z', 'X', 'J']) kb.on(`keydown-${k}`, () => buttons[i].press());
+  const navigate = (dir: number, event: KeyboardEvent) => { if (!event.repeat) focus(i + dir); };
+  kb.on('keydown-UP', (event: KeyboardEvent) => navigate(-1, event));
+  kb.on('keydown-W', (event: KeyboardEvent) => navigate(-1, event));
+  kb.on('keydown-DOWN', (event: KeyboardEvent) => navigate(1, event));
+  kb.on('keydown-S', (event: KeyboardEvent) => navigate(1, event));
+  for (const k of ['ENTER', 'SPACE', 'Z', 'X', 'J']) kb.on(`keydown-${k}`, (event: KeyboardEvent) => { if (!event.repeat) buttons[i].press(); });
   scene.input.gamepad?.on('down', (_pad: Phaser.Input.Gamepad.Gamepad, btn: Phaser.Input.Gamepad.Button) => {
     if (btn.index === 12) focus(i - 1);
     else if (btn.index === 13) focus(i + 1);
