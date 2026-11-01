@@ -10,6 +10,7 @@ export function level5_1() {
   b.water = 2;
 
   b.ground(0, 20, 2).add('player', 2, 9).coins(8, 14, 7);
+  b.hint(7, 4, 'Treino: segure PULAR enquanto cai para planar com a echarpe.'); // prática em área inicial segura
   b.hint(5, 5, 'Debaixo d\'água, aperte PULAR para nadar para cima');
 
   // campo de ouriços: nade por cima
