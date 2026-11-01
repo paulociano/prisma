@@ -15,7 +15,7 @@ const ICON = { locked: 0, open: 1, done: 2, bossLocked: 3, bossDone: 4, iris: 5 
  * Posição das 4 clareiras em cada mapa de mundo (frações da tela). O prompt pede as clareiras
  * nesses pontos; se a imagem gerada sair diferente, basta ajustar aqui por mundo.
  */
-const DEFAULT_NODES: [number, number][] = [
+export const DEFAULT_NODES: [number, number][] = [
   [0.13, 0.66],
   [0.37, 0.44],
   [0.62, 0.62],
@@ -25,7 +25,7 @@ const DEFAULT_NODES: [number, number][] = [
  * Centro das 4 clareiras em cada ilustração (pixels da imagem original 1536x1024),
  * medidos nas imagens geradas. Convertidos para a tela em `imageNodes`.
  */
-const ART_NODES: Record<number, [number, number][]> = {
+export const ART_NODES: Record<number, [number, number][]> = {
   1: [[232, 595], [592, 377], [957, 527], [1306, 331]],
   2: [[186, 620], [536, 447], [938, 568], [1300, 410]],
   3: [[215, 623], [568, 458], [940, 580], [1312, 418]],
@@ -52,6 +52,7 @@ export class WorldMapScene extends Phaser.Scene {
   private token!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   private info!: Phaser.GameObjects.Text;
   private markers: (Phaser.GameObjects.Image | Phaser.GameObjects.Arc)[] = [];
+  private markerLabels: Phaser.GameObjects.Text[] = [];
   private leaving = false;
 
   constructor() {
@@ -63,6 +64,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.save = loadSave();
     this.leaving = false;
     this.markers = [];
+    this.markerLabels = [];
     this.world = data.world;
     this.levels = LEVEL_META.filter((l) => l.world === this.world);
     const focus = this.levels.findIndex((l) => l.index === data.focus);
@@ -104,7 +106,7 @@ export class WorldMapScene extends Phaser.Scene {
 
       const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
       const label = l.boss ? `${l.id}  ♛` : `${l.id}  ◆ ${got}/3`;
-      this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0);
+      this.markerLabels.push(this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0));
     });
 
     const p0 = pts[this.cursor];
@@ -152,8 +154,11 @@ export class WorldMapScene extends Phaser.Scene {
     this.cursor = i;
     // A clareira já faz parte da arte; não sobrepor o ícone de fase ao token da Íris.
     this.markers.forEach((marker, index) => marker.setVisible(index !== i));
+    this.markerLabels.forEach((label, index) => label.setVisible(index !== i));
     const l = this.levels[i];
     this.info.setText(`${l.id} · ${l.name}`);
+    // Evita que nomes extensos ocupem a linha das instruções abaixo.
+    this.info.setFontSize(this.info.height > 56 ? 19 : 24);
     const p = this.pts[i];
     this.tweens.killTweensOf(this.token);
     this.tweens.add({ targets: this.token, x: p.x, y: p.y - 34, duration: instant ? 0 : 400, ease: 'Sine.InOut', onComplete: () => this.bob() });
