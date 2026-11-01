@@ -33,3 +33,16 @@ test('extension does not introduce a checkpoint near an authored checkpoint', ()
     }
   });
 });
+
+test('normal levels begin with a safe learning zone', () => {
+  LEVELS.forEach((build) => {
+    const l = build();
+    if (l.arena) return;
+    const players = l.entities.filter(e => e.type === 'player');
+    assert.equal(players.length, 1, `${l.id}: expected one player spawn`);
+    const spawn = players[0];
+    assert.ok(spawn.col >= 0 && spawn.col < l.cols, `${l.id}: invalid spawn`);
+    const early = l.entities.filter(e => ['blot','moth','padlock','beetle','scorpion','drone','snapper','searchlight','puffer','comet','sentinel','megaphone'].includes(e.type) && Math.abs(e.col - spawn.col) < 7);
+    assert.equal(early.length, 0, `${l.id}: enemy too close to spawn`);
+  });
+});
