@@ -833,10 +833,22 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private bossMarker?: Phaser.GameObjects.Text;
+  private dangerMarker?: Phaser.GameObjects.Text;
+  private wasBossDangerous = false;
+  private dangerUntil = 0;
 
   /** Indicador não dependente de cor para o estado vulnerável do chefão. */
   private updateBossMarker() {
     const b = this.boss;
+    const dangerous = !!b?.dangerous;
+    if (dangerous && !this.wasBossDangerous) this.dangerUntil = this.time.now + 850;
+    this.wasBossDangerous = dangerous;
+    const warn = dangerous && this.time.now < this.dangerUntil && !b?.vulnerable;
+    if (warn && !this.dangerMarker) {
+      this.dangerMarker = this.add.text(0, 0, '⚠  CUIDADO', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#fff4b8', stroke: '#24133a', strokeThickness: 5 }).setOrigin(0.5).setDepth(15);
+    }
+    if (!warn) { this.dangerMarker?.destroy(); this.dangerMarker = undefined; }
+    else this.dangerMarker!.setPosition(b!.hit.x, b!.body.top - 48);
     const show = !!b && b.vulnerable;
     if (show && !this.bossMarker) {
       this.bossMarker = this.add
