@@ -834,23 +834,23 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private bossMarker?: Phaser.GameObjects.Text;
 
-  /** Com o modo daltônico, um alvo ◎ marca quando o chefão pode levar dano. */
+  /** Indicador não dependente de cor para o estado vulnerável do chefão. */
   private updateBossMarker() {
     const b = this.boss;
-    const show = !!b && b.vulnerable && extraSignals();
+    const show = !!b && b.vulnerable;
     if (show && !this.bossMarker) {
       this.bossMarker = this.add
-        .text(0, 0, '◎', { fontFamily: '"Segoe UI Symbol", sans-serif', fontSize: '54px', color: '#ffffff', stroke: '#000000', strokeThickness: 6 })
+        .text(0, 0, '◎  ATACAR', { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '24px', fontStyle: 'bold', color: '#ffffff', stroke: '#24133a', strokeThickness: 5 })
         .setOrigin(0.5)
         .setDepth(15);
-      this.tweens.add({ targets: this.bossMarker, scale: 1.25, duration: 300, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: this.bossMarker, scale: 1.12, duration: 400, yoyo: true, repeat: -1 });
     }
     if (!show) {
       this.bossMarker?.destroy();
       this.bossMarker = undefined;
       return;
     }
-    this.bossMarker!.setPosition(b!.hit.x, b!.body.top - 30);
+    this.bossMarker!.setPosition(b!.hit.x, b!.body.top - 48);
   }
 
   /** Coletável: frame do atlas "collectibles" ou textura provisória. */
