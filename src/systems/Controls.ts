@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 
+import { readAxis } from './GamepadAxis';
+
 type Key = Phaser.Input.Keyboard.Key;
 
 // Junta teclado e gamepad numa entrada única, com detecção de "acabou de apertar".
@@ -32,12 +34,15 @@ export class Controls {
   update() {
     const k = this.keys;
     const pad = this.scene.input.gamepad?.pad1;
-    const axis = pad ? pad.leftStick.x : 0;
-    const axisY = pad ? pad.leftStick.y : 0;
+    const axis = readAxis(pad?.leftStick.x ?? 0);
+    const axisY = readAxis(pad?.leftStick.y ?? 0);
+    const dpadLeft = !!pad?.buttons[14]?.pressed;
+    const dpadRight = !!pad?.buttons[15]?.pressed;
+    const dpadDown = !!pad?.buttons[13]?.pressed;
 
-    this.left = k.LEFT.isDown || k.A.isDown || axis < -0.4 || !!pad?.left;
-    this.right = k.RIGHT.isDown || k.D.isDown || axis > 0.4 || !!pad?.right;
-    this.down = k.DOWN.isDown || k.S.isDown || axisY > 0.6 || !!pad?.down;
+    this.left = k.LEFT.isDown || k.A.isDown || axis < 0 || dpadLeft;
+    this.right = k.RIGHT.isDown || k.D.isDown || axis > 0 || dpadRight;
+    this.down = k.DOWN.isDown || k.S.isDown || axisY > 0 || dpadDown;
     this.downPressed = this.down && !this.prevDown;
     this.prevDown = this.down;
 
