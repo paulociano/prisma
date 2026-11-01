@@ -1,0 +1,6 @@
+node_modules
+dist
+.debug
+
+# gerado por `npm run assets` a partir de assets/ (sprites recortados, áudio e manifest)
+public/assets
