@@ -9,6 +9,9 @@ export type Difficulty = 'easy' | 'normal' | 'hard';
 export interface Settings {
   colorblind: ColorblindMode;
   difficulty: Difficulty;
+  reduceFlashes: boolean;
+  reduceCameraShake: boolean;
+  extraVisualSignals: boolean;
 }
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -37,19 +40,32 @@ export function difficultyTuning(world: number) {
 
 const KEY = 'prisma-settings-v1';
 let cache: Settings | undefined;
+const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, extraVisualSignals: false };
+
+function normalizeSettings(value: unknown): Settings {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS };
+  const data = value as Partial<Settings>;
+  return {
+    difficulty: data.difficulty === 'easy' || data.difficulty === 'hard' ? data.difficulty : 'normal',
+    colorblind: data.colorblind === 'protan' || data.colorblind === 'deutan' || data.colorblind === 'tritan' ? data.colorblind : 'off',
+    reduceFlashes: data.reduceFlashes === true,
+    reduceCameraShake: data.reduceCameraShake === true,
+    extraVisualSignals: data.extraVisualSignals === true,
+  };
+}
 
 export function getSettings(): Settings {
   if (cache) return cache;
   try {
-    cache = { colorblind: 'off', difficulty: 'normal', ...(JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<Settings>) };
+    cache = normalizeSettings(JSON.parse(localStorage.getItem(KEY) ?? '{}') as unknown);
   } catch {
-    cache = { colorblind: 'off', difficulty: 'normal' };
+    cache = { ...DEFAULTS };
   }
   return cache;
 }
 
 export function setSettings(patch: Partial<Settings>) {
-  cache = { ...getSettings(), ...patch };
+  cache = normalizeSettings({ ...getSettings(), ...patch });
   try {
     localStorage.setItem(KEY, JSON.stringify(cache));
   } catch {
@@ -116,4 +132,6 @@ export function refreshColorblind(game: Phaser.Game) {
 }
 
 /** Sinais extras (que não dependem de cor) ficam ligados junto com o modo daltônico. */
-export const extraSignals = () => getSettings().colorblind !== 'off';
+export const extraSignals = () => getSettings().colorblind !== 'off' || getSettings().extraVisualSignals;
+export const canShakeCamera = () => !getSettings().reduceCameraShake;
+export const canFlashScreen = () => !getSettings().reduceFlashes;

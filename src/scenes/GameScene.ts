@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyColorblind, difficultyTuning, extraSignals } from '../systems/Settings';
+import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals } from '../systems/Settings';
 import { COLOR_POINTS, GAME_H, GAME_W, PHYS, RAINBOW, TILE } from '../config';
 import { F, has } from '../gfx/art';
 import { texRes } from '../gfx/textures';
@@ -210,6 +210,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         if (n >= 1 && n <= LEVELS.length) this.scene.restart({ level: n - 1 });
       });
     }
+  }
+
+  private shakeCamera(duration: number, intensity: number) {
+    if (canShakeCamera()) this.cameras.main.shake(duration, intensity);
+  }
+
+  private flashScreen(duration: number, red: number, green: number, blue: number) {
+    if (canFlashScreen()) this.cameras.main.flash(duration, red, green, blue);
   }
 
   private sfx(name: string, detune?: number) {
@@ -679,7 +687,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     g.hits++;
     this.sfx(g.hits >= 3 ? 'break_block' : 'hit_enemy');
     this.sparkle(g.zone.x, g.zone.y, 0xffffff);
-    this.cameras.main.shake(100, 0.005);
+    this.shakeCamera(100, 0.005);
     this.tweens.add({ targets: g.view, x: g.view.x + 6, duration: 40, yoyo: true, repeat: 2 });
     if (g.hits >= 3) this.freeGuardian();
   }
@@ -1074,7 +1082,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private poundImpact() {
     const p = this.player;
     const x = p.hit.x, y = p.body.bottom;
-    this.cameras.main.shake(180, 0.01);
+    this.shakeCamera(180, 0.01);
     this.sfx('ground_pound', 0);
     this.fx('fx-burst', x, y, 0.7);
     this.burst(x, y - 10, 20);
@@ -1117,7 +1125,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.fx('fx-burst', e.hit.x, e.hit.y, 0.6);
     this.burst(e.hit.x, e.hit.y, 26);
     this.color.add(COLOR_POINTS.enemy);
-    this.cameras.main.shake(90, 0.004);
+    this.shakeCamera(90, 0.004);
     this.hitStop(60);
   }
 
@@ -1147,7 +1155,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       if (e.armoredFront) {
         this.sparkle(e.hit.x - this.player.facing * 20, e.hit.y, 0xdddddd);
         this.player.body.setVelocityX(-this.player.facing * 260);
-        this.cameras.main.shake(60, 0.003);
+        this.shakeCamera(60, 0.003);
       } else this.restoreEnemy(e);
     }
     for (const c of [...this.crates.getChildren()] as Sprite[]) {
@@ -1272,8 +1280,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private feedbackHurt() {
     this.sfx('hurt', 0);
-    this.cameras.main.shake(140, 0.008);
-    this.cameras.main.flash(120, 255, 80, 100);
+    this.shakeCamera(140, 0.008);
+    this.flashScreen(120, 255, 80, 100);
     this.pushHud();
     if (this.player.hp <= 0) this.die();
   }

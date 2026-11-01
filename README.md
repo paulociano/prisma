@@ -45,3 +45,13 @@ Shift dash · ↓ no ar mergulho estelar · ESC pausa · M som
 | `src/systems/` | Controles, áudio, save, configurações e restauração de cor |
 | `scripts/` | Pipeline de assets e verificador de fases |
 | `docs/` | Guia do projeto e todos os prompts usados para gerar a arte |
+
+## Acessibilidade visual
+
+Em **Opções**, além dos modos de daltonismo, é possível ativar de forma independente:
+
+- **Reduzir flashes**: desativa flashes de tela disparados pelo gameplay principal.
+- **Reduzir tremor**: desativa tremores de câmera disparados pelo gameplay principal.
+- **Sinais extras**: exibe indicadores adicionais de vulnerabilidade de chefões, mesmo sem filtro daltônico.
+
+Essas preferências são armazenadas separadamente do progresso do jogo. Os controles são aplicados à cena principal de gameplay; outras cenas e efeitos ainda exigem revisão de acessibilidade.
