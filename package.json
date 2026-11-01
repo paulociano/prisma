@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "assets": "node scripts/process-assets.mjs",
-    "check-levels": "esbuild scripts/reach-check.ts --bundle --platform=node --format=esm --outfile=.debug/reach.mjs --log-level=error && node .debug/reach.mjs"
+    "check-levels": "esbuild scripts/reach-check.ts --bundle --platform=node --format=esm --outfile=.debug/reach.mjs --log-level=error && node .debug/reach.mjs",
+    "test:save": "esbuild src/systems/Save.ts --bundle --platform=node --format=esm --outfile=.debug/save.mjs --log-level=error && node --test tests/save.test.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"
