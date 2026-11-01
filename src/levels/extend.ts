@@ -149,7 +149,7 @@ function buildSegment(w: number, v: number, h: number, rows: number) {
   const b = new LevelBuilder('seg', 'seg', w, 120, rows);
   const s: Seg = { b, x: 0, h, rows };
   flat(s, 3);
-  // O checkpoint do trecho adicional será incluído só se houver espaço em relação aos originais.
+  b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
   const beats = WORLD[w].beats;
   // 4 desafios por fase, começando num ponto diferente da lista a cada fase
   for (let k = 0; k < 4; k++) {
