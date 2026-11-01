@@ -52,6 +52,7 @@ export class WorldMapScene extends Phaser.Scene {
   private token!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   private info!: Phaser.GameObjects.Text;
   private markers: (Phaser.GameObjects.Image | Phaser.GameObjects.Arc)[] = [];
+  private markerLabels: Phaser.GameObjects.Text[] = [];
   private leaving = false;
 
   constructor() {
@@ -63,6 +64,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.save = loadSave();
     this.leaving = false;
     this.markers = [];
+    this.markerLabels = [];
     this.world = data.world;
     this.levels = LEVEL_META.filter((l) => l.world === this.world);
     const focus = this.levels.findIndex((l) => l.index === data.focus);
@@ -104,7 +106,7 @@ export class WorldMapScene extends Phaser.Scene {
 
       const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
       const label = l.boss ? `${l.id}  ♛` : `${l.id}  ◆ ${got}/3`;
-      this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0);
+      this.markerLabels.push(this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0));
     });
 
     const p0 = pts[this.cursor];
@@ -152,6 +154,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.cursor = i;
     // A clareira já faz parte da arte; não sobrepor o ícone de fase ao token da Íris.
     this.markers.forEach((marker, index) => marker.setVisible(index !== i));
+    this.markerLabels.forEach((label, index) => label.setVisible(index !== i));
     const l = this.levels[i];
     this.info.setText(`${l.id} · ${l.name}`);
     // Evita que nomes extensos ocupem a linha das instruções abaixo.
