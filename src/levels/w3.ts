@@ -8,6 +8,7 @@ export function level3_1() {
   const b = new LevelBuilder('3-1', 'Telhados do Festival', 3, 130);
 
   b.ground(0, 14, 2).add('player', 2, 9).coins(6, 10, 9);
+  b.hint(7, 4, 'Treino: pressione SHIFT/L (RB/Y no controle) para experimentar o dash.'); // prática em área inicial segura
   b.ground(17, 28, 3).coinArc(14, 8, 3).add('drone', 23, 4);
   b.hint(22, 4, 'Drones vigiam do alto: se a luz te achar, eles mergulham!');
 

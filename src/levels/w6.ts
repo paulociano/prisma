@@ -11,6 +11,7 @@ export function level6_1() {
   b.gravity = SKY;
 
   b.ground(0, 14, 2).add('player', 2, 9).coins(6, 10, 9);
+  b.hint(7, 4, 'Treino: aperte C/I (B no controle) para disparar um prisma.'); // prática em área inicial segura
   b.hint(5, 5, 'Aqui a gravidade é leve: pulos mais altos e mais longos!');
 
   // ilhas flutuantes

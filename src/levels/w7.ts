@@ -8,6 +8,7 @@ export function level7_1() {
   const b = new LevelBuilder('7-1', 'Portões da Cidadela', 7, 130);
 
   b.ground(0, 14, 2).add('player', 2, 9).add('sentinel', 11, 9);
+  b.hint(7, 4, 'Treino: no ar, aperte BAIXO para usar o mergulho estelar.'); // prática em área inicial segura
   b.hint(7, 5, 'Sentinelas bloqueiam de frente: pule em cima ou ataque pelas costas!');
 
   b.ground(17, 32, 2).coinArc(14, 8, 3).add('sentinel', 25, 9);
