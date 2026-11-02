@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import * as THREE from 'three';
-import { RAINBOW } from '../config';
+import { RAINBOW, TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import type { GameScene } from '../scenes/GameScene';
 import { render3dEnabled } from '.';
-import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type WorldSnapshot } from './snapshot';
+import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type SpriteView, type WorldSnapshot } from './snapshot';
 import { ModelLibrary } from './ModelLibrary';
 import { SpriteBoards } from './SpriteBoards';
 import { modelKey } from './models';
@@ -34,6 +34,7 @@ export class Renderer3D {
   private readonly models: ModelLibrary;
   private readonly boards: SpriteBoards;
   private readonly shadows = new Map<object, THREE.Mesh>();
+  private entityMats: EntityMaterials = {};
   private readonly clock = new THREE.Clock();
 
   constructor(private readonly game: Phaser.Game) {
@@ -104,6 +105,8 @@ export class Renderer3D {
     const t = new THREE.Texture(this.game.textures.get(key).getSourceImage() as HTMLImageElement);
     t.colorSpace = THREE.SRGBColorSpace;
     if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    // chão visto de lado (ângulo rasante): sem filtro anisotrópico a textura vira um borrão
+    t.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     t.needsUpdate = true;
     this.textures.set(id, t);
     return t;
@@ -118,11 +121,76 @@ export class Renderer3D {
     disposeChildren(this.labelRoot);
     this.labels.clear();
     this.builtFor = level;
+    this.buildEntityMaterials(level);
     // nas arenas o 2D usa o piso desenhado na arte; no 3D a perspectiva separa os dois, então o chão é modelado
     this.buildTiles(level);
     if (level.arena) this.buildArenaBackdrop(level.arena, snap);
-    else this.buildBackdrop(level);
+    else {
+      this.buildBackdrop(level);
+      this.buildSceneryProps(level);
+    }
     if (level.water !== undefined) this.buildWater(level);
+  }
+
+  /** Materiais das peças de cenário que são objetos (plataformas móveis, blocos quebráveis, caixas). */
+  private buildEntityMaterials(level: LevelData) {
+    const tex = (key: string, repeat = false) => this.texture(key, repeat);
+    const std = (map?: THREE.Texture) => (map ? new THREE.MeshStandardMaterial({ map, roughness: 0.85 }) : undefined);
+    this.entityMats = {
+      platform: std(tex(`w${level.world}_platform`, true)),
+      breakable: std(tex(`w${level.world}_breakable`)),
+      crate: std(tex('crate_texture')),
+    };
+  }
+
+  /**
+   * Recortes do cenário (docs/PROMPTS-2.5D.md): elementos grandes em pé atrás do caminho, a
+   * distâncias diferentes, e moitas na frente da câmera, sempre abaixo da linha do chão para
+   * não cobrir a jogabilidade. As posições são sorteadas de forma fixa por fase.
+   */
+  private buildSceneryProps(level: LevelData) {
+    const rand = seeded(level.id);
+    const pick = <T,>(a: T[]) => a[Math.floor(rand() * a.length)];
+    const frames = (key: string) => (this.game.textures.exists(key) ? this.game.textures.get(key).getFrameNames() : []);
+    const place = (key: string, frame: string, x: number, baseY: number, height: number, z: number, depth: number) => {
+      const f = this.game.textures.getFrame(key, frame);
+      const hPx = height * TILE, wPx = (hPx * f.realWidth) / f.realHeight;
+      const board = this.boards.create();
+      const s: SpriteView = { key, frame, x: x * TILE, y: -(baseY + height / 2) * TILE, w: wPx, h: hPx, flipX: rand() < 0.5, flipY: false, angle: 0, alpha: 1, depth };
+      this.boards.place(board, s, z);
+      (board.material as THREE.MeshBasicMaterial).fog = z < -10; // os mais distantes ficam enevoados
+      this.levelRoot.add(board);
+    };
+
+    const back = `w${level.world}_depth_props`;
+    const backFrames = frames(back);
+    const floorY = -(level.rows - 1);
+    for (let x = -8 + rand() * 4; backFrames.length && x < level.cols + 8; x += 4 + rand() * 5) {
+      const far = rand() < 0.3;
+      const z = far ? -11 - rand() * 8 : -3.5 - rand() * 4;
+      const height = far ? 4.5 + rand() * 2.5 : 2.6 + rand() * 1.6;
+      place(back, pick(backFrames), x, floorY - 0.05, height, z, z); // mais longe, desenhado antes
+    }
+
+    // primeiro plano: só onde há chão em toda a largura, e com o topo abaixo do chão mais baixo
+    const front = `w${level.world}_front_props`;
+    const frontFrames = frames(front);
+    const surface = (c: number) => {
+      if (c < 0 || c >= level.cols) return undefined;
+      const r = level.tiles.findIndex((row) => row[c] === T.Solid);
+      return r < 0 ? undefined : -r;
+    };
+    for (let x = 4 + rand() * 6; frontFrames.length && x < level.cols - 2; x += 9 + rand() * 7) {
+      const frame = pick(frontFrames);
+      const f = this.game.textures.getFrame(front, frame);
+      const height = 1.2 + rand() * 0.7;
+      const half = (height * f.realWidth) / f.realHeight / 2;
+      const tops: (number | undefined)[] = [];
+      for (let c = Math.floor(x - half); c <= Math.floor(x + half); c++) tops.push(surface(c));
+      if (tops.some((t) => t === undefined)) continue; // não esconde buracos
+      const top = Math.min(...(tops as number[])) - 0.5;
+      place(front, frame, x, top - height, height, 2.4 + rand() * 1.2, 30);
+    }
   }
 
   /** Arte da arena num plano que cobre todo o quadro (a câmera da arena não se move). */
@@ -187,13 +255,19 @@ export class Renderer3D {
       if (t === T.Solid) for (let r = level.rows; r < level.rows + 4; r++) solid.push([c, r]);
     });
 
-    const groundTex = this.texture(`w${level.world}_ground`, true);
-    const dirt = new THREE.MeshStandardMaterial({ color: groundTex ? 0xffffff : 0x7a5a48, map: groundTex, roughness: 0.95 });
-    const box = new THREE.BoxGeometry(1, 1, DEPTH);
-    this.instanced(box, dirt, [...solid, ...tops], 0.5);
-    // tampa de grama nos blocos do topo
-    this.instanced(new THREE.BoxGeometry(1.02, 0.18, DEPTH + 0.06), new THREE.MeshStandardMaterial({ color: 0x6fd36a, roughness: 0.8 }), tops, 0.05);
-    this.instanced(new THREE.BoxGeometry(1, 0.22, DEPTH * 0.7), new THREE.MeshStandardMaterial({ color: 0xc89a6a }), oneways, 0.11);
+    // texturas opcionais (docs/PROMPTS-2.5D.md); sem elas, ficam as cores provisórias
+    const w = level.world;
+    const textured = (key: string, fallback: number) => {
+      const map = this.texture(key, true);
+      return new THREE.MeshStandardMaterial({ color: map ? 0xffffff : fallback, map, roughness: 0.9 });
+    };
+    const arenaFloor = level.arena ? this.texture(`w${w}_arena_floor`, true) : undefined;
+    const dirt = arenaFloor ? new THREE.MeshStandardMaterial({ map: arenaFloor, roughness: 0.9 }) : textured(`w${w}_ground`, 0x7a5a48);
+    const top = arenaFloor ? dirt : textured(`w${w}_ground_top`, 0x6fd36a);
+    this.instanced(tiledBox(1, 1, DEPTH), dirt, [...solid, ...tops], 0.5);
+    // tampa com o material da superfície do mundo nos blocos do topo
+    this.instanced(tiledBox(1.02, 0.18, DEPTH + 0.06), top, tops, 0.05);
+    this.instanced(tiledBox(1, 0.22, DEPTH * 0.7), textured(`w${w}_platform`, 0xc89a6a), oneways, 0.11);
 
     const spike = new THREE.ConeGeometry(0.22, 0.6, 6);
     spike.translate(0, -0.2, 0);
@@ -223,16 +297,19 @@ export class Renderer3D {
     const span = level.cols + 60;
     const near = this.texture(`w${w}_bg_near`)?.image as HTMLImageElement | undefined;
     // chão atrás dos blocos: a câmera, um pouco elevada, enxerga onde as artes 2D não cobrem.
-    // Mesma textura do chão da fase, escurecida e tingida com a cor média do primeiro plano.
-    const groundTex = this.texture(`w${w}_ground`, true)?.clone();
+    // Com a superfície do mundo (ground_top) fica a mesma do caminho, um pouco mais escura para recuar;
+    // sem ela, a textura do chão tingida com a cor média do primeiro plano.
+    const surface = this.texture(`w${w}_ground_top`, true);
+    const groundTex = (surface ?? this.texture(`w${w}_ground`, true))?.clone();
     if (groundTex) {
       groundTex.userData.owned = true;
-      groundTex.repeat.set(span / 2, 45 / 2);
+      groundTex.repeat.set(span / 1.5, 45 / 1.5);
       groundTex.needsUpdate = true;
     }
+    const tint = surface ? new THREE.Color(0xc4c4c4) : near ? averageColor(near) : new THREE.Color(0x3a2a40);
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(span, 45),
-      new THREE.MeshStandardMaterial({ color: near ? averageColor(near) : 0x3a2a40, map: groundTex, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: tint, map: groundTex, roughness: 1 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(level.cols / 2, -(level.rows - 1), -DEPTH / 2 - 22.5);
@@ -310,7 +387,7 @@ export class Renderer3D {
     let obj = this.models.has(key) ? this.models.instantiate(key, toUnits(e.h)) : undefined;
     if (!obj && e.sprite) obj = this.boards.create();
     if (!obj) {
-      obj = createEntity(e);
+      obj = createEntity(e, this.entityMats);
       obj.traverse((o) => (o.castShadow = true));
       if (e.kind === 'pickup') obj.userData.spin = true;
     }
@@ -443,7 +520,37 @@ const mat = (color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterial
 const glow = (color: THREE.ColorRepresentation, intensity = 0.5) => mat(color, { emissive: color, emissiveIntensity: intensity });
 
 /** Forma de cada tipo de objeto. Provisórias: os modelos .glb substituem estas formas. */
-function createEntity(e: EntityView): THREE.Object3D {
+interface EntityMaterials {
+  platform?: THREE.Material;
+  breakable?: THREE.Material;
+  crate?: THREE.Material;
+}
+
+/** Caixa com UVs em unidades do mundo: a textura repete uma vez por bloco em cada face, sem esticar. */
+function tiledBox(w: number, h: number, d: number) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+  // faces na ordem +x, -x, +y, -y, +z, -z; cada uma com 4 vértices (u ao longo da largura, v da altura)
+  const size: [number, number][] = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  size.forEach(([su, sv], f) => {
+    for (let i = f * 4; i < f * 4 + 4; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
+  });
+  return geo;
+}
+
+/** Sorteio fixo por fase (mulberry32 com semente do id da fase). */
+function seeded(id: string) {
+  let a = [...id].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 2654435761), 1779033703) >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createEntity(e: EntityView, mats: EntityMaterials): THREE.Object3D {
   const w = toUnits(e.w), h = toUnits(e.h);
   const size = Math.max(w, h);
   switch (e.kind) {
@@ -472,13 +579,13 @@ function createEntity(e: EntityView): THREE.Object3D {
           ? new THREE.Mesh(new THREE.SphereGeometry(size * 0.45, 16, 12), glow(RAINBOW[0], 0.4))
           : new THREE.Mesh(new THREE.OctahedronGeometry(size * 0.5), glow(RAINBOW[4], 0.6));
     case 'crate':
-      return new THREE.Mesh(new THREE.BoxGeometry(w, h, w), mat(0xa0703c));
+      return new THREE.Mesh(new THREE.BoxGeometry(w, h, w), mats.crate ?? mat(0xa0703c));
     case 'cracked':
-      return new THREE.Mesh(new THREE.BoxGeometry(w, h, DEPTH), mat(0x8a7a8a, { flatShading: true }));
+      return new THREE.Mesh(new THREE.BoxGeometry(w, h, DEPTH), mats.breakable ?? mat(0x8a7a8a, { flatShading: true }));
     case 'shot':
       return new THREE.Mesh(new THREE.SphereGeometry(size * 0.5, 12, 8), glow(0xffffff, 0.8));
     case 'mover':
-      return new THREE.Mesh(new THREE.BoxGeometry(w, Math.max(h, 0.25), DEPTH * 0.7), mat(0xe0b070));
+      return new THREE.Mesh(tiledBox(w, Math.max(h, 0.25), DEPTH * 0.7), mats.platform ?? mat(0xe0b070));
     case 'prop':
       if (e.variant === 'checkpoint') {
         const g = new THREE.Group();

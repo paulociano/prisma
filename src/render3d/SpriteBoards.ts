@@ -42,6 +42,18 @@ export class SpriteBoards {
 
   /** Copia o quadro atual do 2D para a placa e a posiciona de frente para a câmera. */
   update(mesh: THREE.Mesh, kind: EntityView['kind'], s: SpriteView, camera: THREE.Camera) {
+    const z = LAYER_Z[kind] ?? 0;
+    this.apply(mesh, s, z);
+    mesh.rotation.y = Math.atan2(camera.position.x - mesh.position.x, camera.position.z - z);
+  }
+
+  /** Placa fixa do cenário (recortes em profundidade): fica de frente para +Z, como num diorama. */
+  place(mesh: THREE.Mesh, s: SpriteView, z: number) {
+    this.apply(mesh, s, z);
+    mesh.rotation.y = 0;
+  }
+
+  private apply(mesh: THREE.Mesh, s: SpriteView, z: number) {
     const frame = this.game.textures.getFrame(s.key, s.frame);
     if (!frame) return;
     const mat = mesh.material as THREE.MeshBasicMaterial;
@@ -75,10 +87,8 @@ export class SpriteBoards {
     const cos = Math.cos(s.angle), sin = Math.sin(s.angle);
     const px = s.x + ox * cos - oy * sin;
     const py = s.y + ox * sin + oy * cos;
-    const z = LAYER_Z[kind] ?? 0;
     mesh.position.set(toUnits(px), -toUnits(py), z);
     mesh.scale.set(toUnits(frame.cutWidth * scale), toUnits(frame.cutHeight * scale), 1);
-    mesh.rotation.y = Math.atan2(camera.position.x - mesh.position.x, camera.position.z - z);
     mesh.rotation.z = -s.angle;
     mesh.renderOrder = 20 + s.depth;
   }

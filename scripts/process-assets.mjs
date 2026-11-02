@@ -210,6 +210,20 @@ const SHEETS = [
     [0.02, 0.73, 0.37, 0.97], [0.39, 0.72, 0.545, 0.98], [0.58, 0.72, 0.735, 0.98], [0.775, 0.72, 0.97, 0.98] ] },
 
   { key: 'w1_boss_projectiles', src: 'w1/boss_projectiles.png', expect: 6, height: 90, grid: [3, 2] },
+
+  // Visual 2.5D (docs/PROMPTS-2.5D.md): texturas e cenário em profundidade, todos opcionais
+  { key: 'crate_texture', src: 'comum/crate_texture.png', type: 'image', width: 512, opaque: true },
+  { key: 'w5_water_caustics', src: 'w5/water_caustics.png', type: 'image', width: 512, opaque: true },
+  ...[1, 2, 3, 4, 5, 6, 7].flatMap((w) => [
+    { key: `w${w}_ground_top`, src: `w${w}/ground_top.png`, type: 'image', width: 512, opaque: true },
+    { key: `w${w}_platform`, src: `w${w}/platform_texture.png`, type: 'image', width: 512, opaque: true },
+    { key: `w${w}_arena_floor`, src: `w${w}/arena_floor.png`, type: 'image', width: 512, opaque: true },
+    // a face do bloco vem com cantos arredondados sobre fundo preto: corta a borda para não virar quina preta no cubo
+    { key: `w${w}_breakable`, src: `w${w}/breakable_texture.png`, type: 'image', width: 512, opaque: true, inset: 0.04 },
+    // grade 3x2 com peças quase encostando: corte por célula (a última célula do primeiro plano é vazia)
+    { key: `w${w}_depth_props`, src: `w${w}/depth_props.png`, expect: 6, height: 360, grid: [3, 2], cut: true, largest: true },
+    { key: `w${w}_front_props`, src: `w${w}/front_props.png`, expect: 5, height: 220, grid: [3, 2], cut: true, largest: true },
+  ]),
 ];
 
 async function loadRaw(file) {
@@ -529,6 +543,12 @@ async function processImage(entry) {
   const file = path.join(RAW, entry.src);
   if (!fs.existsSync(file)) return null;
   let pipe = sharp(file).ensureAlpha();
+  if (entry.inset) {
+    // corta uma margem igual dos quatro lados (fração do tamanho)
+    const { width, height } = await sharp(file).metadata();
+    const dx = Math.round(width * entry.inset), dy = Math.round(height * entry.inset);
+    pipe = sharp(await pipe.extract({ left: dx, top: dy, width: width - 2 * dx, height: height - 2 * dy }).png().toBuffer());
+  }
   if (entry.height) pipe = pipe.resize({ height: entry.height, kernel: 'lanczos3' });
   else if (entry.width) pipe = pipe.resize({ width: entry.width, height: entry.width, fit: 'fill', kernel: 'lanczos3' });
   if (entry.mirror) {
