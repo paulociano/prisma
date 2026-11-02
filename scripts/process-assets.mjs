@@ -577,5 +577,18 @@ for (const [dir, prefix] of [['musica', 'music'], ['sfx', 'sfx']]) {
   }
 }
 console.log(`  ✔ áudio: ${manifest.audio.length} arquivo(s)`);
+// Modelos 3D do visual 3D (beta): copia assets/models/*.glb|.gltf para public/assets/models.
+// A chave é o nome do arquivo sem extensão (ex.: iris.glb → "iris"); veja docs/MODELOS-3D.md.
+manifest.models = [];
+if (fs.existsSync('assets/models')) {
+  const dest = path.join(OUT_DIR, 'models');
+  fs.mkdirSync(dest, { recursive: true });
+  for (const f of fs.readdirSync('assets/models')) {
+    if (!/\.(glb|gltf)$/i.test(f)) continue;
+    fs.copyFileSync(path.join('assets/models', f), path.join(dest, f));
+    manifest.models.push({ key: path.parse(f).name, file: `models/${f}` });
+  }
+}
+console.log(`  ✔ modelos 3D: ${manifest.models.length} arquivo(s)`);
 fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
 console.log(`Pronto: ${manifest.sprites.length} asset(s) em ${SPRITES_DIR}`);

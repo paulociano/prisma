@@ -55,6 +55,10 @@ export class Enemy {
   restored = false;
 
   private dir = -1;
+  /** Para onde o inimigo olha (1 = direita), lido pelo visual 3D. */
+  get facing() {
+    return this.dir;
+  }
   private t = Math.random() * 10;
   private anchor: Phaser.Math.Vector2;
   private shootTimer = 1.5;

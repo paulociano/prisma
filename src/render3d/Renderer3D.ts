@@ -5,6 +5,8 @@ import { T, type LevelData } from '../levels/LevelBuilder';
 import type { GameScene } from '../scenes/GameScene';
 import { render3dEnabled } from '.';
 import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type WorldSnapshot } from './snapshot';
+import { ModelLibrary } from './ModelLibrary';
+import { modelKey } from './models';
 
 // Visual 3D (2.5D): desenha a GameScene em Three.js num canvas por baixo do canvas do Phaser.
 // O Phaser continua dono da física, da entrada, do HUD e dos menus; aqui só se lê o
@@ -28,8 +30,11 @@ export class Renderer3D {
   /** Camada de cor sobre o 3D (e sob o HUD) para o fade e o flash da câmera. */
   private readonly tintEl = document.createElement('div');
   private builtFor?: LevelData;
+  private readonly models: ModelLibrary;
+  private readonly clock = new THREE.Clock();
 
   constructor(private readonly game: Phaser.Game) {
+    this.models = new ModelLibrary(game);
     this.canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     this.tintEl.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     document.body.prepend(this.canvas, this.tintEl);
@@ -64,7 +69,7 @@ export class Renderer3D {
 
     const snap = scene.snapshot();
     if (this.builtFor !== snap.level) this.buildLevel(snap);
-    this.syncEntities(snap.entities, scene.time.now / 1000);
+    this.syncEntities(snap.entities, scene.time.now / 1000, Math.min(this.clock.getDelta(), 0.1));
     this.syncLabels(snap.labels);
     const tint = snap.tint;
     this.tintEl.style.background = tint ? `rgba(${tint.r},${tint.g},${tint.b},${tint.alpha})` : 'transparent';
@@ -105,9 +110,8 @@ export class Renderer3D {
   private buildLevel(snap: WorldSnapshot) {
     const level = snap.level;
     disposeChildren(this.levelRoot);
-    disposeChildren(this.entityRoot);
+    this.clearEntities();
     disposeChildren(this.labelRoot);
-    this.entities.clear();
     this.labels.clear();
     this.builtFor = level;
     // nas arenas o 2D usa o piso desenhado na arte; no 3D a perspectiva separa os dois, então o chão é modelado
@@ -252,17 +256,22 @@ export class Renderer3D {
 
   // ---------- objetos (lidos do retrato a cada quadro) ----------
 
-  private syncEntities(list: EntityView[], t: number) {
+  private syncEntities(list: EntityView[], t: number, dt: number) {
     const seen = new Set<object>();
     for (const e of list) {
       let obj = this.entities.get(e.id);
-      if (!obj) {
-        obj = createEntity(e);
-        obj.traverse((o) => (o.castShadow = true));
-        this.entityRoot.add(obj);
-        this.entities.set(e.id, obj);
+      // forma provisória cujo modelo terminou de baixar: troca, mantendo para onde estava virada
+      const pending = obj?.userData.pendingModel as string | undefined;
+      if (obj && pending && this.models.isLoaded(pending)) {
+        const turned = obj.rotation.y;
+        this.entityRoot.remove(obj);
+        disposeChildren(obj);
+        obj = this.addEntity(e);
+        obj.rotation.y = turned;
       }
+      obj ??= this.addEntity(e);
       seen.add(e.id);
+      this.models.animate(obj, e.anim, dt);
       obj.visible = e.visible ?? true;
       obj.position.set(toUnits(e.x), -toUnits(e.y), 0);
       if (e.facing !== undefined) obj.rotation.y += ((e.facing > 0 ? 0 : Math.PI) - obj.rotation.y) * 0.25;
@@ -274,6 +283,31 @@ export class Renderer3D {
     }
     // objetos coletados ou destruídos somem; os que voltam (respawn) reaparecem
     for (const [id, obj] of this.entities) if (!seen.has(id)) obj.visible = false;
+  }
+
+  /** Modelo .glb do objeto se o jogo tiver um (e já tiver baixado); senão a forma provisória. */
+  private addEntity(e: EntityView) {
+    const key = modelKey(e);
+    let obj = this.models.has(key) ? this.models.instantiate(key, toUnits(e.h)) : undefined;
+    if (!obj) {
+      obj = createEntity(e);
+      obj.traverse((o) => (o.castShadow = true));
+      if (this.models.has(key)) obj.userData.pendingModel = key;
+    }
+    if (e.kind === 'pickup') obj.userData.spin = true;
+    this.entityRoot.add(obj);
+    this.entities.set(e.id, obj);
+    return obj;
+  }
+
+  /** Esvazia os objetos da fase: modelos compartilham geometria com o cache, formas provisórias não. */
+  private clearEntities() {
+    for (const obj of this.entities.values()) {
+      this.models.release(obj);
+      this.entityRoot.remove(obj);
+      if (!obj.userData.shared) disposeChildren(obj);
+    }
+    this.entities.clear();
   }
 
   /** Dicas e avisos como placas viradas para a câmera, na frente dos blocos e sempre legíveis. */
@@ -401,16 +435,12 @@ function createEntity(e: EntityView): THREE.Object3D {
       return new THREE.Mesh(new THREE.IcosahedronGeometry(size * 0.55, 1), mat(0x6b6b7a, { flatShading: true }));
     case 'boss':
       return new THREE.Mesh(new THREE.BoxGeometry(w, h, Math.max(1.5, w)), mat(0x50506a, { flatShading: true }));
-    case 'pickup': {
-      const m =
-        e.variant === 'coin'
-          ? new THREE.Mesh(new THREE.CylinderGeometry(size * 0.45, size * 0.45, 0.08, 20).rotateX(Math.PI / 2), glow(0xffd93d, 0.4))
-          : e.variant === 'heart'
-            ? new THREE.Mesh(new THREE.SphereGeometry(size * 0.45, 16, 12), glow(RAINBOW[0], 0.4))
-            : new THREE.Mesh(new THREE.OctahedronGeometry(size * 0.5), glow(RAINBOW[4], 0.6));
-      m.userData.spin = true;
-      return m;
-    }
+    case 'pickup':
+      return e.variant === 'coin'
+        ? new THREE.Mesh(new THREE.CylinderGeometry(size * 0.45, size * 0.45, 0.08, 20).rotateX(Math.PI / 2), glow(0xffd93d, 0.4))
+        : e.variant === 'heart'
+          ? new THREE.Mesh(new THREE.SphereGeometry(size * 0.45, 16, 12), glow(RAINBOW[0], 0.4))
+          : new THREE.Mesh(new THREE.OctahedronGeometry(size * 0.5), glow(RAINBOW[4], 0.6));
     case 'crate':
       return new THREE.Mesh(new THREE.BoxGeometry(w, h, w), mat(0xa0703c));
     case 'cracked':

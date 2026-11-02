@@ -21,6 +21,8 @@ export interface EntityView {
   facing?: number;
   /** Visível neste quadro (ex.: piscar de invulnerabilidade). */
   visible?: boolean;
+  /** Animação atual no 2D ("run", "jump"...) ou estado do chefão ("slamWind"...). */
+  anim?: string;
 }
 
 /** Texto preso ao mundo: dica em balão ou aviso sobre o chefão. */
