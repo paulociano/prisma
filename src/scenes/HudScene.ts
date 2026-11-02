@@ -22,6 +22,7 @@ interface Result {
 export class HudScene extends Phaser.Scene {
   private hearts: Phaser.GameObjects.Image[] = [];
   private coinText!: Phaser.GameObjects.Text;
+  private heartProgressText!: Phaser.GameObjects.Text;
   private shardLabel!: Phaser.GameObjects.Text;
   private shardIcons: Phaser.GameObjects.Image[] = [];
   private overlay?: Phaser.GameObjects.Container;
@@ -57,6 +58,9 @@ export class HudScene extends Phaser.Scene {
     const coin = this.icon(hx, 88, F.hud.coin, 'coin');
     if (!this.art) coin.setTint(0xffd93d);
     this.coinText = this.add.text(hx + 26, 88, '0', this.style(26)).setOrigin(0, 0.5);
+    // Progresso para vida extra: pictograma do coração do atlas HUD, sem legenda extensa.
+    this.icon(hx + 122, 88, F.hud.heart, 'heart').setScale(0.35);
+    this.heartProgressText = this.add.text(hx + 146, 88, '0/50', this.style(22)).setOrigin(0, 0.5);
 
     for (let i = 0; i < 3; i++) this.shardIcons.push(this.icon(GAME_W - 130 + i * 46, 44, F.hud.shardEmpty, 'shard'));
     this.shardLabel = this.add.text(GAME_W - 84, 84, 'Fragmentos: 0/3', this.style(17)).setOrigin(0.5);
@@ -114,7 +118,8 @@ export class HudScene extends Phaser.Scene {
     while (this.hearts.length < s.maxHp) this.hearts.push(this.icon(hx + this.hearts.length * 46, 40, F.hud.heart, 'heart'));
     this.hearts.forEach((h, i) => (i < s.hp ? this.setIcon(h, F.hud.heart, 'heart') : this.setIcon(h, F.hud.heartEmpty, 'heart_empty')));
     // faíscas da fase e o progresso até o próximo coração (a cada 50)
-    this.coinText.setText(`Faíscas: ${s.coins}  ·  Próximo coração: ${s.coinBank}/50`);
+    this.coinText.setText(String(s.coins));
+    this.heartProgressText.setText(`${s.coinBank}/50`);
     this.shardLabel.setVisible(s.showShards).setText(`Fragmentos: ${s.shards.filter(Boolean).length}/3`);
     this.shardIcons.forEach((icon, i) => {
       icon.setVisible(s.showShards);
