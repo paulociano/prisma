@@ -190,7 +190,7 @@ const SHEETS = [
   ...[1, 2, 3, 4, 5, 6, 7].map((w) => ({ key: `w${w}_map`, src: `w${w}/world_map.png`, type: 'image', height: 853, opaque: true })),
 
   // Cutscenes (abertura e final)
-  ...['intro_1', 'intro_2', 'intro_3', 'intro_4', 'guardians', 'ending_1', 'ending_2', 'ending_true'].map((n) => ({
+  ...['intro_1', 'intro_2', 'intro_3', 'intro_4', 'guardians', 'ending_1', 'ending_2', 'ending_true', ...[1, 2, 3, 4, 5, 6, 7].map((w) => `w${w}_outro`), ...[1, 2, 3, 4, 5, 6].map((w) => `w${w}_transition`)].map((n) => ({
     key: `cs_${n}`,
     src: `cutscenes/${n}.png`,
     type: 'image',

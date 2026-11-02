@@ -10,6 +10,10 @@ export interface Slide {
   text: string;
   /** Mantém o topo da ilustração à vista (quando o detalhe importante está lá em cima). */
   top?: boolean;
+  /** Enquadramento: contain preserva toda a arte, cover preenche a tela. */
+  fit?: 'contain' | 'cover';
+  /** Deslocamento vertical em pixels para ajustes finos. */
+  offsetY?: number;
 }
 
 // Íris é não-binária: a narração evita adjetivos com gênero para ela.
@@ -96,13 +100,17 @@ export class CutsceneScene extends Phaser.Scene {
     const old = this.img;
     if (old) this.tweens.add({ targets: old, alpha: 0, duration: 500, onComplete: () => old.destroy() });
 
-    // imagem cobrindo a tela, com zoom lento (efeito Ken Burns)
-    const img = this.add.image(GAME_W / 2, s.top ? 0 : GAME_H / 2 - 40, s.tex).setAlpha(0);
-    if (s.top) img.setOrigin(0.5, 0); // amplia a partir do topo: o céu continua no quadro
-    const base = Math.max(GAME_W / img.width, GAME_H / img.height);
+    // Enquadramento seguro: mostra a arte inteira sem cortar rosto, céu ou detalhes.
+    // O painel de narração fica por cima da parte inferior, nunca move a imagem.
+    const img = this.add.image(GAME_W / 2, GAME_H / 2 + (s.offsetY ?? 0), s.tex).setAlpha(0);
+    const fit = s.fit ?? 'contain';
+    const base = fit === 'cover'
+      ? Math.max(GAME_W / img.width, GAME_H / img.height)
+      : Math.min(GAME_W / img.width, GAME_H / img.height);
     img.setScale(base);
+    if (s.top) img.setY(img.displayHeight / 2 + (s.offsetY ?? 0));
     this.tweens.add({ targets: img, alpha: 1, duration: 700 });
-    this.tweens.add({ targets: img, scale: base * 1.07, y: s.top ? 0 : GAME_H / 2 - 20, duration: AUTO_MS + 1500, ease: 'Sine.Out' });
+    // Somente fade, sem zoom que recorte detalhes durante a leitura.
     this.img = img;
 
     this.caption.setText(s.text).setAlpha(0);
