@@ -11,5 +11,9 @@ let loading: Promise<unknown> | undefined;
 /** Carrega o renderizador 3D na primeira vez que a opção estiver ligada. Pode ser chamado sempre. */
 export function syncRenderer3D(game: Phaser.Game) {
   if (!render3dEnabled() || loading) return;
-  loading = import('./Renderer3D').then(({ Renderer3D }) => new Renderer3D(game));
+  loading = import('./Renderer3D').then(({ Renderer3D }) => {
+    const r = new Renderer3D(game);
+    // acesso para depuração no console do navegador (só em desenvolvimento)
+    if (import.meta.env.DEV) (window as unknown as { r3: unknown }).r3 = r;
+  });
 }

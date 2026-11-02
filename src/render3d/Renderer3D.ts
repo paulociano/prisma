@@ -4,7 +4,7 @@ import { RAINBOW } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import type { GameScene } from '../scenes/GameScene';
 import { render3dEnabled } from '.';
-import { CAMERA, cameraPose, toUnits, type EntityView } from './snapshot';
+import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type WorldSnapshot } from './snapshot';
 
 // Visual 3D (2.5D): desenha a GameScene em Three.js num canvas por baixo do canvas do Phaser.
 // O Phaser continua dono da física, da entrada, do HUD e dos menus; aqui só se lê o
@@ -23,11 +23,16 @@ export class Renderer3D {
   private readonly entityRoot = new THREE.Group();
   private readonly entities = new Map<object, THREE.Object3D>();
   private readonly textures = new Map<string, THREE.Texture>();
+  private readonly labelRoot = new THREE.Group();
+  private readonly labels = new Map<object, { sprite: THREE.Sprite; key: string }>();
+  /** Camada de cor sobre o 3D (e sob o HUD) para o fade e o flash da câmera. */
+  private readonly tintEl = document.createElement('div');
   private builtFor?: LevelData;
 
   constructor(private readonly game: Phaser.Game) {
     this.canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
-    document.body.prepend(this.canvas);
+    this.tintEl.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
+    document.body.prepend(this.canvas, this.tintEl);
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     this.renderer.setSize(game.scale.width, game.scale.height, false);
@@ -43,7 +48,7 @@ export class Renderer3D {
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     Object.assign(this.sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -12, near: 1, far: 60 });
-    this.scene.add(this.sun, this.sun.target, this.levelRoot, this.entityRoot);
+    this.scene.add(this.sun, this.sun.target, this.levelRoot, this.entityRoot, this.labelRoot);
 
     // o canvas do Phaser (HUD, diálogos, menus) fica por cima
     Object.assign(game.canvas.style, { position: 'relative', zIndex: '1' });
@@ -54,12 +59,15 @@ export class Renderer3D {
   private frame() {
     const scene = this.game.scene.getScene('Game') as GameScene | null;
     const active = render3dEnabled() && !!scene?.sys.isActive();
-    this.canvas.style.display = active ? 'block' : 'none';
+    this.canvas.style.display = this.tintEl.style.display = active ? 'block' : 'none';
     if (!active || !scene) return;
 
     const snap = scene.snapshot();
-    if (this.builtFor !== snap.level) this.buildLevel(snap.level);
+    if (this.builtFor !== snap.level) this.buildLevel(snap);
     this.syncEntities(snap.entities, scene.time.now / 1000);
+    this.syncLabels(snap.labels);
+    const tint = snap.tint;
+    this.tintEl.style.background = tint ? `rgba(${tint.r},${tint.g},${tint.b},${tint.alpha})` : 'transparent';
 
     const pose = cameraPose(snap.camX, snap.camY);
     this.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
@@ -73,12 +81,9 @@ export class Renderer3D {
 
   private alignToPhaserCanvas() {
     const r = this.game.canvas.getBoundingClientRect();
-    Object.assign(this.canvas.style, {
-      left: `${r.left + window.scrollX}px`,
-      top: `${r.top + window.scrollY}px`,
-      width: `${r.width}px`,
-      height: `${r.height}px`,
-    });
+    const rect = { left: `${r.left + window.scrollX}px`, top: `${r.top + window.scrollY}px`, width: `${r.width}px`, height: `${r.height}px` };
+    Object.assign(this.canvas.style, rect);
+    Object.assign(this.tintEl.style, rect);
   }
 
   /** Textura do Phaser reaproveitada no Three (mesma imagem, sem baixar de novo). */
@@ -97,13 +102,61 @@ export class Renderer3D {
 
   // ---------- fase (montada uma vez a partir da grade do LevelBuilder) ----------
 
-  private buildLevel(level: LevelData) {
+  private buildLevel(snap: WorldSnapshot) {
+    const level = snap.level;
     disposeChildren(this.levelRoot);
     disposeChildren(this.entityRoot);
+    disposeChildren(this.labelRoot);
     this.entities.clear();
+    this.labels.clear();
     this.builtFor = level;
-    if (!level.arena) this.buildTiles(level);
-    this.buildBackdrop(level);
+    // nas arenas o 2D usa o piso desenhado na arte; no 3D a perspectiva separa os dois, então o chão é modelado
+    this.buildTiles(level);
+    if (level.arena) this.buildArenaBackdrop(level.arena, snap);
+    else this.buildBackdrop(level);
+    if (level.water !== undefined) this.buildWater(level);
+  }
+
+  /** Arte da arena num plano que cobre todo o quadro (a câmera da arena não se move). */
+  private buildArenaBackdrop(key: string, snap: WorldSnapshot) {
+    const tex = this.texture(key);
+    if (!tex) return;
+    const img = tex.image as HTMLImageElement;
+    const z = -14;
+    const { position: p, target: t } = cameraPose(snap.camX, snap.camY);
+    const dist = p.z - z;
+    const visH = 2 * dist * Math.tan(THREE.MathUtils.degToRad(CAMERA.fov / 2));
+    const visW = visH * this.camera.aspect;
+    const aspect = img.width / img.height;
+    const h = Math.max(visH, visW / aspect) * 1.08; // cobre o quadro com folga, sem distorcer
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(h * aspect, h), new THREE.MeshBasicMaterial({ map: tex, fog: false }));
+    // centro do quadro nessa profundidade, ao longo da linha de visão da câmera
+    const k = (p.z - z) / (p.z - t.z);
+    plane.position.set(p.x + (t.x - p.x) * k, p.y + (t.y - p.y) * k, z);
+    this.levelRoot.add(plane);
+  }
+
+  /** Recife Turquesa: volume translúcido da linha d'água para baixo. */
+  private buildWater(level: LevelData) {
+    const top = -(level.water ?? 0);
+    const bottom = -(level.rows + 4);
+    const water = new THREE.Mesh(
+      new THREE.BoxGeometry(level.cols + 40, top - bottom, DEPTH + 1),
+      new THREE.MeshStandardMaterial({ color: 0x2bb6d6, transparent: true, opacity: 0.22, depthWrite: false, roughness: 0.2 }),
+    );
+    water.position.set(level.cols / 2, (top + bottom) / 2, 0);
+    water.renderOrder = 5;
+    this.levelRoot.add(water);
+    if ((level.water ?? 0) > 0) {
+      const surface = new THREE.Mesh(
+        new THREE.PlaneGeometry(level.cols + 40, DEPTH + 1),
+        new THREE.MeshBasicMaterial({ color: 0xe8fbff, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }),
+      );
+      surface.rotation.x = -Math.PI / 2;
+      surface.position.set(level.cols / 2, top, 0);
+      surface.renderOrder = 6;
+      this.levelRoot.add(surface);
+    }
   }
 
   private buildTiles(level: LevelData) {
@@ -161,32 +214,38 @@ export class Renderer3D {
     const w = level.world;
     const span = level.cols + 60;
     const near = this.texture(`w${w}_bg_near`)?.image as HTMLImageElement | undefined;
-    if (!level.arena) {
-      // chão atrás dos blocos: a câmera, um pouco elevada, enxerga onde as artes 2D não cobrem
-      const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(span, 45),
-        new THREE.MeshStandardMaterial({ color: near ? averageColor(near) : 0x3a2a40, roughness: 1 }),
-      );
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.set(level.cols / 2, -(level.rows - 1), -DEPTH / 2 - 22.5);
-      floor.receiveShadow = true;
-      this.levelRoot.add(floor);
+    // chão atrás dos blocos: a câmera, um pouco elevada, enxerga onde as artes 2D não cobrem.
+    // Mesma textura do chão da fase, escurecida e tingida com a cor média do primeiro plano.
+    const groundTex = this.texture(`w${w}_ground`, true)?.clone();
+    if (groundTex) {
+      groundTex.userData.owned = true;
+      groundTex.repeat.set(span / 2, 45 / 2);
+      groundTex.needsUpdate = true;
     }
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(span, 45),
+      new THREE.MeshStandardMaterial({ color: near ? averageColor(near) : 0x3a2a40, map: groundTex, roughness: 1 }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(level.cols / 2, -(level.rows - 1), -DEPTH / 2 - 22.5);
+    floor.receiveShadow = true;
+    this.levelRoot.add(floor);
     // [textura, z, altura, y do topo]; o primeiro plano fica baixo e só mostra a folhagem (como no 2D)
-    const layers: [string, number, number, number][] = level.arena
-      ? [[level.arena, -14, 26, 7]]
-      : [[`w${w}_bg_far`, -40, 40, 21], [`w${w}_bg_mid`, -22, 22, 8], [`w${w}_bg_near`, -9, 9, -8.6]];
+    const layers: [string, number, number, number][] = [
+      [`w${w}_bg_far`, -40, 40, 21],
+      [`w${w}_bg_mid`, -22, 22, 8],
+      [`w${w}_bg_near`, -9, 9, -8.6],
+    ];
     for (const [key, z, h, top] of layers) {
       const tex = this.texture(key, true)?.clone();
       if (!tex) continue;
-      tex.userData.clone = true; // cópia própria (repeat diferente): liberada junto com a fase
+      tex.userData.owned = true; // cópia própria (repeat diferente): liberada junto com a fase
       const img = tex.image as HTMLImageElement;
       const tileW = h * (img.width / img.height);
-      const width = level.arena ? tileW : span;
-      tex.repeat.set(width / tileW, 1);
+      tex.repeat.set(span / tileW, 1);
       tex.needsUpdate = true;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false }));
-      plane.position.set(level.arena ? toUnits(this.game.scale.width) / 2 : level.cols / 2, top - h / 2, z);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(span, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false }));
+      plane.position.set(level.cols / 2, top - h / 2, z);
       this.levelRoot.add(plane);
     }
   }
@@ -216,6 +275,103 @@ export class Renderer3D {
     // objetos coletados ou destruídos somem; os que voltam (respawn) reaparecem
     for (const [id, obj] of this.entities) if (!seen.has(id)) obj.visible = false;
   }
+
+  /** Dicas e avisos como placas viradas para a câmera, na frente dos blocos e sempre legíveis. */
+  private syncLabels(list: LabelView[]) {
+    const seen = new Set<object>();
+    for (const l of list) {
+      const key = `${l.style}|${l.text}|${l.color ?? ''}`;
+      let entry = this.labels.get(l.id);
+      if (entry && entry.key !== key) {
+        entry.sprite.material.map?.dispose();
+        entry.sprite.material.dispose();
+        this.labelRoot.remove(entry.sprite);
+        entry = undefined;
+      }
+      if (!entry) {
+        entry = { sprite: createLabel(l), key };
+        this.labelRoot.add(entry.sprite);
+        this.labels.set(l.id, entry);
+      }
+      seen.add(l.id);
+      const s = entry.sprite;
+      s.visible = true;
+      s.position.set(toUnits(l.x), -toUnits(l.y), DEPTH / 2 + 0.2);
+      s.material.opacity = l.alpha;
+      const base = s.userData.size as { w: number; h: number };
+      s.scale.set(base.w * l.scale, base.h * l.scale, 1);
+    }
+    for (const [id, e] of this.labels) if (!seen.has(id)) e.sprite.visible = false;
+  }
+}
+
+/** Desenha o texto num canvas, no mesmo tamanho em px que o 2D (64 px = 1 unidade). */
+function createLabel(l: LabelView): THREE.Sprite {
+  const hint = l.style === 'hint';
+  const font = hint ? '21px "Trebuchet MS", "Segoe UI", sans-serif' : 'bold 24px "Trebuchet MS", sans-serif';
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.font = font;
+  const lines = hint ? wrapText(ctx, l.text, 420) : [l.text];
+  const lineH = hint ? 26 : 30;
+  const textW = Math.max(...lines.map((s) => ctx.measureText(s).width));
+  const w = Math.ceil(textW + (hint ? 60 : 16)), h = Math.ceil(lines.length * lineH + (hint ? 18 : 10));
+  const ss = 2; // supersampling para o texto não borrar
+  ctx.canvas.width = w * ss;
+  ctx.canvas.height = h * ss;
+  ctx.scale(ss, ss);
+  ctx.font = font;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  const cx = hint ? w / 2 + 6 : w / 2;
+  if (hint) {
+    // balão igual ao do 2D: fundo translúcido arredondado, contorno leve e estrelinha
+    const r = h / 2;
+    ctx.beginPath();
+    ctx.roundRect(1, 1, w - 2, h - 2, r);
+    ctx.fillStyle = 'rgba(42,22,64,0.5)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ffd9f4';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('✦', 16, h / 2);
+    ctx.font = font;
+  }
+  lines.forEach((line, i) => {
+    const y = h / 2 + (i - (lines.length - 1) / 2) * lineH;
+    if (!hint) {
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#24133a';
+      ctx.strokeText(line, cx, y);
+    }
+    ctx.fillStyle = hint ? '#fff6ec' : (l.color ?? '#ffffff');
+    ctx.fillText(line, cx, y);
+  });
+  const tex = new THREE.CanvasTexture(ctx.canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.userData.owned = true;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false }));
+  sprite.renderOrder = 10;
+  sprite.userData.size = { w: toUnits(w), h: toUnits(h) };
+  return sprite;
+}
+
+/** Quebra o texto em linhas de até `max` px (equivalente ao wordWrap do 2D). */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, max: number) {
+  const out: string[] = [];
+  for (const para of text.split('\n')) {
+    let line = '';
+    for (const word of para.split(' ')) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > max) {
+        out.push(line);
+        line = word;
+      } else line = next;
+    }
+    out.push(line);
+  }
+  return out;
 }
 
 const mat = (color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -293,15 +449,15 @@ function averageColor(img: HTMLImageElement) {
   return n ? new THREE.Color(r / n / 255, gr / n / 255, b / n / 255).convertSRGBToLinear().multiplyScalar(0.7) : new THREE.Color(0x3a2a40);
 }
 
-/** Libera da GPU tudo que estava no grupo (geometrias, materiais e texturas clonadas). */
+/** Libera da GPU tudo que estava no grupo (geometrias, materiais e texturas próprias). */
 function disposeChildren(root: THREE.Object3D) {
   root.traverse((o) => {
     const m = o as THREE.Mesh;
-    m.geometry?.dispose();
+    if (!(o instanceof THREE.Sprite)) m.geometry?.dispose(); // sprites compartilham uma geometria única
     for (const material of [m.material].flat()) {
       if (!material) continue;
       const map = (material as THREE.MeshBasicMaterial).map;
-      if (map && map.userData.clone) map.dispose();
+      if (map && map.userData.owned) map.dispose();
       material.dispose();
     }
   });

@@ -24,7 +24,7 @@ import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
 import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
 import type { Line } from './DialogueScene';
-import type { EntityKind, EntityView, WorldSnapshot } from '../render3d/snapshot';
+import type { EntityKind, EntityView, LabelView, WorldSnapshot } from '../render3d/snapshot';
 import { render3dEnabled } from '../render3d';
 
 interface Mover {
@@ -927,7 +927,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const star = this.add.text(-w / 2 + 16, 0, '✦', { fontSize: '14px', color: '#ffd9f4' }).setOrigin(0.5);
       text.x = 6;
       const bubble = this.add.container(h.col * TILE, h.row * TILE, [bg, star, text]).setDepth(2).setAlpha(0);
-      bubble.setData('baseY', h.row * TILE);
+      bubble.setData('baseY', h.row * TILE).setData('text', hintText);
       this.hintBubbles.push(bubble);
     }
   }
@@ -1464,7 +1464,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   // ---------- loop ----------
 
-  update(_time: number, deltaMs: number) {
+  update(time: number, deltaMs: number) {
     const dt = Math.min(deltaMs / 1000, 1 / 30);
     this.controls.update();
     if (this.controls.restartPressed) this.restartLevel();
@@ -1521,11 +1521,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.spark.setFlipX(this.player.facing < 0);
 
     // no visual 3D a cena só simula; o mundo é desenhado pelo Three.js por baixo do canvas.
-    // Câmera invisível não roda o preRender (seguir Íris, zona morta, limites da fase),
-    // então ele é chamado à mão para o 3D continuar enquadrando igual ao 2D.
+    // Câmera invisível não avança efeitos (fade, flash) nem roda o preRender (seguir Íris,
+    // zona morta, limites da fase): os dois são chamados à mão para o 3D continuar igual ao 2D.
     const in3d = render3dEnabled();
     cam.setVisible(!in3d);
-    if (in3d) cam.preRender();
+    if (in3d) {
+      for (const fx of [cam.rotateToEffect, cam.panEffect, cam.zoomEffect, cam.shakeEffect, cam.flashEffect, cam.fadeEffect]) fx.update(time, deltaMs);
+      cam.preRender();
+    }
   }
 
   /** Retrato do mundo para o visual 3D: posição e tipo de cada objeto, em px do mundo 2D. */
@@ -1551,7 +1554,24 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     for (const [g, kind] of groups)
       for (const go of g.getChildren())
         add(go, kind, go.getData('kind') as string | undefined);
-    const mid = this.cameras.main.midPoint;
-    return { level: this.level, camX: mid.x, camY: mid.y, entities: out };
+
+    const labels: LabelView[] = [];
+    for (const b of this.hintBubbles)
+      if (b.alpha > 0.01) labels.push({ id: b, style: 'hint', text: b.getData('text') as string, x: b.x, y: b.y, alpha: b.alpha, scale: 1 });
+    for (const m of [this.dangerMarker, this.bossMarker])
+      if (m) labels.push({ id: m, style: 'marker', text: m.text, x: m.x, y: m.y, alpha: m.alpha, scale: m.scale, color: m.style.color as string });
+
+    // fade e flash da câmera 2D (que fica invisível no 3D) viram uma cor sobre a tela
+    const cam = this.cameras.main;
+    // cor e alpha existem nos efeitos do Phaser, mas os tipos os declaram privados
+    type Fx = { isRunning: boolean; isComplete?: boolean; red: number; green: number; blue: number; alpha: number };
+    const fade = cam.fadeEffect as unknown as Fx, flash = cam.flashEffect as unknown as Fx;
+    const tint =
+      (fade.isRunning || fade.isComplete) && fade.alpha > 0
+        ? { r: fade.red, g: fade.green, b: fade.blue, alpha: fade.alpha }
+        : flash.isRunning
+          ? { r: flash.red, g: flash.green, b: flash.blue, alpha: flash.alpha }
+          : undefined;
+    return { level: this.level, camX: cam.midPoint.x, camY: cam.midPoint.y, entities: out, labels, tint };
   }
 }

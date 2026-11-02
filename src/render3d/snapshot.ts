@@ -23,12 +23,36 @@ export interface EntityView {
   visible?: boolean;
 }
 
+/** Texto preso ao mundo: dica em balão ou aviso sobre o chefão. */
+export interface LabelView {
+  id: object;
+  style: 'hint' | 'marker';
+  text: string;
+  /** Centro, em px do mundo 2D. */
+  x: number;
+  y: number;
+  alpha: number;
+  scale: number;
+  /** Cor do texto (avisos). */
+  color?: string;
+}
+
+/** Cor que cobre a tela inteira (fade e flash da câmera 2D). */
+export interface ScreenTint {
+  r: number;
+  g: number;
+  b: number;
+  alpha: number;
+}
+
 export interface WorldSnapshot {
   level: LevelData;
   /** Centro da câmera 2D, em px do mundo. */
   camX: number;
   camY: number;
   entities: EntityView[];
+  labels: LabelView[];
+  tint?: ScreenTint;
 }
 
 /** 1 bloco de 64 px = 1 unidade 3D; o eixo Y do Phaser cresce para baixo, o do 3D para cima. */
