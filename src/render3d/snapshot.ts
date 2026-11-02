@@ -4,7 +4,27 @@
 import { GAME_H, TILE } from '../config';
 import type { LevelData } from '../levels/LevelBuilder';
 
-export type EntityKind = 'player' | 'spark' | 'enemy' | 'boss' | 'pickup' | 'crate' | 'cracked' | 'shot' | 'mover' | 'cage' | 'prop';
+export type EntityKind = 'player' | 'spark' | 'enemy' | 'boss' | 'pickup' | 'crate' | 'cracked' | 'shot' | 'mover' | 'cage' | 'prop' | 'decor';
+
+/** O quadro que o 2D está desenhando para o objeto: no 3D ele vira uma placa com a mesma arte. */
+export interface SpriteView {
+  /** Textura e quadro do Phaser (o renderizador busca o recorte na própria textura). */
+  key: string;
+  frame: string;
+  /** Centro do quadro inteiro (sem recorte), em px do mundo 2D. */
+  x: number;
+  y: number;
+  /** Tamanho exibido no 2D, em px. */
+  w: number;
+  h: number;
+  flipX: boolean;
+  flipY: boolean;
+  /** Rotação em radianos (sentido do Phaser). */
+  angle: number;
+  alpha: number;
+  /** Profundidade do 2D: decide quem fica na frente entre as placas. */
+  depth: number;
+}
 
 export interface EntityView {
   /** Identidade estável enquanto o objeto existir (o próprio objeto do Phaser). */
@@ -23,6 +43,8 @@ export interface EntityView {
   visible?: boolean;
   /** Animação atual no 2D ("run", "jump"...) ou estado do chefão ("slamWind"...). */
   anim?: string;
+  /** Arte 2D do objeto. Personagens, coletáveis e objetos de fase são desenhados com ela. */
+  sprite?: SpriteView;
 }
 
 /** Texto preso ao mundo: dica em balão ou aviso sobre o chefão. */

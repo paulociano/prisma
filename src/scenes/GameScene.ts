@@ -24,7 +24,7 @@ import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
 import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
 import type { Line } from './DialogueScene';
-import type { EntityKind, EntityView, LabelView, WorldSnapshot } from '../render3d/snapshot';
+import type { EntityKind, EntityView, LabelView, SpriteView, WorldSnapshot } from '../render3d/snapshot';
 import { render3dEnabled } from '../render3d';
 import { animName } from '../render3d/models';
 
@@ -1541,24 +1541,43 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       out.push({ id: go, kind, x: b.center.x, y: b.center.y, w: b.width, h: b.height, variant, ...extra });
     };
     const animOf = (s: Phaser.GameObjects.Sprite) => animName(s.anims?.currentAnim?.key);
+    // arte 2D do objeto: o 3D desenha uma placa com o mesmo quadro (personagens continuam 2D)
+    const art = (img: Phaser.GameObjects.Image | undefined): Partial<EntityView> => {
+      if (!img?.frame) return {};
+      const c = img.getCenter(undefined, true);
+      const sprite: SpriteView = {
+        key: img.texture.key, frame: String(img.frame.name), x: c.x, y: c.y, w: img.displayWidth, h: img.displayHeight,
+        flipX: img.flipX, flipY: img.flipY, angle: img.rotation, alpha: img.alpha, depth: img.depth,
+      };
+      return { sprite, visible: img.visible && img.alpha > 0.02 };
+    };
     const p = this.player;
     const blink = p.invuln > 0 && Math.floor(this.time.now / 80) % 2 === 1;
     const pb = p.body;
-    out.push({ id: p, kind: 'player', x: pb.center.x, y: pb.center.y, w: pb.width, h: pb.height, facing: p.facing, visible: !blink, anim: animOf(p.view) });
-    out.push({ id: this.spark, kind: 'spark', x: this.spark.x, y: this.spark.y, w: 32, h: 32, facing: p.facing, anim: animOf(this.spark) });
-    for (const e of this.enemies) add(e.hit, 'enemy', e.kind, { facing: e.facing, anim: animOf(e.view) });
+    const pArt = art(p.view);
+    out.push({ id: p, kind: 'player', x: pb.center.x, y: pb.center.y, w: pb.width, h: pb.height, facing: p.facing, anim: animOf(p.view), ...pArt, visible: !blink && pArt.visible !== false });
+    out.push({ id: this.spark, kind: 'spark', x: this.spark.x, y: this.spark.y, w: 32, h: 32, facing: p.facing, anim: animOf(this.spark), ...art(this.spark) });
+    for (const e of this.enemies) add(e.hit, 'enemy', e.kind, { facing: e.facing, anim: animOf(e.view), ...art(e.view) });
     if (this.boss) {
       const facing = this.player.hit.x < this.boss.hit.x ? -1 : 1;
-      add(this.boss.hit, 'boss', String(this.level.world), { facing, anim: this.boss.state });
+      add(this.boss.hit, 'boss', String(this.level.world), { facing, anim: this.boss.state, ...art(this.boss.view) });
     }
     for (const m of this.movers) add(m.zone, 'mover');
-    const groups: [Phaser.GameObjects.Group, EntityKind][] = [
-      [this.pickups, 'pickup'], [this.crates, 'crate'], [this.cracked, 'cracked'], [this.shots, 'shot'],
-      [this.pshots, 'shot'], [this.cages, 'cage'], [this.props, 'prop'],
+    // caixas, blocos rachados e plataformas fazem parte do cenário: continuam em 3D, sem arte 2D
+    const groups: [Phaser.GameObjects.Group, EntityKind, ((go: Phaser.GameObjects.GameObject) => Phaser.GameObjects.Image | undefined)?][] = [
+      [this.pickups, 'pickup', (go) => go as Sprite], [this.crates, 'crate'], [this.cracked, 'cracked'],
+      [this.shots, 'shot', (go) => go as Sprite], [this.pshots, 'shot', (go) => go as Sprite],
+      [this.cages, 'cage', (go) => (this.guardian?.zone === go ? this.guardian.view : undefined)],
+      [this.props, 'prop', (go) => go.getData('view') as Phaser.GameObjects.Image | undefined],
     ];
-    for (const [g, kind] of groups)
+    for (const [g, kind, view] of groups)
       for (const go of g.getChildren())
-        add(go, kind, go.getData('kind') as string | undefined);
+        add(go, kind, go.getData('kind') as string | undefined, view ? art(view(go)) : undefined);
+    // decoração do cenário (casinha, arcos, plantas): placas em pé no fundo do chão
+    for (const d of this.decor.list as Phaser.GameObjects.Image[]) {
+      const a = art(d);
+      if (a.sprite) out.push({ id: d, kind: 'decor', x: a.sprite.x, y: a.sprite.y, w: a.sprite.w, h: a.sprite.h, ...a });
+    }
 
     const labels: LabelView[] = [];
     for (const b of this.hintBubbles)

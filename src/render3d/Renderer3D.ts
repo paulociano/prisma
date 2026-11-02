@@ -6,6 +6,7 @@ import type { GameScene } from '../scenes/GameScene';
 import { render3dEnabled } from '.';
 import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type WorldSnapshot } from './snapshot';
 import { ModelLibrary } from './ModelLibrary';
+import { SpriteBoards } from './SpriteBoards';
 import { modelKey } from './models';
 
 // Visual 3D (2.5D): desenha a GameScene em Three.js num canvas por baixo do canvas do Phaser.
@@ -31,10 +32,13 @@ export class Renderer3D {
   private readonly tintEl = document.createElement('div');
   private builtFor?: LevelData;
   private readonly models: ModelLibrary;
+  private readonly boards: SpriteBoards;
+  private readonly shadows = new Map<object, THREE.Mesh>();
   private readonly clock = new THREE.Clock();
 
   constructor(private readonly game: Phaser.Game) {
     this.models = new ModelLibrary(game);
+    this.boards = new SpriteBoards(game);
     this.canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     this.tintEl.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     document.body.prepend(this.canvas, this.tintEl);
@@ -149,7 +153,7 @@ export class Renderer3D {
       new THREE.MeshStandardMaterial({ color: 0x2bb6d6, transparent: true, opacity: 0.22, depthWrite: false, roughness: 0.2 }),
     );
     water.position.set(level.cols / 2, (top + bottom) / 2, 0);
-    water.renderOrder = 5;
+    water.renderOrder = 100; // depois das placas: como no 2D, a água tinge quem está submerso
     this.levelRoot.add(water);
     if ((level.water ?? 0) > 0) {
       const surface = new THREE.Mesh(
@@ -158,7 +162,7 @@ export class Renderer3D {
       );
       surface.rotation.x = -Math.PI / 2;
       surface.position.set(level.cols / 2, top, 0);
-      surface.renderOrder = 6;
+      surface.renderOrder = 101;
       this.levelRoot.add(surface);
     }
   }
@@ -271,8 +275,14 @@ export class Renderer3D {
       }
       obj ??= this.addEntity(e);
       seen.add(e.id);
-      this.models.animate(obj, e.anim, dt);
       obj.visible = e.visible ?? true;
+      const shadow = this.shadows.get(e.id);
+      if (shadow) this.boards.updateShadow(shadow, e, this.builtFor!);
+      if (obj.userData.board && e.sprite) {
+        this.boards.update(obj as THREE.Mesh, e.kind, e.sprite, this.camera);
+        continue;
+      }
+      this.models.animate(obj, e.anim, dt);
       obj.position.set(toUnits(e.x), -toUnits(e.y), 0);
       if (e.facing !== undefined) obj.rotation.y += ((e.facing > 0 ? 0 : Math.PI) - obj.rotation.y) * 0.25;
       if (obj.userData.spin) {
@@ -282,32 +292,52 @@ export class Renderer3D {
       if (e.kind === 'spark') obj.position.z = 0.8; // Faísca voa um pouco à frente de Íris
     }
     // objetos coletados ou destruídos somem; os que voltam (respawn) reaparecem
-    for (const [id, obj] of this.entities) if (!seen.has(id)) obj.visible = false;
+    for (const [id, obj] of this.entities) {
+      if (seen.has(id)) continue;
+      obj.visible = false;
+      const shadow = this.shadows.get(id);
+      if (shadow) shadow.visible = false;
+    }
   }
 
-  /** Modelo .glb do objeto se o jogo tiver um (e já tiver baixado); senão a forma provisória. */
+  /**
+   * Como desenhar cada objeto, em ordem de preferência: modelo .glb (se o jogo tiver um),
+   * a própria arte 2D numa placa (personagens, coletáveis, objetos de fase, decoração)
+   * ou uma forma 3D (blocos e caixas, que fazem parte do cenário).
+   */
   private addEntity(e: EntityView) {
     const key = modelKey(e);
     let obj = this.models.has(key) ? this.models.instantiate(key, toUnits(e.h)) : undefined;
+    if (!obj && e.sprite) obj = this.boards.create();
     if (!obj) {
       obj = createEntity(e);
       obj.traverse((o) => (o.castShadow = true));
-      if (this.models.has(key)) obj.userData.pendingModel = key;
+      if (e.kind === 'pickup') obj.userData.spin = true;
     }
-    if (e.kind === 'pickup') obj.userData.spin = true;
+    if (this.models.has(key) && !obj.userData.model) obj.userData.pendingModel = key;
     this.entityRoot.add(obj);
     this.entities.set(e.id, obj);
+    if (this.boards.hasShadow(e.kind) && !this.shadows.has(e.id)) {
+      const shadow = this.boards.createShadow();
+      this.entityRoot.add(shadow);
+      this.shadows.set(e.id, shadow);
+    }
     return obj;
   }
 
-  /** Esvazia os objetos da fase: modelos compartilham geometria com o cache, formas provisórias não. */
+  /** Esvazia os objetos da fase: modelos compartilham geometria com o cache, o resto não. */
   private clearEntities() {
     for (const obj of this.entities.values()) {
       this.models.release(obj);
       this.entityRoot.remove(obj);
       if (!obj.userData.shared) disposeChildren(obj);
     }
+    for (const shadow of this.shadows.values()) {
+      this.entityRoot.remove(shadow);
+      (shadow.material as THREE.Material).dispose(); // a geometria da sombra é compartilhada
+    }
     this.entities.clear();
+    this.shadows.clear();
   }
 
   /** Dicas e avisos como placas viradas para a câmera, na frente dos blocos e sempre legíveis. */
@@ -386,7 +416,7 @@ function createLabel(l: LabelView): THREE.Sprite {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.userData.owned = true;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, fog: false }));
-  sprite.renderOrder = 10;
+  sprite.renderOrder = 200;
   sprite.userData.size = { w: toUnits(w), h: toUnits(h) };
   return sprite;
 }

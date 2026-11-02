@@ -1,6 +1,8 @@
 # PRISMA — Modelos 3D (visual 3D beta)
 
-O visual 3D (Opções → **Visual 3D (beta)**) desenha cada objeto do jogo com uma forma provisória. Quando existe um modelo `.glb` com o nome certo, ele toma o lugar da forma, sem mudar nenhuma linha de código. Assim os modelos podem entrar **um de cada vez**.
+O visual 3D (Opções → **Visual 3D (beta)**) segue o estilo "HD-2D": o cenário é 3D, e os personagens, coletáveis, objetos de fase e a decoração usam **a própria arte 2D** do jogo, em placas viradas para a câmera e com sombra no chão. As animações são as mesmas do 2D. Blocos, caixas e plataformas são formas 3D.
+
+**Modelos `.glb` são opcionais.** Quando existe um modelo com o nome certo, ele toma o lugar da arte 2D daquele objeto, sem mudar nenhuma linha de código. Assim eles podem entrar **um de cada vez**, se um dia fizer sentido.
 
 ## Como adicionar um modelo
 
