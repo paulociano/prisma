@@ -126,7 +126,20 @@ export class MapScene extends Phaser.Scene {
       const frame = l.boss ? (done ? ICON.bossDone : ICON.bossLocked) : done ? ICON.done : open ? ICON.open : ICON.locked;
       const icon = this.icon(x - cw / 2 + 40, y, open || done ? frame : ICON.locked, 0.38);
       const color = selected ? '#3b2252' : '#ffffff';
-      const name = this.add.text(x - cw / 2 + 76, y - 30, `${l.id}\n${l.name}`, { ...textStyle(18, color), strokeThickness: selected ? 0 : 4, lineSpacing: 2 });
+      // Reserva a largura interna do cartão para o título, sem invadir o vizinho.
+      const textX = x - cw / 2 + 76;
+      const maxTextWidth = cw - 86;
+      const name = this.add.text(textX, y - 30, `${l.id}\n${l.name}`, {
+        ...textStyle(18, color),
+        strokeThickness: selected ? 0 : 4,
+        lineSpacing: 2,
+        wordWrap: { width: maxTextWidth, useAdvancedWrap: true },
+      });
+      // Títulos longos cabem sem quebrar a faixa inferior de fragmentos.
+      if (name.height > 51 || name.width > maxTextWidth) {
+        name.setFontSize(15);
+        name.setWordWrapWidth(maxTextWidth, true);
+      }
       const items: Phaser.GameObjects.GameObject[] = [bg, icon, name];
       if (!l.boss && open) {
         const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
