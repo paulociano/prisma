@@ -11,12 +11,15 @@
     "check-levels": "esbuild scripts/reach-check.ts --bundle --platform=node --format=esm --outfile=.debug/reach.mjs --log-level=error && node .debug/reach.mjs",
     "test:save": "esbuild src/systems/Save.ts --bundle --platform=node --format=esm --outfile=.debug/save.mjs --log-level=error && node --test tests/save.test.mjs",
     "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs",
-    "test:levels": "esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs"
+    "test:levels": "esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs",
+    "test:render3d": "esbuild src/render3d/snapshot.ts --bundle --platform=node --format=esm --outfile=.debug/render3d.mjs --log-level=error && node --test tests/render3d.test.mjs"
   },
   "dependencies": {
-    "phaser": "3.90.0"
+    "phaser": "3.90.0",
+    "three": "0.170.0"
   },
   "devDependencies": {
+    "@types/three": "0.170.0",
     "sharp": "0.34.2",
     "typescript": "5.8.3",
     "vite": "6.3.5"

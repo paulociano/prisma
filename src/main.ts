@@ -11,6 +11,7 @@ import { OptionsScene } from './scenes/OptionsScene';
 import { PauseScene } from './scenes/PauseScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
+import { syncRenderer3D } from './render3d';
 
 const game = new Phaser.Game({
   type: Phaser.WEBGL, // o filtro de cor precisa de WebGL
@@ -18,11 +19,15 @@ const game = new Phaser.Game({
   width: GAME_W,
   height: GAME_H,
   backgroundColor: '#120d1a',
+  // transparente para o visual 3D aparecer por baixo; a página tem o mesmo fundo (index.html)
+  transparent: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: 'arcade', arcade: { gravity: { x: 0, y: PHYS.gravity }, debug: false } },
   input: { gamepad: true },
   scene: [BootScene, TitleScene, MapScene, GameScene, HudScene, DialogueScene, PauseScene, EndingScene, CutsceneScene, OptionsScene, WorldMapScene],
 });
+
+syncRenderer3D(game);
 
 // acesso para depuração no console do navegador (só em desenvolvimento)
 if (import.meta.env.DEV) (window as unknown as { game: Phaser.Game }).game = game;

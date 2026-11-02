@@ -24,6 +24,8 @@ import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
 import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
 import type { Line } from './DialogueScene';
+import type { EntityKind, EntityView, WorldSnapshot } from '../render3d/snapshot';
+import { render3dEnabled } from '../render3d';
 
 interface Mover {
   zone: Phaser.GameObjects.Zone;
@@ -1517,5 +1519,39 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.spark.x += (tx - this.spark.x) * Math.min(1, dt * 5);
     this.spark.y += (ty - this.spark.y) * Math.min(1, dt * 5);
     this.spark.setFlipX(this.player.facing < 0);
+
+    // no visual 3D a cena só simula; o mundo é desenhado pelo Three.js por baixo do canvas.
+    // Câmera invisível não roda o preRender (seguir Íris, zona morta, limites da fase),
+    // então ele é chamado à mão para o 3D continuar enquadrando igual ao 2D.
+    const in3d = render3dEnabled();
+    cam.setVisible(!in3d);
+    if (in3d) cam.preRender();
+  }
+
+  /** Retrato do mundo para o visual 3D: posição e tipo de cada objeto, em px do mundo 2D. */
+  snapshot(): WorldSnapshot {
+    const out: EntityView[] = [];
+    const add = (go: Phaser.GameObjects.GameObject, kind: EntityKind, variant?: string) => {
+      const b = go.body as Phaser.Physics.Arcade.Body | Phaser.Physics.Arcade.StaticBody | null;
+      if (!b || !go.active || !b.enable) return;
+      out.push({ id: go, kind, x: b.center.x, y: b.center.y, w: b.width, h: b.height, variant });
+    };
+    const p = this.player;
+    const blink = p.invuln > 0 && Math.floor(this.time.now / 80) % 2 === 1;
+    const pb = p.body;
+    out.push({ id: p, kind: 'player', x: pb.center.x, y: pb.center.y, w: pb.width, h: pb.height, facing: p.facing, visible: !blink });
+    out.push({ id: this.spark, kind: 'spark', x: this.spark.x, y: this.spark.y, w: 32, h: 32, facing: p.facing });
+    for (const e of this.enemies) add(e.hit, 'enemy', e.kind);
+    if (this.boss) add(this.boss.hit, 'boss', String(this.level.world));
+    for (const m of this.movers) add(m.zone, 'mover');
+    const groups: [Phaser.GameObjects.Group, EntityKind][] = [
+      [this.pickups, 'pickup'], [this.crates, 'crate'], [this.cracked, 'cracked'], [this.shots, 'shot'],
+      [this.pshots, 'shot'], [this.cages, 'cage'], [this.props, 'prop'],
+    ];
+    for (const [g, kind] of groups)
+      for (const go of g.getChildren())
+        add(go, kind, go.getData('kind') as string | undefined);
+    const mid = this.cameras.main.midPoint;
+    return { level: this.level, camX: mid.x, camY: mid.y, entities: out };
   }
 }

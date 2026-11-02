@@ -12,6 +12,8 @@ export interface Settings {
   reduceFlashes: boolean;
   reduceCameraShake: boolean;
   extraVisualSignals: boolean;
+  /** Visual 3D experimental (Three.js); a física e as fases continuam as mesmas. */
+  visual3d: boolean;
 }
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -40,7 +42,7 @@ export function difficultyTuning(world: number) {
 
 const KEY = 'prisma-settings-v1';
 let cache: Settings | undefined;
-const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, extraVisualSignals: false };
+const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, extraVisualSignals: false, visual3d: false };
 
 function normalizeSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS };
@@ -51,6 +53,7 @@ function normalizeSettings(value: unknown): Settings {
     reduceFlashes: data.reduceFlashes === true,
     reduceCameraShake: data.reduceCameraShake === true,
     extraVisualSignals: data.extraVisualSignals === true,
+    visual3d: data.visual3d === true,
   };
 }
 
