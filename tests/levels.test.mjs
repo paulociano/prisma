@@ -46,3 +46,31 @@ test('normal levels begin with a safe learning zone', () => {
     assert.equal(early.length, 0, `${l.id}: enemy too close to spawn`);
   });
 });
+
+test('every level has a reachable goal entity and expected boss/guardian placement', () => {
+  LEVELS.forEach((build, index) => {
+    const level = build();
+    const goal = level.entities.filter(e => e.type === 'exit');
+    const boss = level.entities.filter(e => e.type === 'boss');
+    const guardian = level.entities.filter(e => e.type === 'guardian');
+    const isBoss = index % 4 === 3;
+    assert.equal(boss.length, isBoss ? 1 : 0, `${level.id}: boss count`);
+    assert.equal(guardian.length, index % 4 === 2 ? 1 : 0, `${level.id}: guardian count`);
+    if (!isBoss) assert.equal(goal.length, 1, `${level.id}: exit count`);
+    for (const e of [...goal, ...boss, ...guardian]) {
+      assert.ok(e.col >= 0 && e.col < level.cols && e.row >= 0 && e.row < level.rows,
+        `${level.id}: ${e.type} outside level bounds`);
+    }
+  });
+});
+
+test('checkpoints stay inside levels and have unique positions', () => {
+  LEVELS.forEach(build => {
+    const l = build();
+    const checkpoints = l.entities.filter(e => e.type === 'checkpoint');
+    const positions = checkpoints.map(e => `${e.col}:${e.row}`);
+    assert.equal(new Set(positions).size, positions.length, `${l.id}: duplicate checkpoint positions`);
+    for (const c of checkpoints) assert.ok(c.col >= 0 && c.col < l.cols && c.row >= 0 && c.row < l.rows,
+      `${l.id}: checkpoint outside level bounds`);
+  });
+});
