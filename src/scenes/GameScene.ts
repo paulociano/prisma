@@ -22,6 +22,7 @@ import { ColorRestore } from '../systems/ColorRestore';
 import { Controls } from '../systems/Controls';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
+import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
 import type { Line } from './DialogueScene';
 
 interface Mover {
@@ -824,7 +825,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const got = all.reduce((n, l) => n + (this.save.shards[l.id] ?? []).filter(Boolean).length, 0);
       const perfect = got >= all.length * 3;
       this.scene.start('Cutscene', {
-        slides: perfect ? [...ENDING, TRUE_ENDING] : ENDING,
+        slides: perfect ? [...worldEpilogueWithFallback(7, (tex) => has(this, tex)), ...ENDING, TRUE_ENDING] : [...worldEpilogueWithFallback(7, (tex) => has(this, tex)), ...ENDING],
         next: 'Ending',
         music: 'ending',
         footer: perfect ? '' : `Fragmentos: ${got} / ${all.length * 3} · junte todos para o final verdadeiro`,
@@ -1369,7 +1370,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.time.delayedCall(320, () => {
       this.scene.stop('Hud');
       this.scene.stop('Dialogue');
-      if (this.boss) this.scene.start('Map', { focus: this.save.level });
+      if (this.boss) {
+        this.scene.start('Cutscene', {
+          slides: worldEpilogueWithFallback(this.level.world, (tex) => has(this, tex)),
+          next: 'Map',
+          nextData: { focus: this.save.level },
+          music: 'map',
+        });
+      }
       else this.scene.start('WorldMap', { world: this.level.world, focus: this.save.level });
     });
   }
