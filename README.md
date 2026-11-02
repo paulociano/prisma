@@ -112,6 +112,10 @@ As criaturas afetadas pelo desbotamento representam o que acontece quando a dive
 | 06 | 💙 **Ilhas do Céu Anil** | Ilhas flutuantes, estrelas e observatórios |
 | 07 | 💜 **Cidadela Cinza** | Uma fortaleza desbotada à espera das cores |
 
+## Próximas melhorias
+
+O plano de desenvolvimento atualizado, com prioridades, critérios de aceite e verificações de QA, está em **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
 ## Como jogar localmente
 
 Requer Node.js (versão LTS).
