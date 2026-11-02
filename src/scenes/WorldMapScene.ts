@@ -118,7 +118,7 @@ export class WorldMapScene extends Phaser.Scene {
     // Painel e instruções ficam dentro da área segura do mapa, sem escapar da ilustração.
     const panelY = GAME_H - 77;
     panel(this, GAME_W / 2, panelY, 900, 118);
-    this.info = this.add.text(GAME_W / 2, panelY - 5, '', { ...textStyle(24, '#3b2252'), align: 'center', wordWrap: { width: 810, useAdvancedWrap: true } }).setOrigin(0.5).setStroke('#ffffff', 4);
+    this.info = this.add.text(GAME_W / 2, panelY + 5, '', { ...textStyle(24, '#3b2252'), align: 'center', wordWrap: { width: 810, useAdvancedWrap: true } }).setOrigin(0.5).setStroke('#ffffff', 4);
     this.add.text(GAME_W / 2, panelY + 39, '← → escolher fase   ·   ENTER jogar   ·   ESC mapa-múndi', textStyle(16, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 2);
 
     const kb = this.input.keyboard!;
