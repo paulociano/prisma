@@ -53,6 +53,7 @@ export class Eclipse implements Boss {
       scene.anims.create({ key: 'eclipse-idle', frames: [0, 1, 2, 3].map((f) => ({ key: 'w6_boss_idle', frame: String(f) })), frameRate: 4, repeat: -1, yoyo: true });
     }
     this.idleAnim();
+    this.facePlayer();
     this.shots = scene.physics.add.group({ allowGravity: false });
     scene.physics.add.collider(this.shots, solids, (s) => this.burstShot(s as Sprite), (s) => (s as Sprite).getData('kind') === 'orb');
   }
@@ -82,6 +83,12 @@ export class Eclipse implements Boss {
     this.timer = time / (s === 'dazed' || s === 'hurt' ? 1 : this.speed);
   }
 
+  /** Espelha a arte para Eclipse olhar para Íris, em vez de usar o lado da arena. */
+  private facePlayer() {
+    // Os frames oficiais de Eclipse apontam para a esquerda por padrão.
+    this.view.setFlipX(this.host.playerX() > this.hit.x);
+  }
+
   private idleAnim() {
     if (this.art) this.view.play('eclipse-idle', true);
   }
@@ -102,6 +109,7 @@ export class Eclipse implements Boss {
     this.t += dt;
     this.timer -= dt;
     this.view.setPosition(this.hit.x, this.host.groundY + 8 - this.lift);
+    if (this.state !== 'diving') this.facePlayer();
     this.hit.y = this.host.groundY - 140 - this.lift;
     if (this.state === 'dazed') this.view.setTint(Math.sin(this.t * 18) > 0 ? 0xe8d8ff : 0xffffff);
     else if (this.state !== 'hurt') this.view.clearTint();
@@ -216,7 +224,7 @@ export class Eclipse implements Boss {
       onComplete: () => {
         this.lift = 0;
         this.side = -this.side;
-        this.view.setFlipX(this.side < 0);
+        this.facePlayer();
         this.scene.cameras.main.shake(250, 0.01);
         this.host.burst(this.hit.x, this.host.groundY - 20, 20);
         this.pose('atk', ATK.recover);
