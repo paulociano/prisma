@@ -144,7 +144,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image; mode: number; on: boolean }[] = [];
   private fakewalls: Phaser.GameObjects.TileSprite[] = [];
   private portalLock = false;
-  private doors: { x: number; y: number; id: number }[] = [];
+  private doors: { x: number; y: number; id: number; view: Phaser.GameObjects.Image }[] = [];
   private doorLock = false;
   private risk?: Phaser.GameObjects.Image;
   private combo = 0;
@@ -623,8 +623,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           break;
         }
         case 'door': {
-          this.add.image(cx, bottom, 'blk_door').setOrigin(0.5, 1).setDepth(3);
-          this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1 });
+          const view = this.add.image(cx, bottom, 'blk_door').setOrigin(0.5, 1).setDepth(3);
+          this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1, view });
           break;
         }
         case 'chamber': {
@@ -1022,7 +1022,13 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       w.alpha += ((near ? 0.3 : 1) - w.alpha) * Math.min(1, dt * 5);
       if (Math.random() < dt * 0.9) this.sparkle(w.x + Math.random() * w.width, w.y - Math.random() * w.height, 0xd9c8ff);
     }
-    // salas conectadas: portas em pares levam de um lado ao outro
+    // salas conectadas: portas em pares levam de um lado ao outro (acendem quando Íris chega perto)
+    if (this.textures.exists('blk_door_on')) {
+      for (const d of this.doors) {
+        const near = Math.abs(d.x - this.player.hit.x) < TILE * 4 && Math.abs(d.y - this.player.body.bottom) < TILE * 3;
+        d.view.setTexture(near ? 'blk_door_on' : 'blk_door');
+      }
+    }
     if (this.doorLock && this.doors.every((d) => Math.abs(d.x - this.player.hit.x) > TILE * 2.5 || Math.abs(d.y - this.player.body.bottom) > TILE * 2)) this.doorLock = false;
     if (!this.doorLock && !this.finished && !this.player.dead && !this.player.frozen) {
       const d = this.doors.find((q) => Math.abs(q.x - this.player.hit.x) < 26 && Math.abs(q.y - this.player.body.bottom) < 40);

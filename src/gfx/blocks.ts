@@ -46,7 +46,8 @@ function useArt(scene: Phaser.Scene) {
   fromAtlas(scene, 'blk_wall', 'level_blocks', 10, 64, 64);
   for (let i = 0; i < PORTAL_FRAMES; i++) fromAtlas(scene, `blk_portal${i}`, 'secret_portals', 4 + i, 80, 128);
   fromAtlas(scene, 'blk_portal', 'secret_portals', 4, 80, 128);
-  fromAtlas(scene, 'blk_door', 'doors', 0, 72, 120);
+  fromAtlas(scene, 'blk_door', 'doors', 0, 100, 118);
+  fromAtlas(scene, 'blk_door_on', 'doors', 1, 100, 118);
   fromAtlas(scene, 'blk_alcove', 'secret_chamber', 1, 64, 64);
   fromAtlas(scene, 'blk_crystal', 'secret_chamber', 5, 72, 72);
 }
