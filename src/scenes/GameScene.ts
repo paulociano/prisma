@@ -23,6 +23,7 @@ import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
+import { LESSONS, PENNANTS, lessonLines, pennantLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
 import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
@@ -62,7 +63,7 @@ export interface HudState {
   coinBank: number;
 }
 
-const ENEMY_KINDS = new Set<string>(['blot', 'moth', 'megaphone', 'padlock', 'beetle', 'scorpion', 'drone', 'snapper', 'puffer', 'comet', 'sentinel']);
+const ENEMY_KINDS = new Set<string>(['blot', 'moth', 'megaphone', 'padlock', 'beetle', 'scorpion', 'drone', 'snapper', 'puffer', 'comet', 'sentinel', 'label', 'joke', 'rumor', 'stare', 'silence']);
 
 /** Para onde cada chefão olha na arte original ('front' = de frente, não precisa virar). */
 const BOSS_ART_FACING: Record<number, 'left' | 'right' | 'front'> = { 1: 'left', 2: 'left', 3: 'front', 4: 'right', 5: 'front', 6: 'front', 7: 'right' };
@@ -520,7 +521,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const cy = e.row * TILE + TILE / 2;
 
       if (ENEMY_KINDS.has(e.type)) {
-        const enemy = new Enemy(this, this, e.type as EnemyKind, cx, e.type === 'moth' ? cy + 22 : e.type === 'drone' ? cy + 23 : e.type === 'puffer' || e.type === 'comet' ? cy : bottom);
+        const enemy = new Enemy(this, this, e.type as EnemyKind, cx, e.type === 'moth' || e.type === 'rumor' ? cy + 22 : e.type === 'drone' || e.type === 'stare' ? cy + 23 : e.type === 'puffer' || e.type === 'comet' ? cy : bottom);
         enemy.hit.setData('enemy', enemy);
         this.enemies.push(enemy);
         total += COLOR_POINTS.enemy;
@@ -629,6 +630,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         case 'door': {
           const view = this.add.image(cx, bottom, 'blk_door').setOrigin(0.5, 1).setDepth(3);
           this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1, view });
+          break;
+        }
+        case 'pennant': {
+          const n = e.data?.n ?? 0;
+          const img = this.pickups.create(cx, bottom - 52, `pennant_${n}`) as Sprite;
+          img.setData('kind', 'pennant').setData('n', n).setDepth(6);
+          if (this.save.learned[`p:${PENNANTS[n]?.id}`]) img.setAlpha(0.6); // já lida: continua lá, mais discreta
+          this.tweens.add({ targets: img, angle: { from: -3, to: 3 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
           break;
         }
         case 'crumble': {
@@ -1721,6 +1730,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.player.bounce(this.controls.jumpHeld ? PHYS.stompBounceHeld : PHYS.stompBounce);
     } else if (this.player.hurt(e.hit.x)) {
       this.feedbackHurt();
+      if (e.kind === 'label') {
+        this.player.slowTime = 3; // a etiqueta gruda
+        this.events.emit('toast', 'Rotulada! Pule em cima dele para tirar a etiqueta.');
+      }
     }
   }
 
@@ -1731,6 +1744,12 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.combo = 0;
       this.dropHeart(this.player.hit.x, this.player.body.bottom - 40);
       this.events.emit('toast', 'Combo de 5! Um coração!');
+    }
+    const lesson = LESSONS[e.kind];
+    if (lesson && !this.save.learned[`e:${e.kind}`]) {
+      this.save.learned[`e:${e.kind}`] = true;
+      this.persistProgress();
+      this.time.delayedCall(500, () => this.talk(lessonLines(e.kind)));
     }
     this.sfx('hit_enemy');
     this.time.delayedCall(120, () => this.sfx('enemy_restored'));
@@ -1836,6 +1855,22 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       [-40, 0, 40].forEach((dx, i) => this.time.delayedCall(i * 110, () => this.popPickup('coin', s.x + dx, s.y - TILE * 1.6 - (i % 2) * 22)));
       this.events.emit('toast', 'Baú encontrado!');
       this.pushHud();
+      return;
+    } else if (kind === 'pennant') {
+      const pen = PENNANTS[s.getData('n') as number];
+      if (!pen) return;
+      this.sfx('shard', 0);
+      this.burst(s.x, s.y, 24, pen.colors.slice(0, 5));
+      const first = !this.save.learned[`p:${pen.id}`];
+      this.save.learned[`p:${pen.id}`] = true;
+      this.persistProgress();
+      s.setAlpha(0.6);
+      (s.body as Phaser.Physics.Arcade.Body).enable = false;
+      s.setData('kind', 'read');
+      const got = PENNANTS.filter((q) => this.save.learned[`p:${q.id}`]).length;
+      this.talk(pennantLines(pen), () => this.events.emit('toast', first ? `Bandeirola ${got}/${PENNANTS.length} guardada!` : 'Bandeirola relida'));
+      return;
+    } else if (kind === 'read') {
       return;
     } else if (kind === 'opened') {
       return;

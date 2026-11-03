@@ -65,6 +65,8 @@ export class Player {
   onOneWayAt = -1e9;
   private jumpHeldNow = false;
   dropTime = 0;
+  /** "Rotulada": o Rótulo gruda e deixa Íris mais lenta por alguns segundos */
+  slowTime = 0;
   private baseScale: number;
 
   constructor(private scene: Phaser.Scene, x: number, y: number) {
@@ -123,6 +125,7 @@ export class Player {
     this.jumpBuffer = c.jumpPressed ? PHYS.jumpBuffer : this.jumpBuffer - dt;
     // descer de uma plataforma fina: BAIXO + PULAR (não gasta o pulo)
     this.dropTime = Math.max(0, this.dropTime - dt);
+    this.slowTime = Math.max(0, this.slowTime - dt);
     if (ground && c.down && c.jumpPressed && this.scene.time.now - this.onOneWayAt < 120) {
       this.dropTime = 0.22;
       this.jumpBuffer = 0;
@@ -198,7 +201,7 @@ export class Player {
     this.wallLock = Math.max(0, this.wallLock - dt);
     if (this.hurtTimer <= 0 && this.wallLock <= 0) {
       const accel = dir !== 0 || this.wind ? (ground ? PHYS.accelGround : PHYS.accelAir) : ground ? PHYS.decelGround : PHYS.decelAir;
-      b.setVelocityX(approach(b.velocity.x, dir * PHYS.runSpeed + this.wind, accel * dt));
+      b.setVelocityX(approach(b.velocity.x, dir * PHYS.runSpeed * (this.slowTime > 0 ? 0.65 : 1) + this.wind, accel * dt));
       if (dir !== 0 && this.attackTime <= 0) this.facing = dir;
     }
 

@@ -128,3 +128,10 @@ test('early worlds only get gentle challenges (difficulty grows with the world)'
   assert.ok(allowedRating(1, 0) < 2.5, 'world 1 level 1 must exclude the hardest beats');
   assert.ok(allowedRating(7, 2) >= 3, 'last levels allow every beat');
 });
+
+test('pennants: 12 distinct pennants appear across the normal levels', () => {
+  const seen = new Set();
+  LEVELS.forEach((b) => b().entities.filter((e) => e.type === 'pennant').forEach((e) => seen.add(e.data.n)));
+  assert.equal(seen.size, 12);
+  assert.deepEqual([...seen].sort((a, b) => a - b), Array.from({ length: 12 }, (_, i) => i));
+});
