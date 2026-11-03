@@ -157,7 +157,7 @@ export class LevelBuilder {
     return this;
   }
 
-  /** Bloco de bater com a cabeça. reward: 0 = surpresa (coração se a vida está baixa, senão faíscas), 1 = faíscas, 2 = coração. */
+  /** Bloco de bater com a cabeça. reward: 0 = surpresa (coração se a vida está baixa, senão faíscas), 1 = faíscas, 2 = coração, 3 = invisível: revela portais secretos próximos. */
   bump(col: number, row: number, reward = 0) {
     this.entities.push({ type: 'bump', col, row, data: { reward } });
     return this;
@@ -181,8 +181,8 @@ export class LevelBuilder {
   }
 
   /** Entrada secreta para o sub-nível `sub` (0 a 3). */
-  portal(col: number, row: number, sub: number) {
-    this.entities.push({ type: 'portal', col, row, data: { sub } });
+  portal(col: number, row: number, sub: number, hidden = 0) {
+    this.entities.push({ type: 'portal', col, row, data: { sub, hidden } });
     return this;
   }
 

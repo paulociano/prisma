@@ -93,3 +93,20 @@ test('interactive blocks come in matching sets (every gate has a plate and a box
     if (ids('gate').size) assert.ok(l.entities.some((e) => e.type === 'pushbox'), `${l.id}: gate without a pushbox`);
   });
 });
+
+test('every level gets its own extension segment and a hidden portal', async () => {
+  const { buildSegment } = await import('../.debug/extend.mjs');
+  const seen = new Map();
+  for (let w = 1; w <= 7; w++) {
+    for (let v = 0; v < 3; v++) {
+      const { b, width } = buildSegment(w, v, 6, 24, false);
+      const seg = b.build();
+      const sig = JSON.stringify([width, seg.entities.filter((e) => e.col < width), seg.tiles.map((r) => r.slice(0, width).join(''))]);
+      assert.ok(!seen.has(sig), `${w}-${v + 1} repeats ${seen.get(sig)}`);
+      seen.set(sig, `${w}-${v + 1}`);
+      const portal = seg.entities.find((e) => e.type === 'portal');
+      assert.ok(portal && portal.data.hidden >= 1, `${w}-${v + 1}: portal must be hidden`);
+      if (w < 7) assert.notEqual(portal.data.hidden, 3, `${w}-${v + 1}: cracked floor needs the pound ability`);
+    }
+  }
+});

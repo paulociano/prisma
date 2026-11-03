@@ -62,6 +62,8 @@ const SHEETS = [
   { key: 'padlock', src: 'inimigos/padlock.png', expect: 6, height: 72, grid: [3, 2] },
   { key: 'collectibles', src: 'comum/collectibles.png', expect: 9, height: 64, grid: [3, 3] },
   { key: 'level_objects', src: 'comum/level_objects.png', expect: 8, height: 180, grid: [4, 2] },
+  { key: 'level_blocks', src: 'comum/level_blocks.png', expect: 12, height: 128, grid: [4, 3] },
+  { key: 'secret_portals', src: 'comum/secret_portals.png', expect: 8, height: 192, grid: [4, 2] },
   { key: 'vfx', src: 'comum/vfx.png', expect: 12, height: 96, grid: [4, 3] },
   { key: 'hud', src: 'ui/hud.png', expect: 9, height: 48, grid: [3, 3] },
 
