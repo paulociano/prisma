@@ -83,3 +83,29 @@ hollow dark pocket, 2 a dark alcove back wall tile with faint violet rune scratc
 3 a small stone step, 4 a cracked stone LID slab (two cracks glowing), 5 a pile of loose
 rubble, 6 a tiny glowing violet crystal cluster. Match the gray stone of the attachment.
 ```
+
+---
+
+## D. Portas das salas conectadas (falta gerar)
+
+Usadas nas salas do alto de cada mundo: tocar numa porta leva à outra de mesmo par. Duas versões por folha: fechada (parada) e acesa (quando Íris chega perto).
+
+**D.1 Portas** · Paisagem · 📎 `level_blocks.png` e `secret_chamber.png` (mesma pedra cinza-violeta) · 💾 `assets/raw/comum/doors.png`
+```
+Landscape 1536x1024. Platformer doorway sprite sheet, transparent background, 2x1 grid,
+very wide gaps, never touching, strict side view, each door is a tall stone ARCHWAY
+about 2:3 (width:height) set into a short stone frame so it can stand alone on the floor,
+same gray-violet carved stone, chunky chipped edges and tiny violet crystal flecks as the
+attached reference sheets. The doorway opening is a rounded arch.
+1 DOOR (idle): the opening is a deep dark violet-indigo gradient with a faint star-shaped
+  keyhole glyph carved above the arch; a tiny brass knob on the right side;
+2 DOOR (active): same door, the opening now glows with soft warm gold-and-lilac light and
+  the carved star above is lit; do not change the shape or size.
+No text, no ground, no shadow.
+```
+*(colar o Bloco de sprite sheet no final)*
+
+📐 Ordem: `door`, `door_active`.
+
+## E. Peças da câmara secreta (já geradas)
+Ordem da folha `secret_chamber.png`: 1 poço de pedra com cavidade, 2 fundo da alcova com runas, 3 degrau, 4 laje rachada, 5 entulho, 6 cristal violeta.

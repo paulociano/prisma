@@ -22,7 +22,7 @@ import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
-import { ensureBlockTextures } from '../gfx/blocks';
+import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { buildSub } from '../levels/subs';
 import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
@@ -616,6 +616,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           const view = this.add.image(cx, bottom, 'blk_portal').setOrigin(0.5, 1).setDepth(3).setBlendMode(Phaser.BlendModes.ADD);
           const mode = e.data?.hidden ?? 0; // 0 visível; 1 bloco invisível; 2 caixas; 3 piso rachado
           const p = { x: cx, y: bottom, sub: e.data?.sub ?? 0, view, mode, on: mode === 0 };
+          if (this.textures.exists('blk_portal0')) view.setScale(1.1).setBlendMode(Phaser.BlendModes.NORMAL); // a arte já traz o brilho
           if (mode) view.setVisible(false);
           else this.tweens.add({ targets: view, alpha: 0.55, scaleX: 1.12, duration: 900, yoyo: true, repeat: -1 });
           this.portals.push(p);
@@ -643,8 +644,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           this.addVent(cx, bottom, e.data ?? {});
           break;
         case 'cracked': {
-          const art = has(this, this.tex('tiles'));
-          const s = this.cracked.create(cx, cy, art ? this.tex('tiles') : 'crate', art ? String(F.w1Tiles.cracked) : undefined) as Sprite;
+          const blockArt = this.textures.exists('blk_cracked');
+          const art = !blockArt && has(this, this.tex('tiles'));
+          const s = this.cracked.create(cx, cy, blockArt ? 'blk_cracked' : art ? this.tex('tiles') : 'crate', art ? String(F.w1Tiles.cracked) : undefined) as Sprite;
           s.setDisplaySize(TILE + 2, TILE + 2).setDepth(4).refreshBody();
           break;
         }
@@ -922,6 +924,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const reward = b.getData('reward') as number;
     b.setAlpha(1);
     if (reward === 3) {
+      if (this.textures.exists('blk_ghost')) {
+        b.setTexture('blk_ghost');
+        this.time.delayedCall(900, () => b.active && b.setTexture('blk_bump_used'));
+      }
       for (const p of this.portals) if (p.mode === 1 && Math.abs(p.x - b.x) < TILE * 8) this.revealPortal(p);
       return;
     }
@@ -975,7 +981,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const on = Phaser.Geom.Intersects.RectangleToRectangle(area, pr) || boxes.some((b) => Phaser.Geom.Intersects.RectangleToRectangle(area, b.getBounds()));
       if (on !== pl.on) {
         pl.on = on;
-        pl.view.setTint(on ? 0xffd86b : 0xffffff).setScale(1, on ? 0.6 : 1);
+        if (this.textures.exists('blk_plate_down')) pl.view.setTexture(on ? 'blk_plate_down' : 'blk_plate');
+        else pl.view.setTint(on ? 0xffd86b : 0xffffff).setScale(1, on ? 0.6 : 1);
         if (on) this.sfx('checkpoint', 0);
       }
       if (on) pressed.add(pl.id);
@@ -1031,6 +1038,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         const caps = (this.cracked.getChildren() as Sprite[]).filter((c) => Math.abs(c.x - p.x) < TILE * 2.2 && c.y < p.y && p.y - c.y < TILE * 3.5).length;
         if (caps === 0) this.revealPortal(p);
       }
+    }
+    // quadros do redemoinho dos portais (arte)
+    if (this.textures.exists('blk_portal0')) {
+      const f = Math.floor(this.time.now / 130) % PORTAL_FRAMES;
+      for (const p of this.portals) if (p.on) p.view.setTexture(`blk_portal${f}`);
     }
     // portais para os sub-níveis
     if (this.portalLock && this.portals.every((p) => Math.abs(p.x - this.player.hit.x) > TILE * 3)) this.portalLock = false;
