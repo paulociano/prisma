@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals } from '../systems/Settings';
+import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals, getSettings } from '../systems/Settings';
 import { COLOR_POINTS, GAME_H, GAME_W, PHYS, RAINBOW, TILE } from '../config';
 import { F, has } from '../gfx/art';
 import { texRes } from '../gfx/textures';
@@ -144,6 +144,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image; mode: number; on: boolean }[] = [];
   private fakewalls: Phaser.GameObjects.TileSprite[] = [];
   private portalLock = false;
+  private doors: { x: number; y: number; id: number }[] = [];
+  private doorLock = false;
+  private risk?: Phaser.GameObjects.Image;
   private combo = 0;
   private mercyGiven = false;
   private bossStarted = false;
@@ -170,7 +173,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.isSub = data?.sub !== undefined && !!data?.from;
     this.levelIndex = Phaser.Math.Clamp((this.isSub ? data.from!.level : data?.level) ?? this.save.level, 0, LEVELS.length - 1);
     this.level = this.isSub ? buildSub(Math.floor(this.levelIndex / 4) + 1, data.sub!) : LEVELS[this.levelIndex]();
-    this.plates = []; this.gates = []; this.portals = []; this.fakewalls = []; this.weights = []; this.fissureT = 8; this.bossLost = 0;
+    this.plates = []; this.gates = []; this.portals = []; this.doors = []; this.doorLock = false; this.risk = undefined; this.fakewalls = []; this.weights = []; this.fissureT = 8; this.bossLost = 0;
     this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
     this.enemies = [];
     this.movers = [];
@@ -618,6 +621,18 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           this.portals.push(p);
           break;
         }
+        case 'door': {
+          this.add.image(cx, bottom, 'blk_door').setOrigin(0.5, 1).setDepth(3);
+          this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1 });
+          break;
+        }
+        case 'chest': {
+          const art = has(this, 'collectibles');
+          const c = this.pickups.create(cx, bottom - 28, art ? 'collectibles' : 'crate', art ? String(F.collectibles.chest) : undefined) as Sprite;
+          c.setData('kind', 'chest').setDepth(6);
+          if (art) c.setScale(0.5); else c.setTint(0xffd86b);
+          break;
+        }
         case 'fakewall': {
           const w = e.data?.w ?? 3, h = e.data?.h ?? 3;
           const ts = this.add.tileSprite(e.col * TILE, bottom, w * TILE, h * TILE, 'blk_wall').setOrigin(0, 1).setDepth(5);
@@ -989,9 +1004,26 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       w.alpha += ((near ? 0.3 : 1) - w.alpha) * Math.min(1, dt * 5);
       if (Math.random() < dt * 0.9) this.sparkle(w.x + Math.random() * w.width, w.y - Math.random() * w.height, 0xd9c8ff);
     }
+    // salas conectadas: portas em pares levam de um lado ao outro
+    if (this.doorLock && this.doors.every((d) => Math.abs(d.x - this.player.hit.x) > TILE * 2.5 || Math.abs(d.y - this.player.body.bottom) > TILE * 2)) this.doorLock = false;
+    if (!this.doorLock && !this.finished && !this.player.dead && !this.player.frozen) {
+      const d = this.doors.find((q) => Math.abs(q.x - this.player.hit.x) < 26 && Math.abs(q.y - this.player.body.bottom) < 40);
+      const to = d && this.doors.find((q) => q !== d && q.id === d.id);
+      if (d && to) this.useDoor(to);
+    }
+    // brilho de risco: borda vermelha pulsando devagar quando resta só 1 coração
+    const lowHp = this.player.hp <= 1 && this.player.maxHp > 1 && !this.player.dead && !this.finished;
+    if (lowHp && !this.risk) this.risk = this.add.image(GAME_W / 2, GAME_H / 2, 'vig_risk').setScrollFactor(0).setDepth(60).setAlpha(0).setDisplaySize(GAME_W, GAME_H);
+    if (this.risk) {
+      const calm = getSettings().reduceMotion || !canFlashScreen();
+      const want = lowHp ? (calm ? 0.22 : 0.2 + 0.12 * Math.sin(this.time.now / 450)) : 0;
+      this.risk.alpha += (want - this.risk.alpha) * Math.min(1, dt * 4);
+    }
     // portais escondidos: caixas ao lado ou piso rachado por cima precisam ter sido quebrados
     for (const p of this.portals) {
       if (p.on) continue;
+      // pista sutil: cintilações no ar quando Íris passa perto (mais raras com "reduzir movimento")
+      if (Math.abs(p.x - this.player.hit.x) < TILE * 6 && Math.random() < dt * (getSettings().reduceMotion ? 0.25 : 0.8)) this.sparkle(p.x + (Math.random() - 0.5) * TILE, p.y - Math.random() * TILE * 1.4, 0xd9c8ff);
       if (p.mode === 2) {
         const near = (this.crates.getChildren() as Sprite[]).filter((c) => Math.abs(c.x - p.x) < TILE * 1.2 && Math.abs(c.y - (p.y - TILE / 2)) < TILE * 0.6).length;
         if (near < 2) this.revealPortal(p);
@@ -1140,6 +1172,21 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const pb = this.player.body;
       if (!this.player.dead && Phaser.Geom.Intersects.RectangleToRectangle(area, new Phaser.Geom.Rectangle(pb.x, pb.y, pb.width, pb.height)) && this.player.hurt(x)) this.feedbackHurt();
       this.time.delayedCall(650, () => this.tweens.add({ targets: spikes, alpha: 0, duration: 250, onComplete: () => spikes.forEach((t) => t.destroy()) }));
+    });
+  }
+
+  private useDoor(to: { x: number; y: number }) {
+    this.doorLock = true;
+    this.player.frozen = true;
+    this.sfx('checkpoint', 0);
+    this.cameras.main.fadeOut(180, 20, 12, 40);
+    this.time.delayedCall(200, () => {
+      this.player.hit.setPosition(to.x, to.y - this.player.body.height / 2);
+      this.player.body.setVelocity(0, 0);
+      this.cameras.main.centerOn(to.x, to.y - 60);
+      this.cameras.main.fadeIn(220, 20, 12, 40);
+      this.player.frozen = false;
+      this.burst(to.x, to.y - 40, 14, [0xb9a8ff, 0xffffff]);
     });
   }
 
@@ -1693,6 +1740,19 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.color.add(COLOR_POINTS.shard);
       this.burst(s.x, s.y, 30);
       this.hitStop(80);
+    } else if (kind === 'chest') {
+      this.sfx('shard', 0);
+      this.burst(s.x, s.y - 20, 30, [0xffd86b, 0xffffff, 0xb9a8ff]);
+      if (has(this, 'collectibles')) s.setFrame(String(F.collectibles.chestOpen));
+      (s.body as Phaser.Physics.Arcade.Body).enable = false;
+      s.setData('kind', 'opened');
+      this.popPickup('heart', s.x, s.y - TILE * 1.2);
+      [-40, 0, 40].forEach((dx, i) => this.time.delayedCall(i * 110, () => this.popPickup('coin', s.x + dx, s.y - TILE * 1.6 - (i % 2) * 22)));
+      this.events.emit('toast', 'Baú encontrado!');
+      this.pushHud();
+      return;
+    } else if (kind === 'opened') {
+      return;
     } else if (kind === 'heart') {
       if (this.player.hp >= this.player.maxHp) return;
       this.player.hp++;

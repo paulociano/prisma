@@ -178,9 +178,30 @@ function vault(s: Seg, w: number, i: number) {
   s.b.block(s.x + 8, t - 3, s.x + 13, t - 3); // ilha: dá para passar por baixo
   const gh = Math.min(4, t - 4);
   s.b.gate(s.x + 9, t - 4 - gh + 1, gh, 1);
-  s.b.add('heart', s.x + 11, t - 5).coins(s.x + 10, s.x + 13, t - 4);
+  s.b.chest(s.x + 11, t - 4).coins(s.x + 10, s.x + 13, t - 5);
   s.b.add(pick(WORLD[w].ground, i), s.x + 15, t - 1);
   s.x += 17;
+}
+
+/**
+ * Anexo: uma sala fechada no alto de uma torre de pedra. A porta no chão leva até ela;
+ * lá dentro há espinhos, um inimigo e um baú. Precisa das linhas extras no topo (padTop).
+ */
+function annex(s: Seg, w: number, i: number) {
+  const t = top(s);
+  const x = s.x;
+  s.b.ground(x, x + 15, s.h);
+  // casca da sala (linhas 1..8) e pilar que a sustenta
+  s.b.block(x, 1, x + 13, 1).block(x, 8, x + 13, 8).block(x, 1, x, 8).block(x + 13, 1, x + 13, 8);
+  s.b.block(x + 5, 9, x + 8, Math.max(9, t - 4)); // pende da sala; o chão embaixo continua livre
+  s.b.door(x + 11, t - 1, 1);
+  s.b.door(x + 2, 7, 1);
+  s.b.spikes(x + 6, x + 7, 7);
+  s.b.coins(x + 5, x + 8, 4);
+  s.b.oneway(x + 5, x + 8, 5);
+  s.b.add(pick(WORLD[w].ground, i), x + 10, 7);
+  s.b.chest(x + 12, 7);
+  s.x += 16;
 }
 
 /**
@@ -219,6 +240,7 @@ function secret(s: Seg, w: number, i: number) {
 
 /** Linhas extras no alto da fase para a torre (o mapa deixa de ser só horizontal). */
 export const TOWER_PAD = 10;
+const ROOM_PAD = 10;
 
 /**
  * Torre: um poço de ~16 linhas. Íris sobe em zigue-zague por plataformas finas (2 blocos por salto),
@@ -297,7 +319,7 @@ function ambush(s: Seg, w: number, i: number) {
 const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush };
 
 /** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
-export function buildSegment(w: number, v: number, h: number, rows: number, tall = false) {
+export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false) {
   const b = new LevelBuilder('seg', 'seg', w, 170, rows);
   const s: Seg = { b, x: 0, h, rows, r: rng(w * 1009 + v * 7919 + 17) };
   flat(s, 3);
@@ -313,6 +335,7 @@ export function buildSegment(w: number, v: number, h: number, rows: number, tall
   }
   (v % 2 ? vault : bumps)(s, w, v);
   flat(s, 2);
+  if (room) { annex(s, w, v); flat(s, 2); }
   secret(s, w, v);
   flat(s, 2);
   return { b, width: s.x };
@@ -387,11 +410,13 @@ export function extendLevel(base: LevelData, variant: number): LevelData {
   if (base.arena) return base;
   // terceira fase de cada mundo (sem água): ganha uma torre, então o mapa cresce para cima
   const tall = variant === 2 && base.water === undefined;
-  const l = tall ? padTop(base, TOWER_PAD) : base;
+  // segunda fase de cada mundo (sem água): ganha uma sala conectada por portas, no alto
+  const room = variant === 1 && base.water === undefined;
+  const l = tall ? padTop(base, TOWER_PAD) : room ? padTop(base, ROOM_PAD) : base;
   const at = findInsertion(l);
   if (at === undefined) return base;
   const h = l.rows - surfaceRow(l, at);
-  const { b, width } = buildSegment(l.world, variant, h, l.rows, tall);
+  const { b, width } = buildSegment(l.world, variant, h, l.rows, tall, room);
   const seg = b.build();
 
   const tiles = l.tiles.map((row, r) => [...row.slice(0, at), ...seg.tiles[r].slice(0, width), ...row.slice(at)]);
