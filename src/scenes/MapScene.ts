@@ -7,6 +7,8 @@ import { LEVEL_META, isUnlocked } from '../levels';
 import { WORLDS, worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
 import { loadSave, type SaveData } from '../systems/Save';
+import { Ambient } from '../systems/Ambient';
+import { overviewFx } from '../systems/WorldFx';
 
 // Ícones do atlas "map_icons".
 const ICON = { locked: 0, open: 1, done: 2, bossLocked: 3, bossDone: 4, iris: 5, flag: 6, dots: 7, shard: 8 };
@@ -19,6 +21,7 @@ export class MapScene extends Phaser.Scene {
   private token!: Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
   private cards!: Phaser.GameObjects.Container;
   private title!: Phaser.GameObjects.Text;
+  private fx?: Ambient;
 
   constructor() {
     super('Map');
@@ -31,8 +34,12 @@ export class MapScene extends Phaser.Scene {
     this.cursor = Phaser.Math.Clamp(data?.focus ?? this.save.level, 0, Math.max(...unlocked));
     if (!isUnlocked(this.cursor, this.save.completed)) this.cursor = Math.max(...unlocked);
 
-    if (has(this, 'world_map')) this.add.image(GAME_W / 2, GAME_H / 2, 'world_map').setDisplaySize(GAME_W, (GAME_W / 1536) * 1024);
-    else this.add.rectangle(0, 0, GAME_W, GAME_H, 0x6a8ad8).setOrigin(0);
+    this.fx = undefined;
+    if (has(this, 'world_map')) {
+      this.add.image(GAME_W / 2, GAME_H / 2, 'world_map').setDisplaySize(GAME_W, (GAME_W / 1536) * 1024);
+      this.fx = new Ambient(this, 0);
+      overviewFx(this.fx);
+    } else this.add.rectangle(0, 0, GAME_W, GAME_H, 0x6a8ad8).setOrigin(0);
 
     // clareiras dos mundos
     for (const w of WORLDS) {
@@ -80,6 +87,10 @@ export class MapScene extends Phaser.Scene {
     this.select(this.cursor, true);
     this.cameras.main.fadeIn(400);
     playMusic(this, 'map');
+  }
+
+  update(_time: number, delta: number) {
+    this.fx?.update(delta / 1000);
   }
 
   private icon(x: number, y: number, frame: number, scale: number) {
