@@ -144,6 +144,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private combo = 0;
   private mercyGiven = false;
   private bossStarted = false;
+  private weights: { x: number; s: Phaser.GameObjects.Sprite; chain: Phaser.GameObjects.Rectangle; shadow: Phaser.GameObjects.Ellipse; vy: number; state: 'hang' | 'fall' | 'gone'; back: number }[] = [];
   private bossGround = 0;
   private isSub = false;
   private initData: { level?: number; sub?: number; from?: SubFrom; back?: SubFrom } = {};
@@ -164,7 +165,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.isSub = data?.sub !== undefined && !!data?.from;
     this.levelIndex = Phaser.Math.Clamp((this.isSub ? data.from!.level : data?.level) ?? this.save.level, 0, LEVELS.length - 1);
     this.level = this.isSub ? buildSub(Math.floor(this.levelIndex / 4) + 1, data.sub!) : LEVELS[this.levelIndex]();
-    this.plates = []; this.gates = []; this.portals = []; this.fakewalls = [];
+    this.plates = []; this.gates = []; this.portals = []; this.fakewalls = []; this.weights = [];
     this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
     this.enemies = [];
     this.movers = [];
@@ -197,6 +198,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (!this.level.arena) this.buildDecor();
     const colorTotal = this.buildEntities();
     this.buildHints();
+    if (this.boss) this.buildWeights();
     if (data?.back) {
       // voltando de um sub-nível: reaparece ao lado do portal, que só reativa depois de Íris se afastar
       const b = data.back;
@@ -976,6 +978,85 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       if (Math.abs(x - px) < 140) x = Phaser.Math.Clamp(px - dir * 220, lo, hi); // encostado na parede: usa o outro lado
       this.dropHeart(x, this.bossGround - 40);
       this.events.emit('toast', 'Um coração caiu do céu!');
+    }
+  }
+
+  /** Pesos de pedra pendurados no teto da arena: acerte um (golpe ou tiro) para soltá-lo sobre o chefão. */
+  private buildWeights() {
+    const w = this.level.cols * TILE;
+    const bossRight = this.boss!.hit.x > w / 2;
+    const xs = bossRight ? [w * 0.5, w * 0.68] : [w * 0.32, w * 0.5];
+    for (const x of xs) this.weights.push(this.makeWeight(x));
+  }
+
+  private makeWeight(x: number) {
+    const chain = this.add.rectangle(x, 0, 6, 70, 0x4a4256).setOrigin(0.5, 0).setDepth(6);
+    const s = this.add.sprite(x, 120, 'blk_weight').setOrigin(0.5, 1).setDepth(6);
+    const shadow = this.add.ellipse(x, this.bossGround - 4, 80, 14, 0x000000, 0.22).setDepth(2);
+    return { x, s, chain, shadow, vy: 0, state: 'hang' as const, back: 0 };
+  }
+
+  private updateWeights(dt: number) {
+    if (!this.weights.length || !this.bossStarted) return;
+    const boss = this.boss;
+    for (const wt of this.weights) {
+      if (wt.state === 'gone') {
+        wt.back -= dt;
+        if (wt.back <= 0 && !this.finished) {
+          wt.s.setPosition(wt.x, -40).setVisible(true).setAlpha(1);
+          this.tweens.add({ targets: wt.s, y: 120, duration: 500, ease: 'Bounce.Out' });
+          wt.chain.setVisible(true);
+          wt.shadow.setVisible(true);
+          wt.state = 'hang';
+          wt.vy = 0;
+        }
+        continue;
+      }
+      const rect = wt.s.getBounds();
+      if (wt.state === 'hang') {
+        let hitBy = this.player.attackTime > 0 && Phaser.Geom.Intersects.RectangleToRectangle(this.player.attackRect(), rect);
+        for (const sh of this.pshots.getChildren() as Sprite[]) {
+          if (Phaser.Geom.Intersects.RectangleToRectangle(sh.getBounds(), rect)) {
+            hitBy = true;
+            this.popShot(sh);
+          }
+        }
+        if (hitBy) {
+          wt.state = 'fall';
+          wt.chain.setVisible(false);
+          this.sfx('break_block');
+          this.burst(wt.x, 60, 10, [0xffd86b, 0xffffff]);
+        }
+        continue;
+      }
+      // caindo
+      wt.vy = Math.min(1500, wt.vy + 2400 * dt);
+      wt.s.y += wt.vy * dt;
+      const r = wt.s.getBounds();
+      const down = (hit: boolean) => {
+        wt.state = 'gone';
+        wt.back = 7;
+        wt.s.setVisible(false);
+        wt.shadow.setVisible(false);
+        this.burst(wt.s.x, Math.min(wt.s.y, this.bossGround - 20), hit ? 36 : 16, hit ? RAINBOW : [0x9a9da6, 0xffffff]);
+        this.shakeCamera(160, 0.01);
+      };
+      if (boss && Phaser.Geom.Intersects.RectangleToRectangle(r, new Phaser.Geom.Rectangle(boss.body.x, boss.body.y, boss.body.width, boss.body.height))) {
+        if (boss.takeHit()) {
+          this.sfx('boss_hit');
+          this.hitStop(80);
+          this.events.emit('toast', 'Em cheio! O peso acertou o chefão!');
+          down(true);
+        } else down(false);
+        continue;
+      }
+      const pb = this.player.body;
+      if (!this.player.dead && Phaser.Geom.Intersects.RectangleToRectangle(r, new Phaser.Geom.Rectangle(pb.x, pb.y, pb.width, pb.height)) && this.player.hurt(wt.x)) {
+        this.feedbackHurt();
+        down(false);
+        continue;
+      }
+      if (wt.s.y >= this.bossGround) down(false);
     }
   }
 
@@ -1776,6 +1857,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.updateGlideSound();
     this.updateHints(dt);
     this.updateInteractive(dt);
+    this.updateWeights(dt);
     this.checkSwing();
     for (const e of this.enemies) e.update(dt);
     this.boss?.update(dt * this.tuning.bossSpeed);

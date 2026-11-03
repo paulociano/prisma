@@ -55,6 +55,15 @@ export function ensureBlockTextures(scene: Phaser.Scene) {
     c.strokeStyle = 'rgba(60,52,48,0.35)'; c.lineWidth = 2;
     for (const y of [13, 31, 50]) { c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(20, y - 4, 42, y + 5, 64, y); c.stroke(); }
   });
+  // peso de pedra pendurado por uma corrente (cai sobre o chefão)
+  bake(scene, 'blk_weight', 88, 96, (c) => {
+    c.strokeStyle = '#4a4256'; c.lineWidth = 6; c.beginPath(); c.moveTo(44, 0); c.lineTo(44, 18); c.stroke();
+    const g = c.createLinearGradient(0, 18, 0, 96);
+    g.addColorStop(0, '#a39aae'); g.addColorStop(1, '#5d556a');
+    c.fillStyle = g; c.beginPath(); c.moveTo(14, 96); c.lineTo(74, 96); c.lineTo(84, 34); c.lineTo(4, 34); c.closePath(); c.fill();
+    c.strokeStyle = '#2f2a3a'; c.lineWidth = 4; c.stroke();
+    c.fillStyle = '#ffd86b'; c.font = 'bold 34px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('✦', 44, 66);
+  });
   bake(scene, 'blk_portal', 64, 96, (c) => {
     const g = c.createRadialGradient(32, 52, 4, 32, 52, 46);
     g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.5, 'rgba(190,150,255,0.8)'); g.addColorStop(1, 'rgba(120,80,255,0)');
