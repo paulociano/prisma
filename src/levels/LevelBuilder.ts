@@ -43,6 +43,12 @@ export type EntityType =
   | 'chest'
   | 'door'
   | 'chamber'
+  | 'pennant'
+  | 'label'
+  | 'joke'
+  | 'rumor'
+  | 'stare'
+  | 'silence'
   | 'crumble'
   | 'guardian'
   | 'boss';
@@ -210,6 +216,12 @@ export class LevelBuilder {
   /** Plataforma que desmorona: treme logo depois de pisada, cai e volta. `w` blocos de largura. */
   crumble(col: number, row: number, w = 2) {
     this.entities.push({ type: 'crumble', col, row, data: { w } });
+    return this;
+  }
+
+  /** Bandeirola educativa nº n (ver story/pennants.ts). */
+  pennant(col: number, row: number, n: number) {
+    this.entities.push({ type: 'pennant', col, row, data: { n } });
     return this;
   }
 

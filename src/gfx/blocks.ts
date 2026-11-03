@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PENNANTS } from '../story/pennants';
 
 // Texturas dos blocos interativos (bater com a cabeça, caixa, placa, portão, parede falsa).
 // Geradas no navegador: nenhum arquivo de arte novo.
@@ -52,8 +53,29 @@ function useArt(scene: Phaser.Scene) {
   fromAtlas(scene, 'blk_crystal', 'secret_chamber', 5, 72, 72);
 }
 
+/** Bandeirolas: arte (folha `pennants`, um quadro por bandeira) ou flâmula desenhada com as listras da bandeira. */
+function ensurePennants(scene: Phaser.Scene) {
+  PENNANTS.forEach((p, i) => {
+    const key = `pennant_${i}`;
+    if (fromAtlas(scene, key, 'pennants', i, 72, 104) || scene.textures.exists(key)) return;
+    bake(scene, key, 72, 104, (c) => {
+      c.fillStyle = '#6b5b7b'; c.fillRect(8, 4, 5, 98); // mastro
+      c.fillStyle = '#ffd86b'; c.beginPath(); c.arc(10.5, 5, 5, 0, Math.PI * 2); c.fill();
+      // flâmula com ponta dupla; listras na vertical da bandeira
+      const top = 12, h = 50, left = 13, right = 68;
+      c.save();
+      c.beginPath(); c.moveTo(left, top); c.lineTo(right, top); c.lineTo(right - 12, top + h / 2); c.lineTo(right, top + h); c.lineTo(left, top + h); c.closePath(); c.clip();
+      const n = p.colors.length;
+      p.colors.forEach((col, k) => { c.fillStyle = '#' + col.toString(16).padStart(6, '0'); c.fillRect(left, top + (h * k) / n, right - left, Math.ceil(h / n) + 1); });
+      c.restore();
+      c.strokeStyle = '#2f2a3a'; c.lineWidth = 3; c.beginPath(); c.moveTo(left, top); c.lineTo(right, top); c.lineTo(right - 12, top + h / 2); c.lineTo(right, top + h); c.lineTo(left, top + h); c.closePath(); c.stroke();
+    });
+  });
+}
+
 export function ensureBlockTextures(scene: Phaser.Scene) {
   useArt(scene);
+  ensurePennants(scene);
   bake(scene, 'blk_bump', 64, 64, (c) => {
     c.fillStyle = '#ffb32e'; rr(c, 1, 1, 62, 62, 10); c.fill();
     c.fillStyle = '#ffd86b'; rr(c, 5, 5, 54, 24, 8); c.fill();

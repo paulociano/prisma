@@ -23,13 +23,13 @@ const oneOf = <K>(s: Seg, arr: K[]) => arr[Math.floor(s.r() * arr.length)];
 
 // O que existe em cada mundo (inimigos e habilidades já liberadas antes da fase 3).
 const WORLD: Record<number, { ground: EntityType[]; air: EntityType[]; dj: boolean; beats: string[] }> = {
-  1: { ground: ['blot', 'beetle', 'padlock'], air: ['moth'], dj: false, beats: ['mountain', 'islands', 'crates', 'tower', 'twoRoutes', 'pit'] },
-  2: { ground: ['scorpion', 'blot', 'megaphone'], air: ['moth'], dj: true, beats: ['mountain', 'vent', 'islands', 'mover', 'twoRoutes', 'crates'] },
-  3: { ground: ['padlock', 'megaphone', 'blot'], air: ['drone'], dj: true, beats: ['tower', 'searchlight', 'islands', 'mountain', 'mover', 'twoRoutes'] },
-  4: { ground: ['snapper', 'blot', 'padlock'], air: ['moth'], dj: true, beats: ['chimney', 'mountain', 'islands', 'crates', 'twoRoutes', 'mover'] },
+  1: { ground: ['blot', 'beetle', 'padlock', 'label'], air: ['moth', 'rumor'], dj: false, beats: ['mountain', 'islands', 'crates', 'tower', 'twoRoutes', 'pit'] },
+  2: { ground: ['scorpion', 'blot', 'megaphone', 'joke'], air: ['moth', 'rumor'], dj: true, beats: ['mountain', 'vent', 'islands', 'mover', 'twoRoutes', 'crates'] },
+  3: { ground: ['padlock', 'megaphone', 'blot', 'label', 'joke'], air: ['drone', 'rumor'], dj: true, beats: ['tower', 'searchlight', 'islands', 'mountain', 'mover', 'twoRoutes'] },
+  4: { ground: ['snapper', 'blot', 'padlock', 'joke', 'silence'], air: ['moth', 'stare'], dj: true, beats: ['chimney', 'mountain', 'islands', 'crates', 'twoRoutes', 'mover'] },
   5: { ground: ['blot', 'padlock'], air: ['puffer'], dj: true, beats: ['mountain', 'islands', 'twoRoutes', 'tower', 'pit', 'crates'] },
-  6: { ground: ['blot', 'padlock', 'megaphone'], air: ['comet'], dj: true, beats: ['islands', 'mountain', 'mover', 'tower', 'twoRoutes', 'chimney'] },
-  7: { ground: ['sentinel', 'scorpion', 'snapper'], air: ['drone'], dj: true, beats: ['tower', 'mountain', 'chimney', 'islands', 'searchlight', 'twoRoutes'] },
+  6: { ground: ['blot', 'padlock', 'megaphone', 'silence', 'label'], air: ['comet', 'stare'], dj: true, beats: ['islands', 'mountain', 'mover', 'tower', 'twoRoutes', 'chimney'] },
+  7: { ground: ['sentinel', 'scorpion', 'snapper', 'silence', 'joke', 'label'], air: ['drone', 'stare', 'rumor'], dj: true, beats: ['tower', 'mountain', 'chimney', 'islands', 'searchlight', 'twoRoutes'] },
 };
 
 const top = (s: Seg) => s.rows - s.h; // linha do topo do chão
@@ -303,6 +303,18 @@ function zigzag(s: Seg, w: number, i: number) {
   flat(s, 2);
 }
 
+/** Bandeirola educativa sobre dois degraus finos: um desvio opcional e sem perigo. */
+function pennantNook(s: Seg, n: number) {
+  const t = top(s);
+  const x = s.x;
+  s.b.ground(x, x + 9, s.h);
+  s.b.oneway(x + 1, x + 2, t - 2);
+  s.b.oneway(x + 4, x + 6, t - 4);
+  s.b.coins(x + 1, x + 2, t - 3);
+  s.b.pennant(x + 5, t - 5, n);
+  s.x += 10;
+}
+
 /** Ponte que desmorona: plataformas finas sobre espinhos; é preciso seguir sem parar. */
 function crumbleBridge(s: Seg, w: number, i: number) {
   const t = top(s);
@@ -367,6 +379,8 @@ export function buildSegment(w: number, v: number, h: number, rows: number, tall
   }
   (v % 2 ? vault : bumps)(s, w, v);
   flat(s, 2);
+  const order = [1, 2, 3, 4, 6, 7].indexOf(w);
+  if (order >= 0 && v !== 1) { pennantNook(s, order * 2 + (v === 2 ? 1 : 0)); flat(s, 2); }
   if (room) { annex(s, w, v); flat(s, 2); }
   secret(s, w, v);
   flat(s, 2);

@@ -4,7 +4,7 @@ import { texRes } from '../gfx/textures';
 
 type Body = Phaser.Physics.Arcade.Body;
 
-export type EnemyKind = 'blot' | 'moth' | 'megaphone' | 'padlock' | 'beetle' | 'scorpion' | 'drone' | 'snapper' | 'puffer' | 'comet' | 'sentinel';
+export type EnemyKind = 'blot' | 'moth' | 'megaphone' | 'padlock' | 'beetle' | 'scorpion' | 'drone' | 'snapper' | 'puffer' | 'comet' | 'sentinel' | 'label' | 'joke' | 'rumor' | 'stare' | 'silence';
 
 // Arte de cada tipo: atlas próprio (frames 0-3 movimento, 4 dano, 5 restaurado)
 // ou, na falta dele, a ficha "faded" (0-3 cinzas, 4-7 restaurados).
@@ -20,6 +20,11 @@ const ART: Record<EnemyKind, { tex: string; fallback: number }> = {
   puffer: { tex: 'w5_enemy', fallback: 0 },
   comet: { tex: 'w6_enemy', fallback: 1 },
   sentinel: { tex: 'w7_enemy', fallback: 3 },
+  label: { tex: 'label', fallback: 0 },
+  joke: { tex: 'joke', fallback: 2 },
+  rumor: { tex: 'rumor', fallback: 1 },
+  stare: { tex: 'stare', fallback: 1 },
+  silence: { tex: 'silence', fallback: 3 },
 };
 const SIZE: Record<EnemyKind, [number, number]> = {
   blot: [64, 44],
@@ -33,10 +38,15 @@ const SIZE: Record<EnemyKind, [number, number]> = {
   puffer: [58, 54],
   comet: [62, 44],
   sentinel: [54, 70],
+  label: [58, 54],
+  joke: [56, 60],
+  rumor: [58, 48],
+  stare: [58, 52],
+  silence: [60, 72],
 };
 
 /** Tipos que flutuam (sem gravidade) e são desenhados centrados no corpo. */
-const FLOATERS = new Set<EnemyKind>(['moth', 'drone', 'puffer', 'comet']);
+const FLOATERS = new Set<EnemyKind>(['moth', 'drone', 'puffer', 'comet', 'rumor', 'stare']);
 
 export interface EnemyHost {
   isSolidAt(x: number, y: number): boolean;
@@ -94,7 +104,7 @@ export class Enemy {
   /** Só dá para restaurar o cadeado pisando nele; de lado, ele bloqueia o golpe. */
   get armoredFront() {
     // o Sentinela só bloqueia quem está à frente do escudo; pelas costas ele é vulnerável
-    const sentinelFront = this.kind === 'sentinel' && Math.sign(this.host.playerX() - this.hit.x) === this.dir;
+    const sentinelFront = (this.kind === 'sentinel' || this.kind === 'silence') && Math.sign(this.host.playerX() - this.hit.x) === this.dir;
     return this.kind === 'padlock' || this.spiky || sentinelFront;
   }
 
@@ -194,6 +204,37 @@ export class Enemy {
         case 'padlock':
           this.walk(40);
           break;
+        case 'label':
+          this.walk(60);
+          break;
+        case 'silence':
+          this.walk(45);
+          break;
+        case 'stare':
+          this.drone(dt);
+          break;
+        case 'joke':
+          // pula na direção de Íris, rindo: o pulo é curto e dá para prever
+          this.dir = this.host.playerX() < this.hit.x ? -1 : 1;
+          this.hopTimer -= dt;
+          if (b.blocked.down) {
+            if (this.hopTimer <= 1.1) b.setVelocityX(0);
+            if (this.hopTimer <= 0) {
+              b.setVelocity(this.dir * 150, -430);
+              this.hopTimer = 1.5;
+            }
+          }
+          break;
+        case 'rumor':
+          this.hit.x = this.anchor.x + Math.sin(this.t * 0.9) * 110;
+          this.hit.y = this.anchor.y + Math.sin(this.t * 2.1) * 26;
+          this.dir = Math.cos(this.t * 0.9) >= 0 ? 1 : -1;
+          this.shootTimer -= dt;
+          if (this.shootTimer <= 0 && Math.abs(this.host.playerX() - this.hit.x) < 560) {
+            this.host.enemyShoot(this, this.host.playerX() < this.hit.x ? -1 : 1);
+            this.shootTimer = 3.2;
+          }
+          break;
         case 'moth':
           this.hit.x = this.anchor.x + Math.sin(this.t * 1.1) * 130;
           this.hit.y = this.anchor.y + Math.sin(this.t * 2.6) * 34;
@@ -215,10 +256,10 @@ export class Enemy {
       }
     }
 
-    if (this.kind === 'drone' || this.kind === 'puffer' || this.kind === 'comet') {
+    if (this.kind === 'drone' || this.kind === 'stare' || this.kind === 'puffer' || this.kind === 'comet' || this.kind === 'rumor') {
       // drone: arte centrada no corpo, inclina um pouco ao mergulhar
       this.view.setOrigin(0.5, 0.42).setPosition(this.hit.x, this.hit.y).setScale(this.baseScale).setFlipX(this.dir < 0);
-      this.view.setAngle(this.kind === 'drone' && this.droneState === 'dive' ? this.dir * 14 : 0);
+      this.view.setAngle((this.kind === 'drone' || this.kind === 'stare') && this.droneState === 'dive' ? this.dir * 14 : 0);
       return;
     }
     const bottom = this.kind === 'moth' ? this.hit.y + b.height / 2 : b.bottom;
@@ -280,7 +321,7 @@ export class Enemy {
         this.hit.y += (this.anchor.y - this.hit.y) * k;
         if (this.droneT <= 0) {
           this.droneState = 'patrol';
-          if (this.drawn) this.view.play('drone-move');
+          if (this.drawn) this.view.play(`${this.kind}-move`);
         }
         break;
       }

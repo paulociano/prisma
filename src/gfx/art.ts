@@ -34,7 +34,7 @@ export function createAnims(scene: Phaser.Scene) {
   anim(scene, 'iris-win', 'iris_hurt_win', [F.irisHurtWin.victory, F.irisHurtWin.shard], 3, 0);
   anim(scene, 'spark-fly', 'spark_anim', [0, 1, 2, 3], 8);
 
-  for (const kind of ['blot', 'moth', 'megaphone', 'padlock']) anim(scene, `${kind}-move`, kind, [0, 1, 2, 3], 8);
+  for (const kind of ['blot', 'moth', 'megaphone', 'padlock', 'label', 'joke', 'rumor', 'stare', 'silence']) anim(scene, `${kind}-move`, kind, [0, 1, 2, 3], 8);
   anim(scene, 'beetle-move', 'w1_enemy', [0, 1, 3], 7);
   anim(scene, 'scorpion-move', 'w2_enemy', [0, 3], 5);
   anim(scene, 'drone-move', 'w3_enemy', [0, 1], 6);
