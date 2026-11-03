@@ -19,6 +19,7 @@ import { worldInfo } from '../levels/worlds';
 import { STORY } from '../story';
 import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../systems/Audio';
 import { ColorRestore } from '../systems/ColorRestore';
+import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
 import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
@@ -128,6 +129,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private vents: Vent[] = [];
   private winds: Wind[] = [];
   private bossWind = 0;
+  private bossDamage?: BossDamage;
   private tuning = difficultyTuning(1);
   private coinBank = 0;
 
@@ -145,6 +147,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.movers = [];
     this.guardian = undefined;
     this.boss = undefined;
+    this.bossDamage = undefined;
     this.bossMarker = undefined;
     this.vents = [];
     this.searchlights = [];
@@ -530,6 +533,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         case 'boss': {
           const Kind = BOSSES[this.level.world as keyof typeof BOSSES] ?? StoneJudge;
           this.boss = new Kind(this, this.bossHost(bottom), cx, this.solids);
+          this.bossDamage = new BossDamage(this, this.boss);
           break;
         }
         case 'vent':
@@ -777,7 +781,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       playerBody: () => this.player.body,
       burst: (x, y, n) => this.burst(x, y, n),
       setWind: (v) => (this.bossWind = v),
-      onBossHp: (hp, max) => this.events.emit('boss-hp', { name: this.boss?.name ?? '', hp, max }),
+      onBossHp: (hp, max) => {
+        this.bossDamage?.onHp(hp, max);
+        this.events.emit('boss-hp', { name: this.boss?.name ?? '', hp, max });
+      },
       onBossDefeated: () => this.bossDefeated(),
     };
   }
@@ -798,6 +805,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private bossDefeated() {
+    this.bossDamage?.finale();
     this.color.complete();
     this.sfx('boss_restored', 0);
     this.events.emit('boss-hp', null);
@@ -1514,6 +1522,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.checkSwing();
     for (const e of this.enemies) e.update(dt);
     this.boss?.update(dt * this.tuning.bossSpeed);
+    this.bossDamage?.update();
     // vira o chefão para o lado de Íris, conforme a direção em que cada arte foi desenhada
     if (this.boss) {
       const art = BOSS_ART_FACING[this.level.world] ?? 'front';
