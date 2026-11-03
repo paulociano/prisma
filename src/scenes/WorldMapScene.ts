@@ -5,6 +5,7 @@ import { panel, textStyle } from '../gfx/ui';
 import { LEVEL_META, isUnlocked } from '../levels';
 import { worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
+import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { applyColorblind } from '../systems/Settings';
 import { Ambient } from '../systems/Ambient';
@@ -186,7 +187,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.leaving = true;
     playSfx(this, 'menu_select', 0);
     this.cameras.main.fadeOut(300);
-    this.time.delayedCall(320, () => this.scene.start('Game', { level: l.index }));
+    this.time.delayedCall(320, () => ensureWorld(this, l.world, () => this.scene.start('Game', { level: l.index })));
   }
 
   private back() {

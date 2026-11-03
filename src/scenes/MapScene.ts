@@ -6,6 +6,7 @@ import { panel, textStyle } from '../gfx/ui';
 import { LEVEL_META, isUnlocked } from '../levels';
 import { WORLDS, worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
+import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { Ambient } from '../systems/Ambient';
 import { overviewFx } from '../systems/WorldFx';
@@ -171,6 +172,6 @@ export class MapScene extends Phaser.Scene {
     this.input.keyboard!.removeAllListeners();
     playSfx(this, 'menu_select', 0);
     this.cameras.main.fadeOut(300);
-    this.time.delayedCall(320, () => this.scene.start('WorldMap', { world: LEVEL_META[focus].world, focus }));
+    this.time.delayedCall(320, () => ensureWorld(this, LEVEL_META[focus].world, () => this.scene.start('WorldMap', { world: LEVEL_META[focus].world, focus })));
   }
 }

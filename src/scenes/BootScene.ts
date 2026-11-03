@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_H, GAME_W, RAINBOW } from '../config';
 import { createAnims } from '../gfx/art';
 import { makePlaceholders } from '../gfx/textures';
+import { worldOf } from '../systems/Loader';
 
 interface ManifestEntry {
   key: string;
@@ -62,10 +63,11 @@ export class BootScene extends Phaser.Scene {
 
   private loadAll(fancy: boolean) {
     const res: Record<string, number> = {};
-    for (const a of this.manifest?.audio ?? []) this.load.audio(a.key, `assets/${a.file}`);
+    // mundos 2 a 7 só baixam quando o jogador chega neles (ver systems/Loader.ts)
+    for (const a of this.manifest?.audio ?? []) if (worldOf(a.key) <= 1) this.load.audio(a.key, `assets/${a.file}`);
     for (const s of this.manifest?.sprites ?? []) {
       res[s.key] = s.res;
-      if (this.textures.exists(s.key)) continue;
+      if (worldOf(s.key) > 1 || this.textures.exists(s.key)) continue;
       if (s.type === 'atlas') this.load.atlas(s.key, `assets/${s.file}`, `assets/${s.json}`);
       else this.load.image(s.key, `assets/${s.file}`);
     }

@@ -6,6 +6,7 @@
 // Uso: npm run assets
 import sharp from 'sharp';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const RAW = 'assets/raw';
@@ -575,6 +576,32 @@ for (const sheet of SHEETS) {
   if (entry) manifest.sprites.push(entry);
 }
 manifest.sprites.push(...extraImages);
+// Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
+// O JSON do atlas e o manifest passam a apontar para os arquivos novos.
+let before = 0, after = 0;
+for (const e of manifest.sprites) {
+  const f = path.join(OUT_DIR, e.file);
+  if (!fs.existsSync(f)) continue;
+  before += fs.statSync(f).size;
+  if (e.file.endsWith('.png')) {
+    const out = f.replace(/\.png$/, '.webp');
+    await sharp(f).webp({ quality: 84, alphaQuality: 92, effort: 5, smartSubsample: true }).toFile(out);
+    fs.unlinkSync(f);
+    e.file = e.file.replace(/\.png$/, '.webp');
+    if (e.json) {
+      const jf = path.join(OUT_DIR, e.json);
+      const j = JSON.parse(fs.readFileSync(jf, 'utf8'));
+      if (j.meta) j.meta.image = path.basename(e.file);
+      fs.writeFileSync(jf, JSON.stringify(j));
+    }
+  } else if (e.file.endsWith('.jpg')) {
+    const buf = await sharp(f).jpeg({ quality: 80, mozjpeg: true }).toBuffer();
+    fs.writeFileSync(f, buf);
+  }
+  after += fs.statSync(path.join(OUT_DIR, e.file)).size;
+}
+console.log(`  ✔ imagens otimizadas: ${(before / 1e6).toFixed(0)} MB → ${(after / 1e6).toFixed(0)} MB`);
+
 // Áudio: copia assets/audio/{musica,sfx} para public/assets/audio e registra no manifest.
 // A chave é o nome do arquivo sem extensão (ex.: sfx/jump.wav → "sfx_jump").
 manifest.audio = [];
@@ -585,8 +612,16 @@ for (const [dir, prefix] of [['musica', 'music'], ['sfx', 'sfx']]) {
   fs.mkdirSync(dest, { recursive: true });
   for (const f of fs.readdirSync(src)) {
     if (!/\.(mp3|ogg|wav|m4a)$/i.test(f)) continue;
-    fs.copyFileSync(path.join(src, f), path.join(dest, f));
-    manifest.audio.push({ key: `${prefix}_${path.parse(f).name}`, file: `audio/${dir}/${f}` });
+    // música: recodifica em MP3 96 kbps estéreo (≈ 1/3 do tamanho); efeitos curtos: MP3 128 kbps. Sem ffmpeg, copia o original.
+    const name = path.parse(f).name;
+    const outName = `${name}.mp3`;
+    const enc = spawnSync('ffmpeg', ['-y', '-v', 'error', '-i', path.join(src, f), '-vn', '-ac', dir === 'musica' ? '2' : '1', '-b:a', dir === 'musica' ? '96k' : '112k', '-ar', '44100', path.join(dest, outName)]);
+    if (enc.status === 0 && /loop/.test(name)) fs.unlinkSync(path.join(dest, outName)); // loops ficam em WAV (MP3 deixa um vazio na emenda)
+    if (enc.status === 0 && !/loop/.test(name)) manifest.audio.push({ key: `${prefix}_${name}`, file: `audio/${dir}/${outName}` });
+    else {
+      fs.copyFileSync(path.join(src, f), path.join(dest, f));
+      manifest.audio.push({ key: `${prefix}_${name}`, file: `audio/${dir}/${f}` });
+    }
   }
 }
 console.log(`  ✔ áudio: ${manifest.audio.length} arquivo(s)`);
