@@ -336,6 +336,14 @@ function ambush(s: Seg, w: number, i: number) {
 
 const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush, crumbleBridge };
 
+// Dificuldade de cada desafio (1 = calmo, 3 = exigente). Os mundos iniciais só sorteiam os mais leves.
+const RATING: Record<string, number> = {
+  mountain: 1, tower: 1, crates: 1, vent: 1, islands: 2, twoRoutes: 2, pit: 2, mover: 2, searchlight: 2, ambush: 2,
+  chimney: 3, gauntlet: 3, zigzag: 3, crumbleBridge: 3,
+};
+/** Quanto de dificuldade a fase aguenta: sobe com o mundo (1 a 7) e com o número da fase (0 a 2). */
+export const allowedRating = (w: number, v: number) => 1.75 + (w - 1) * 0.25 + v * 0.2;
+
 /** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
 export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false) {
   const b = new LevelBuilder('seg', 'seg', w, 170, rows);
@@ -343,12 +351,18 @@ export function buildSegment(w: number, v: number, h: number, rows: number, tall
   flat(s, 3);
   b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
   // 4 desafios embaralhados (com a semente da fase) entre os do mundo e os novos, mais difíceis
-  const pool = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush', 'crumbleBridge'];
+  const all = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush', 'crumbleBridge'];
+  const lim = allowedRating(w, v);
+  let pool = all.filter((n) => RATING[n] <= lim);
+  const count = w === 1 ? 3 : 4;
+  if (pool.length < count) pool = all.sort((a, b) => RATING[a] - RATING[b]).slice(0, count);
   for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(s.r() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
-  for (let k = 0; k < 4; k++) {
+  // mundo 1 tem 3 desafios (ensina); do 2 em diante, 4. Ordem crescente de dificuldade dentro da fase.
+  const chosen = pool.slice(0, count).sort((a, b) => RATING[a] - RATING[b]);
+  for (let k = 0; k < count; k++) {
     // fases com a torre (terceira fase de cada mundo): o último desafio é a subida vertical
-    if (tall && k === 3 && top(s) - 19 >= 0) tower2(s, w, v);
-    else BEATS[pool[k]](s, w, v + k);
+    if (tall && k === count - 1 && top(s) - 19 >= 0) tower2(s, w, v);
+    else BEATS[chosen[k]](s, w, v + k);
     flat(s, rint(s, 1, 3));
   }
   (v % 2 ? vault : bumps)(s, w, v);
