@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { applyColorblind } from '../systems/Settings';
+import { TouchControls } from '../systems/Touch';
 import { GAME_W, GAME_H } from '../config';
 import { F, has } from '../gfx/art';
 import type { HudState } from './GameScene';
@@ -26,6 +27,7 @@ export class HudScene extends Phaser.Scene {
   private shardLabel!: Phaser.GameObjects.Text;
   private shardIcons: Phaser.GameObjects.Image[] = [];
   private overlay?: Phaser.GameObjects.Container;
+  private touch?: TouchControls;
 
   constructor() {
     super('Hud');
@@ -43,8 +45,13 @@ export class HudScene extends Phaser.Scene {
     else img.setTexture(placeholder);
   }
 
+  update() {
+    this.touch?.update();
+  }
+
   create() {
     applyColorblind(this);
+    this.touch = new TouchControls(this);
     // a instância da cena é reaproveitada ao reiniciar: começa as listas do zero
     this.hearts = [];
     this.shardIcons = [];

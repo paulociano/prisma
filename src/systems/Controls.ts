@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { readAxis } from './GamepadAxis';
+import { touchState as T } from './Touch';
 
 type Key = Phaser.Input.Keyboard.Key;
 
@@ -40,30 +41,30 @@ export class Controls {
     const dpadRight = !!pad?.buttons[15]?.pressed;
     const dpadDown = !!pad?.buttons[13]?.pressed;
 
-    this.left = k.LEFT.isDown || k.A.isDown || axis < 0 || dpadLeft;
-    this.right = k.RIGHT.isDown || k.D.isDown || axis > 0 || dpadRight;
-    this.down = k.DOWN.isDown || k.S.isDown || axisY > 0 || dpadDown;
+    this.left = k.LEFT.isDown || k.A.isDown || axis < 0 || dpadLeft || T.left;
+    this.right = k.RIGHT.isDown || k.D.isDown || axis > 0 || dpadRight || T.right;
+    this.down = k.DOWN.isDown || k.S.isDown || axisY > 0 || dpadDown || T.down;
     this.downPressed = this.down && !this.prevDown;
     this.prevDown = this.down;
 
-    const jump = k.SPACE.isDown || k.Z.isDown || k.UP.isDown || k.W.isDown || k.K.isDown || !!pad?.A;
+    const jump = k.SPACE.isDown || k.Z.isDown || k.UP.isDown || k.W.isDown || k.K.isDown || !!pad?.A || T.jump;
     this.jumpPressed = jump && !this.prevJump;
     this.jumpHeld = jump;
     this.prevJump = jump;
 
-    const attack = k.X.isDown || k.J.isDown || !!pad?.X;
+    const attack = k.X.isDown || k.J.isDown || !!pad?.X || T.attack;
     this.attackPressed = attack && !this.prevAttack;
     this.prevAttack = attack;
 
-    const shoot = k.C.isDown || k.I.isDown || !!pad?.B;
+    const shoot = k.C.isDown || k.I.isDown || !!pad?.B || T.shoot;
     this.shootPressed = shoot && !this.prevShoot;
     this.prevShoot = shoot;
 
-    const dash = k.SHIFT.isDown || k.L.isDown || k.V.isDown || !!pad?.R1 || !!pad?.Y;
+    const dash = k.SHIFT.isDown || k.L.isDown || k.V.isDown || !!pad?.R1 || !!pad?.Y || T.dash;
     this.dashPressed = dash && !this.prevDash;
     this.prevDash = dash;
 
-    const pause = k.ESC.isDown || k.P.isDown || !!pad?.buttons[9]?.pressed;
+    const pause = k.ESC.isDown || k.P.isDown || !!pad?.buttons[9]?.pressed || T.pause;
     this.pausePressed = pause && !this.prevPause;
     this.prevPause = pause;
 
