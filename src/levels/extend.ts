@@ -303,6 +303,23 @@ function zigzag(s: Seg, w: number, i: number) {
   flat(s, 2);
 }
 
+/** Ponte que desmorona: plataformas finas sobre espinhos; é preciso seguir sem parar. */
+function crumbleBridge(s: Seg, w: number, i: number) {
+  const t = top(s);
+  const n = rint(s, 4, 6);
+  const step = WORLD[w].dj ? 4 : 3; // distância entre as peças (vão de 1-2 blocos)
+  s.b.ground(s.x, s.x + n * step + 2, 1).spikes(s.x, s.x + n * step + 2, s.rows - 2);
+  let x = s.x + 1;
+  for (let k = 0; k < n; k++) {
+    s.b.crumble(x, t - (k % 2 ? 2 : 1), 2);
+    if (k % 2 === 0) s.b.coins(x, x + 1, t - (k % 2 ? 4 : 3));
+    if (k === 2) s.b.add(pick(WORLD[w].air, i), x + 1, t - 5);
+    x += step;
+  }
+  s.x = x + 2;
+  flat(s, 2);
+}
+
 /** Emboscada: caixas servem de abrigo e três inimigos fecham o corredor. */
 function ambush(s: Seg, w: number, i: number) {
   const t = top(s);
@@ -317,7 +334,7 @@ function ambush(s: Seg, w: number, i: number) {
   s.x += 16;
 }
 
-const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush };
+const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush, crumbleBridge };
 
 /** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
 export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false) {
@@ -326,7 +343,7 @@ export function buildSegment(w: number, v: number, h: number, rows: number, tall
   flat(s, 3);
   b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
   // 4 desafios embaralhados (com a semente da fase) entre os do mundo e os novos, mais difíceis
-  const pool = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush'];
+  const pool = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush', 'crumbleBridge'];
   for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(s.r() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
   for (let k = 0; k < 4; k++) {
     // fases com a torre (terceira fase de cada mundo): o último desafio é a subida vertical

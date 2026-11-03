@@ -61,6 +61,10 @@ export class Player {
   private wasOnGround = true;
   private t = 0;
   private squash = { x: 1, y: 1 };
+  /** momento (ms) do último toque numa plataforma fina e tempo em que ela fica "mole" ao descer */
+  onOneWayAt = -1e9;
+  private jumpHeldNow = false;
+  dropTime = 0;
   private baseScale: number;
 
   constructor(private scene: Phaser.Scene, x: number, y: number) {
@@ -117,6 +121,14 @@ export class Player {
     this.wasOnGround = ground;
 
     this.jumpBuffer = c.jumpPressed ? PHYS.jumpBuffer : this.jumpBuffer - dt;
+    // descer de uma plataforma fina: BAIXO + PULAR (não gasta o pulo)
+    this.dropTime = Math.max(0, this.dropTime - dt);
+    if (ground && c.down && c.jumpPressed && this.scene.time.now - this.onOneWayAt < 120) {
+      this.dropTime = 0.22;
+      this.jumpBuffer = 0;
+      this.coyote = 0;
+      b.setVelocityY(60);
+    }
 
     // dash: impulso reto e invulnerável; um por vez no ar
     this.dashCd = Math.max(0, this.dashCd - dt);
@@ -218,6 +230,7 @@ export class Player {
       this.flipTime = has(this.scene, 'iris_doublejump') ? 0.3 : 0;
       this.scene.events.emit('player-doublejump', this);
     }
+    this.jumpHeldNow = c.jumpHeld;
     if (!c.jumpHeld && this.jumping && b.velocity.y < 0) {
       b.setVelocityY(b.velocity.y * PHYS.jumpCut);
       this.jumping = false;
@@ -225,7 +238,10 @@ export class Player {
     if (b.velocity.y >= 0) this.jumping = false;
     // gravityScale < 1 (Ilhas do Céu): pulos mais altos e quedas mais lentas
     const g = this.gravityScale;
-    b.setGravityY(PHYS.gravity * (g - 1) + (b.velocity.y > 0 ? PHYS.fallExtraGravity * g : 0));
+    // pairada no ápice: segurando pular, a gravidade cai pela metade perto do topo (mais controle para acertar a borda)
+    const hang = !ground && this.jumpHeldNow && Math.abs(b.velocity.y) < 90 && !this.gliding;
+    const gs = hang ? g * 0.55 : g;
+    b.setGravityY(PHYS.gravity * (gs - 1) + (b.velocity.y > 0 ? PHYS.fallExtraGravity * gs : 0));
     if (b.velocity.y > PHYS.maxFall) b.setVelocityY(PHYS.maxFall);
 
     // planar: segurando pular durante a queda, a echarpe vira um paraquedas
