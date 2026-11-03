@@ -436,7 +436,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           if (this.textures.exists('spikes')) {
             // arte própria dos espinhos: uma variação por mundo (0 ferro, 1 cristal, 2 espinhos-vivos, 3 osso/pedra)
             const img = this.add.image(x + TILE / 2, y + TILE + 2, 'spikes', String((this.level.world - 1) % 4)).setOrigin(0.5, 1);
-            img.setScale((TILE + 6) / img.width).setDepth(2);
+            img.setScale((TILE + 10) / img.width).setDepth(2);
           } else if (art) {
             const img = this.add.image(x + TILE / 2, y + TILE + 4, this.tex('tiles'), String(F.w1Tiles.thorns)).setOrigin(0.5, 1);
             img.setScale((TILE + 8) / img.width).setDepth(2);
@@ -1241,7 +1241,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const y = this.bossGround;
     const crackArt = this.textures.exists('boss_cracks');
     const crack: { destroy: () => void } = crackArt
-      ? this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(0, 2))).setOrigin(0.5, 0.5).setDepth(3).setDisplaySize(150, 28)
+      ? this.fitWidth(this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(0, 2))), 170).setOrigin(0.5, 0.5).setDepth(3)
       : (() => {
           const cg = this.add.graphics().setDepth(3);
           cg.lineStyle(6, 0x1a1024, 0.95).beginPath().moveTo(x - 50, y - 2);
@@ -1264,7 +1264,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.shakeCamera(120, 0.006);
       if (crackArt) {
         // cratera que fica no chão e some devagar
-        const cr = this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(3, 5))).setDepth(3).setDisplaySize(150, 28);
+        const cr = this.fitWidth(this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(3, 5))).setDepth(3), 150);
         this.tweens.add({ targets: cr, alpha: 0, delay: 1400, duration: 900, onComplete: () => cr.destroy() });
       }
       const spikes: Phaser.GameObjects.GameObject[] = [];
@@ -1274,7 +1274,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         const t: Phaser.GameObjects.Image | Phaser.GameObjects.Triangle = spikeArt
           ? this.add.image(x + i * 22, y + 2, 'spikes', String(4 + (Math.abs(i) === 2 ? 0 : Math.abs(i) === 1 ? 1 : 2))).setOrigin(0.5, 1).setDepth(8).setScale(0.1)
           : this.add.triangle(x + i * 20, y, 0, 70, 10, 0, 20, 70, 0xb9a8ff, 1).setOrigin(0.5, 1).setDepth(8).setScale(1, 0.1);
-        const full = spikeArt ? 85 / (t as Phaser.GameObjects.Image).height : 1;
+        const full = spikeArt ? 100 / (t as Phaser.GameObjects.Image).height : 1;
         this.tweens.add({ targets: t, scaleY: full, scaleX: spikeArt ? full : 1, duration: 120, ease: 'Back.Out' });
         spikes.push(t);
       }
@@ -1283,6 +1283,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       if (!this.player.dead && Phaser.Geom.Intersects.RectangleToRectangle(area, new Phaser.Geom.Rectangle(pb.x, pb.y, pb.width, pb.height)) && this.player.hurt(x)) this.feedbackHurt();
       this.time.delayedCall(650, () => this.tweens.add({ targets: spikes, alpha: 0, duration: 250, onComplete: () => spikes.forEach((t) => t.destroy()) }));
     });
+  }
+
+  private fitWidth<T extends Phaser.GameObjects.Image>(img: T, w: number): T {
+    img.setScale(w / img.width);
+    return img;
   }
 
   private useDoor(to: { x: number; y: number }) {
