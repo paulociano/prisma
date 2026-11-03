@@ -169,17 +169,33 @@ export class Renderer3D {
       return board;
     };
 
-    // em pé na faixa de chão atrás do caminho, na frente da camada média
+    const widthOf = (key: string, frame: string, height: number) => {
+      const f = this.game.textures.getFrame(key, frame);
+      return (height * f.realWidth) / f.realHeight;
+    };
+
+    // em pé na faixa de chão atrás do caminho: duas fileiras desencontradas e sobrepostas,
+    // uma alta ao fundo e uma média na frente, para o cenário parecer contínuo
     const back = `w${level.world}_depth_props`;
     const backFrames = frames(back);
     const { floorY, z0, z1 } = this.backStrip!;
-    for (let x = -8 + rand() * 4; backFrames.length && x < level.cols + 8; x += 3.5 + rand() * 4.5) {
-      const z = z0 - 0.3 + (z1 - z0 + 0.6) * rand();
-      place(back, pick(backFrames), x, floorY - 0.05, 1.7 + rand() * 1.2, z, z); // mais longe, desenhado antes
+    const rows = [
+      { z: z1 + 0.35, min: 3.6, var: 1.4 },
+      { z: z0 - 0.45, min: 2.5, var: 1.0 },
+    ];
+    for (const row of rows) {
+      for (let x = -8 - rand() * 3; backFrames.length && x < level.cols + 8; ) {
+        const frame = pick(backFrames);
+        const height = row.min + rand() * row.var;
+        const width = widthOf(back, frame, height);
+        const z = row.z + (rand() - 0.5) * 0.2;
+        place(back, frame, x + width / 2, floorY - 0.05, height, z, z); // mais longe, desenhado antes
+        x += width * (0.55 + rand() * 0.25); // sobrepõe a próxima peça
+      }
     }
 
-    // primeiro plano: na frente dos blocos e desenhado por cima de tudo, só onde há chão
-    // (com um bloco de folga de cada lado dos buracos) e com o topo abaixo do chão mais baixo
+    // primeiro plano: faixa contínua na frente dos blocos, desenhada por cima de tudo. Só onde há
+    // chão (com um bloco de folga de cada lado dos buracos) e com o topo abaixo do chão mais baixo.
     const front = `w${level.world}_front_props`;
     const frontFrames = frames(front);
     const surface = (c: number) => {
@@ -187,17 +203,24 @@ export class Renderer3D {
       const r = level.tiles.findIndex((row) => row[c] === T.Solid);
       return r < 0 ? undefined : -r;
     };
-    for (let x = 4 + rand() * 6; frontFrames.length && x < level.cols - 2; x += 8 + rand() * 7) {
-      const frame = pick(frontFrames);
-      const f = this.game.textures.getFrame(front, frame);
-      const height = 1.0 + rand() * 0.5;
-      const half = (height * f.realWidth) / f.realHeight / 2;
+    const lowestTop = (x0: number, x1: number) => {
       const tops: (number | undefined)[] = [];
-      for (let c = Math.floor(x - half) - 1; c <= Math.floor(x + half) + 1; c++) tops.push(surface(c));
-      if (tops.some((t) => t === undefined)) continue;
-      const top = Math.min(...(tops as number[])) - 0.25;
-      const board = place(front, frame, x, top - height, height, FRONT_Z + rand() * 0.4, 40);
+      for (let c = Math.floor(x0) - 1; c <= Math.floor(x1) + 1; c++) tops.push(surface(c));
+      return tops.some((t) => t === undefined) ? undefined : Math.min(...(tops as number[]));
+    };
+    for (let x = -1; frontFrames.length && x < level.cols + 1; ) {
+      const frame = pick(frontFrames);
+      // perto de buraco tenta uma peça menor antes de deixar o vão
+      const fit = [1.9 + rand() * 0.7, 1.2].map((height) => ({ height, width: widthOf(front, frame, height) }))
+        .find(({ width }) => lowestTop(x, x + width) !== undefined);
+      if (!fit) {
+        x += 1;
+        continue;
+      }
+      const top = lowestTop(x, x + fit.width)! - 0.25;
+      const board = place(front, frame, x + fit.width / 2, top - fit.height, fit.height, FRONT_Z + rand() * 0.4, 40);
       (board.material as THREE.MeshBasicMaterial).depthTest = false;
+      x += fit.width * (0.6 + rand() * 0.2);
     }
   }
 
@@ -383,7 +406,7 @@ export class Renderer3D {
       const shadow = this.shadows.get(e.id);
       if (shadow) this.boards.updateShadow(shadow, e, this.builtFor!);
       if (obj.userData.board && e.sprite) {
-        this.boards.update(obj as THREE.Mesh, e.kind, e.sprite, this.camera);
+        this.boards.update(obj as THREE.Mesh, e.kind, e.sprite);
         continue;
       }
       this.models.animate(obj, e.anim, dt);

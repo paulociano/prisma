@@ -35,25 +35,20 @@ export class SpriteBoards {
     geo.setIndex([0, 2, 1, 2, 3, 1]);
     const mat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, alphaTest: 0.01, side: THREE.DoubleSide, fog: false });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.order = 'YXZ'; // gira para a câmera (Y) e depois aplica a rotação do 2D (Z)
     mesh.userData.board = true;
     return mesh;
   }
 
-  /** Copia o quadro atual do 2D para a placa e a posiciona de frente para a câmera. */
-  update(mesh: THREE.Mesh, kind: EntityView['kind'], s: SpriteView, camera: THREE.Camera) {
-    const z = LAYER_Z[kind] ?? 0;
-    this.apply(mesh, s, z);
-    mesh.rotation.y = Math.atan2(camera.position.x - mesh.position.x, camera.position.z - z);
+  /**
+   * Copia o quadro atual do 2D para a placa. As placas ficam paradas, de frente para +Z, como
+   * recortes de um diorama: girar para a câmera fazia props e portal entortarem com o movimento.
+   */
+  update(mesh: THREE.Mesh, kind: EntityView['kind'], s: SpriteView) {
+    this.place(mesh, s, LAYER_Z[kind] ?? 0);
   }
 
-  /** Placa fixa do cenário (recortes em profundidade): fica de frente para +Z, como num diorama. */
+  /** Posiciona a placa com o quadro dado na profundidade z. */
   place(mesh: THREE.Mesh, s: SpriteView, z: number) {
-    this.apply(mesh, s, z);
-    mesh.rotation.y = 0;
-  }
-
-  private apply(mesh: THREE.Mesh, s: SpriteView, z: number) {
     const frame = this.game.textures.getFrame(s.key, s.frame);
     if (!frame) return;
     const mat = mesh.material as THREE.MeshBasicMaterial;
