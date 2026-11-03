@@ -34,6 +34,12 @@ export type EntityType =
   | 'spring'
   | 'crate'
   | 'mover'
+  | 'bump'
+  | 'pushbox'
+  | 'plate'
+  | 'gate'
+  | 'portal'
+  | 'fakewall'
   | 'guardian'
   | 'boss';
 
@@ -148,6 +154,41 @@ export class LevelBuilder {
   /** Blocos rachados (colunas c0..c1 na linha `row`): sólidos, mas o mergulho estelar os quebra. */
   cracked(c0: number, c1: number, row: number) {
     for (let c = c0; c <= c1; c++) this.entities.push({ type: 'cracked', col: c, row });
+    return this;
+  }
+
+  /** Bloco de bater com a cabeça. reward: 0 = surpresa (coração se a vida está baixa, senão faíscas), 1 = faíscas, 2 = coração. */
+  bump(col: number, row: number, reward = 0) {
+    this.entities.push({ type: 'bump', col, row, data: { reward } });
+    return this;
+  }
+
+  /** Caixa empurrável (cai com a gravidade; volta ao lugar se cair no abismo). */
+  pushbox(col: number, row: number) {
+    return this.add('pushbox', col, row);
+  }
+
+  /** Placa de pressão que mantém abertos os portões de mesmo `id` enquanto houver peso (Íris ou caixa). */
+  plate(col: number, row: number, id = 1) {
+    this.entities.push({ type: 'plate', col, row, data: { id } });
+    return this;
+  }
+
+  /** Portão de `h` blocos (col, row = bloco do topo) que abre com a placa de mesmo `id`. */
+  gate(col: number, row: number, h: number, id = 1) {
+    this.entities.push({ type: 'gate', col, row, data: { id, h } });
+    return this;
+  }
+
+  /** Entrada secreta para o sub-nível `sub` (0 a 3). */
+  portal(col: number, row: number, sub: number) {
+    this.entities.push({ type: 'portal', col, row, data: { sub } });
+    return this;
+  }
+
+  /** Parede falsa (só visual, atravessável) de w x h blocos; o canto inferior esquerdo é (col, row). */
+  fakewall(col: number, row: number, w: number, h: number) {
+    this.entities.push({ type: 'fakewall', col, row, data: { w, h } });
     return this;
   }
 

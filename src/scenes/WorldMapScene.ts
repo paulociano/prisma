@@ -117,7 +117,7 @@ export class WorldMapScene extends Phaser.Scene {
       if (open) node.setInteractive({ useHandCursor: true }).on('pointerdown', () => (i === this.cursor ? this.play() : this.select(i)));
 
       const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
-      const label = l.boss ? `${l.id}  ♛` : `${l.id}  ◆ ${got}/3`;
+      const label = l.boss ? `${l.id}  ♛` : `${l.id}  ◆ ${got}/3${this.save.secrets[l.id] ? ' ✦' : ''}`;
       this.markerLabels.push(this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0));
     });
 

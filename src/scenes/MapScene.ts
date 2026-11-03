@@ -154,7 +154,7 @@ export class MapScene extends Phaser.Scene {
       const items: Phaser.GameObjects.GameObject[] = [bg, icon, name];
       if (!l.boss && open) {
         const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
-        items.push(this.add.text(x - cw / 2 + 76, y + 18, `◆ ${got}/3`, { ...textStyle(16, selected ? '#7a3cc0' : '#c9b6ff'), strokeThickness: selected ? 0 : 3 }));
+        items.push(this.add.text(x - cw / 2 + 76, y + 18, `◆ ${got}/3${this.save.secrets[l.id] ? '  ✦' : ''}`, { ...textStyle(16, selected ? '#7a3cc0' : '#c9b6ff'), strokeThickness: selected ? 0 : 3 }));
       }
       if (open) bg.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.enterWorld(l.index));
       this.cards.add(items);

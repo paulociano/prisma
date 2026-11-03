@@ -16,11 +16,13 @@ export interface SaveData {
   extraHeart: boolean;
   finished: boolean;
   shards: Record<string, boolean[]>;
+  /** Sub-níveis secretos já concluídos, por fase. */
+  secrets: Record<string, boolean>;
 }
 
 const fresh = (): SaveData => ({
   level: 0, completed: [], doubleJump: false, dash: false, wallJump: false,
-  glide: false, shot: false, pound: false, extraHeart: false, finished: false, shards: {},
+  glide: false, shot: false, pound: false, extraHeart: false, finished: false, shards: {}, secrets: {},
 });
 
 const abilities = ['doubleJump', 'dash', 'wallJump', 'glide', 'shot', 'pound', 'extraHeart', 'finished'] as const;
@@ -49,6 +51,9 @@ export function normalizeSave(value: unknown): SaveData {
       if (!LEVEL_ID.test(id) || !Array.isArray(values)) continue;
       result.shards[id] = Array.from({ length: 3 }, (_, index) => values[index] === true);
     }
+  }
+  if (data.secrets && typeof data.secrets === 'object' && !Array.isArray(data.secrets)) {
+    for (const [id, v] of Object.entries(data.secrets)) if (LEVEL_ID.test(id) && v === true) result.secrets[id] = true;
   }
   return result;
 }

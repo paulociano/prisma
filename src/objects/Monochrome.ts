@@ -84,8 +84,12 @@ export class Monochrome implements Boss {
     this.timer = time / (s === 'exposed' || s === 'hurt' ? 1 : this.speed);
   }
 
+  /** Parado: mostra a forma atual do chefe (inteira, rachada ou desmoronando, conforme os golpes que levou). */
   private idleAnim() {
-    if (this.art) this.view.play(`mono-idle-${this.phase}`, true);
+    if (!this.art) return;
+    const lost = this.maxHp - this.hp;
+    if (lost > 0) this.pose('end', Math.min(lost, 2) - 1);
+    else this.view.play(`mono-idle-${this.phase}`, true);
   }
 
   private pose(tex: 'atk' | 'end', frame: number, phase = this.phase) {
@@ -287,16 +291,28 @@ export class Monochrome implements Boss {
       else this.defeat();
       return true;
     }
-    this.pose('end', END.cracked);
+    this.pose('end', Math.min(this.maxHp - this.hp, 2) - 1);
+    this.unravel();
     this.enter('hurt', 0.9);
     return true;
+  }
+
+  /** A cada golpe a transformação avança: raios, escurecer rápido e uma fala curta (sem parar a luta). */
+  private unravel() {
+    const lost = this.maxHp - this.hp;
+    this.host.stormFlash(this.phase === 1 ? lost : 1);
+    if (this.phase === 1) {
+      this.host.dim(0.3 * lost, 200);
+      this.scene.time.delayedCall(500, () => this.state !== 'transform' && this.host.dim(0, 500));
+      this.scene.events.emit('toast', lost === 1 ? 'Monocromo: A máscara... rachou?!' : 'Monocromo: NÃO! Ela está caindo!');
+    }
   }
 
   /** Fim da forma 1: a máscara racha e cai, o medo fala, e ele volta em armadura de cristal. */
   private transform() {
     this.state = 'transform';
     for (const s of this.shots.getChildren()) s.destroy();
-    this.pose('end', END.cracked, 1);
+    this.pose('end', END.crumble, 1);
     this.host.dim(0.45, 350);
     this.scene.time.delayedCall(600, () => {
       this.pose('end', END.crumble, 1);
@@ -328,8 +344,8 @@ export class Monochrome implements Boss {
   private defeat() {
     this.state = 'defeated';
     for (const s of this.shots.getChildren()) s.destroy();
-    this.pose('end', END.cracked);
-    const seq = [END.crumble, END.burst, END.restored];
+    this.pose('end', END.crumble);
+    const seq = [END.burst, END.restored];
     seq.forEach((f, i) =>
       this.scene.time.delayedCall(800 * (i + 1), () => {
         this.pose('end', f);

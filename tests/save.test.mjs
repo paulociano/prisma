@@ -62,3 +62,9 @@ test('blocked storage returns failure without throwing', () => {
     globalThis.localStorage = old;
   }
 });
+
+test('secrets are validated and kept', () => {
+  const s = normalizeSave({ secrets: { '1-1': true, '9-9': true, '2-3': 'x' } });
+  assert.deepEqual(s.secrets, { '1-1': true });
+  assert.deepEqual(normalizeSave(null).secrets, {});
+});

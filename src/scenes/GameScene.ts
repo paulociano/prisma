@@ -22,6 +22,8 @@ import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
+import { ensureBlockTextures } from '../gfx/blocks';
+import { buildSub } from '../levels/subs';
 import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
@@ -46,6 +48,7 @@ interface Guardian {
   freed: boolean;
 }
 
+type SubFrom = { level: number; x: number; y: number };
 type Sprite = Phaser.Physics.Arcade.Sprite;
 
 export interface HudState {
@@ -129,6 +132,21 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private vents: Vent[] = [];
   private winds: Wind[] = [];
   private bossWind = 0;
+  // blocos interativos, segredos e recompensas dinâmicas
+  private bumps!: Phaser.Physics.Arcade.StaticGroup;
+  private gatesGroup!: Phaser.Physics.Arcade.StaticGroup;
+  private pushboxes!: Phaser.Physics.Arcade.Group;
+  private plates: { x: number; y: number; id: number; view: Phaser.GameObjects.Image; on: boolean }[] = [];
+  private gates: { ts: Phaser.GameObjects.TileSprite; id: number; open: boolean }[] = [];
+  private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image }[] = [];
+  private fakewalls: Phaser.GameObjects.TileSprite[] = [];
+  private portalLock = false;
+  private combo = 0;
+  private mercyGiven = false;
+  private bossStarted = false;
+  private bossGround = 0;
+  private isSub = false;
+  private initData: { level?: number; sub?: number; from?: SubFrom; back?: SubFrom } = {};
   private bossDamage?: BossDamage;
   private tuning = difficultyTuning(1);
   private coinBank = 0;
@@ -137,12 +155,17 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     super('Game');
   }
 
-  create(data: { level?: number }) {
+  create(data: { level?: number; sub?: number; from?: SubFrom; back?: SubFrom }) {
     applyColorblind(this);
+    ensureBlockTextures(this);
     this.save = loadSave();
     this.saveWarningShown = false;
-    this.levelIndex = Phaser.Math.Clamp(data?.level ?? this.save.level, 0, LEVELS.length - 1);
-    this.level = LEVELS[this.levelIndex]();
+    this.initData = data ?? {};
+    this.isSub = data?.sub !== undefined && !!data?.from;
+    this.levelIndex = Phaser.Math.Clamp((this.isSub ? data.from!.level : data?.level) ?? this.save.level, 0, LEVELS.length - 1);
+    this.level = this.isSub ? buildSub(Math.floor(this.levelIndex / 4) + 1, data.sub!) : LEVELS[this.levelIndex]();
+    this.plates = []; this.gates = []; this.portals = []; this.fakewalls = [];
+    this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
     this.enemies = [];
     this.movers = [];
     this.guardian = undefined;
@@ -174,6 +197,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (!this.level.arena) this.buildDecor();
     const colorTotal = this.buildEntities();
     this.buildHints();
+    if (data?.back) {
+      // voltando de um sub-nível: reaparece ao lado do portal, que só reativa depois de Íris se afastar
+      const b = data.back;
+      const px = b.x - TILE * 1.5;
+      this.player.hit.setPosition(px, b.y - 46);
+      this.respawnPoint.set(px, b.y - 46);
+      this.portalLock = true;
+    }
     this.player.canDoubleJump = this.save.doubleJump;
     this.player.canDash = this.save.dash;
     this.player.canWallJump = this.save.wallJump;
@@ -202,7 +233,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (this.level.arena) {
       cam.setBounds(0, 0, worldW, GAME_H); // arena: câmera parada
     } else {
-      cam.setBounds(0, 0, worldW, worldH);
+      // fase mais estreita que a tela (torres verticais): centraliza em vez de encostar na esquerda
+      const pad = Math.max(0, GAME_W - worldW) / 2;
+      cam.setBounds(-pad, 0, worldW + pad * 2, worldH);
       cam.startFollow(this.player.hit, true, 0.12, 0.12);
       cam.setDeadzone(60, 140);
     }
@@ -214,7 +247,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.pushHud();
       this.events.emit('level-start', this.level);
       playMusic(this, musicForLevel(this.level.world, !!this.level.arena));
-      if (this.boss) this.time.delayedCall(900, () => this.talk(STORY[this.level.world].bossIntro, () => this.boss?.start()));
+      if (this.boss) this.time.delayedCall(900, () => this.talk(STORY[this.level.world].bossIntro, () => {
+        this.bossStarted = true;
+        this.boss?.start();
+      }));
     });
 
     // atalho de desenvolvimento: teclas 1 a 9 pulam para a fase correspondente
@@ -457,6 +493,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.cages = this.physics.add.staticGroup();
     this.cracked = this.physics.add.staticGroup();
     this.pshots = this.physics.add.group({ allowGravity: false });
+    this.bumps = this.physics.add.staticGroup();
+    this.gatesGroup = this.physics.add.staticGroup();
+    this.pushboxes = this.physics.add.group();
 
     let total = 0;
     let shardIndex = 0;
@@ -533,8 +572,45 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         }
         case 'boss': {
           const Kind = BOSSES[this.level.world as keyof typeof BOSSES] ?? StoneJudge;
+          this.bossGround = bottom;
           this.boss = new Kind(this, this.bossHost(bottom), cx, this.solids);
           this.bossDamage = new BossDamage(this, this.boss);
+          break;
+        }
+        case 'bump': {
+          const b = this.bumps.create(cx, cy, 'blk_bump') as Sprite;
+          b.setDepth(4).setData('reward', e.data?.reward ?? 0).setData('baseY', cy).refreshBody();
+          break;
+        }
+        case 'pushbox': {
+          const box = this.pushboxes.create(cx, cy, 'blk_pushbox') as Sprite;
+          box.setDepth(5).setDragX(700).setMaxVelocity(170, 900).setData('origin', [cx, cy]);
+          (box.body as Phaser.Physics.Arcade.Body).setSize(60, 60).setMass(1);
+          break;
+        }
+        case 'plate': {
+          const view = this.add.image(cx, bottom, 'blk_plate').setOrigin(0.5, 1).setDepth(3);
+          this.plates.push({ x: cx, y: bottom, id: e.data?.id ?? 1, view, on: false });
+          break;
+        }
+        case 'gate': {
+          const h = e.data?.h ?? 4;
+          const ts = this.add.tileSprite(cx, e.row * TILE + (h * TILE) / 2, TILE, h * TILE, 'blk_gate').setDepth(5);
+          this.gatesGroup.add(ts);
+          (ts.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
+          this.gates.push({ ts, id: e.data?.id ?? 1, open: false });
+          break;
+        }
+        case 'portal': {
+          const view = this.add.image(cx, bottom, 'blk_portal').setOrigin(0.5, 1).setDepth(3).setBlendMode(Phaser.BlendModes.ADD);
+          this.tweens.add({ targets: view, alpha: 0.55, scaleX: 1.12, duration: 900, yoyo: true, repeat: -1 });
+          this.portals.push({ x: cx, y: bottom, sub: e.data?.sub ?? 0, view });
+          break;
+        }
+        case 'fakewall': {
+          const w = e.data?.w ?? 3, h = e.data?.h ?? 3;
+          const ts = this.add.tileSprite(e.col * TILE, bottom, w * TILE, h * TILE, 'blk_wall').setOrigin(0, 1).setDepth(5);
+          this.fakewalls.push(ts);
           break;
         }
         case 'vent':
@@ -783,7 +859,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       burst: (x, y, n) => this.burst(x, y, n),
       setWind: (v) => (this.bossWind = v),
       onBossHp: (hp, max) => {
-        this.bossDamage?.onHp(hp, max);
         this.events.emit('boss-hp', { name: this.boss?.name ?? '', hp, max });
       },
       onBossDefeated: () => this.bossDefeated(),
@@ -806,6 +881,129 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     } else if (boss.dangerous && this.player.hurt(boss.hit.x)) {
       this.feedbackHurt();
     }
+  }
+
+  // ---------- blocos interativos, segredos e recompensas ----------
+
+  /** Cabeçada de baixo: o bloco sobe, vira cinza e solta o prêmio (a surpresa cura quem está machucado). */
+  private bumpBlock(b: Sprite) {
+    b.setData('used', true).setTexture('blk_bump_used');
+    this.sfx('break_block');
+    const y0 = b.getData('baseY') as number;
+    this.tweens.add({ targets: b, y: y0 - 12, duration: 90, yoyo: true });
+    this.burst(b.x, y0 - 20, 8, [0xffd86b, 0xffffff]);
+    const reward = b.getData('reward') as number;
+    const heart = reward === 2 || (reward === 0 && this.player.hp < this.player.maxHp);
+    if (heart) this.popPickup('heart', b.x, y0 - TILE);
+    else [-34, 0, 34].forEach((dx, i) => this.time.delayedCall(i * 90, () => this.popPickup('coin', b.x + dx, y0 - TILE - (i % 2) * 18)));
+  }
+
+  /** Faz um coletável saltar para fora de (x, y) e ficar parado logo acima. */
+  private popPickup(kind: 'heart' | 'coin', x: number, y: number) {
+    const s = kind === 'heart' ? this.pickup(x, y + 30, 'heart', F.collectibles.heart, 0.34) : this.pickup(x, y + 30, 'coin', F.collectibles.coin[0], 0.36);
+    if (kind === 'coin' && has(this, 'collectibles')) s.play({ key: 'coin-spin' });
+    s.setAlpha(0);
+    this.tweens.add({ targets: s, y, alpha: 1, duration: 260, ease: 'Back.Out' });
+    return s;
+  }
+
+  /** Deixa cair um coração de cima até (x, y). */
+  private dropHeart(x: number, y: number) {
+    const h = this.pickup(x, y - 420, 'heart', F.collectibles.heart, 0.34);
+    this.tweens.add({ targets: h, y, duration: 900, ease: 'Bounce.Out' });
+    this.burst(x, y - 60, 14, [0xff3d5a, 0xffffff]);
+  }
+
+  /** Placas, portões, caixas caídas, portais e paredes falsas. */
+  private updateInteractive(dt: number) {
+    const pb = this.player.body;
+    const pr = new Phaser.Geom.Rectangle(pb.x, pb.y, pb.width, pb.height);
+    const boxes = (this.pushboxes.getChildren() as Sprite[]).filter((b) => b.active);
+    const worldH = this.level.rows * TILE;
+    for (const b of boxes) {
+      if (b.y > worldH + 150) {
+        const o = b.getData('origin') as [number, number];
+        b.setPosition(o[0], o[1]).setVelocity(0, 0);
+      }
+    }
+    const pressed = new Set<number>();
+    for (const pl of this.plates) {
+      const area = new Phaser.Geom.Rectangle(pl.x - 28, pl.y - 18, 56, 18);
+      const on = Phaser.Geom.Intersects.RectangleToRectangle(area, pr) || boxes.some((b) => Phaser.Geom.Intersects.RectangleToRectangle(area, b.getBounds()));
+      if (on !== pl.on) {
+        pl.on = on;
+        pl.view.setTint(on ? 0xffd86b : 0xffffff).setScale(1, on ? 0.6 : 1);
+        if (on) this.sfx('checkpoint', 0);
+      }
+      if (on) pressed.add(pl.id);
+    }
+    for (const g of this.gates) {
+      const want = pressed.has(g.id);
+      const body = g.ts.body as Phaser.Physics.Arcade.StaticBody;
+      if (want && !g.open) {
+        g.open = true;
+        body.enable = false;
+        this.tweens.add({ targets: g.ts, alpha: 0.18, duration: 260 });
+        this.sfx('spring', 0);
+        this.burst(g.ts.x, g.ts.y, 12, [0x9d7bff, 0xffffff]);
+      } else if (!want && g.open) {
+        const r = g.ts.getBounds();
+        const blocked = Phaser.Geom.Intersects.RectangleToRectangle(r, pr) || boxes.some((b) => Phaser.Geom.Intersects.RectangleToRectangle(r, b.getBounds()));
+        if (blocked) continue; // não fecha em cima de ninguém
+        g.open = false;
+        body.enable = true;
+        this.tweens.add({ targets: g.ts, alpha: 1, duration: 200 });
+      }
+    }
+    // parede falsa: some quando Íris chega perto e deixa uma cintilação sutil como pista
+    for (const w of this.fakewalls) {
+      const near = this.player.hit.x > w.x - TILE * 2 && this.player.hit.x < w.x + w.width + TILE * 2 && Math.abs(this.player.hit.y - (w.y - w.height / 2)) < TILE * 3;
+      w.alpha += ((near ? 0.3 : 1) - w.alpha) * Math.min(1, dt * 5);
+      if (Math.random() < dt * 0.9) this.sparkle(w.x + Math.random() * w.width, w.y - Math.random() * w.height, 0xd9c8ff);
+    }
+    // portais para os sub-níveis
+    if (this.portalLock && this.portals.every((p) => Math.abs(p.x - this.player.hit.x) > TILE * 3)) this.portalLock = false;
+    if (!this.portalLock && !this.finished && !this.player.dead && !this.isSub) {
+      const p = this.portals.find((q) => Math.abs(q.x - this.player.hit.x) < 34 && Math.abs(q.y - this.player.body.bottom) < 40);
+      if (p) this.enterSub(p);
+    }
+    // um coração caído do céu, uma vez por luta, quando Íris está por um fio
+    if (this.boss && this.bossStarted && !this.mercyGiven && this.player.hp <= 1 && !this.player.dead && !this.finished) {
+      this.mercyGiven = true;
+      const px = this.player.hit.x, lo = 200, hi = this.level.cols * TILE - 200;
+      let dir = this.boss.hit.x > px ? -1 : 1; // de preferência longe do chefão
+      let x = Phaser.Math.Clamp(px + dir * 220, lo, hi);
+      if (Math.abs(x - px) < 140) x = Phaser.Math.Clamp(px - dir * 220, lo, hi); // encostado na parede: usa o outro lado
+      this.dropHeart(x, this.bossGround - 40);
+      this.events.emit('toast', 'Um coração caiu do céu!');
+    }
+  }
+
+  private enterSub(p: { x: number; y: number; sub: number }) {
+    this.player.frozen = true;
+    this.sfx('checkpoint', 0);
+    this.burst(p.x, p.y - 40, 24, [0xb9a8ff, 0xffffff]);
+    this.cameras.main.fadeOut(300, 255, 255, 255);
+    const from: SubFrom = { level: this.levelIndex, x: p.x, y: p.y };
+    this.time.delayedCall(330, () => this.scene.restart({ sub: p.sub, from }));
+  }
+
+  /** Fim de um sub-nível: marca o segredo e volta ao portal, na fase de origem. */
+  private finishSub() {
+    this.finished = true;
+    this.player.frozen = true;
+    this.player.victory = true;
+    this.burst(this.player.hit.x, this.player.hit.y - 40, 50);
+    const id = LEVELS[this.levelIndex]().id;
+    const first = !this.save.secrets[id];
+    this.save.secrets[id] = true;
+    this.persistProgress();
+    this.events.emit('toast', first ? 'Segredo descoberto! ✦' : 'Segredo concluído');
+    const from = this.initData.from!;
+    this.time.delayedCall(1600, () => {
+      this.cameras.main.fadeOut(300);
+      this.time.delayedCall(320, () => this.scene.restart({ level: from.level, back: from }));
+    });
   }
 
   private dimRect?: Phaser.GameObjects.Rectangle;
@@ -1018,6 +1216,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.physics.add.collider(p, this.crates);
     this.physics.add.collider(p, this.cages);
     this.physics.add.collider(p, this.cracked);
+    this.physics.add.collider(p, this.gatesGroup);
+    this.physics.add.collider(p, this.bumps, (_pl, b) => {
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      if ((body.blocked.up || body.touching.up) && !(b as Sprite).getData('used')) this.bumpBlock(b as Sprite);
+    });
+    this.physics.add.collider(p, this.pushboxes);
+    for (const g of [this.solids, this.oneways, this.crates, this.cages, this.cracked, this.gatesGroup, this.bumps]) this.physics.add.collider(this.pushboxes, g);
+    this.physics.add.collider(this.pushboxes, this.pushboxes);
+    this.physics.add.collider(this.pshots, this.pushboxes, (s) => this.popShot(s as Sprite));
+    this.physics.add.collider(this.pshots, this.bumps, (s) => this.popShot(s as Sprite));
     // cristais de prisma: restauram inimigos, quebram caixas, contam no cristal do guardião e no chefão
     this.physics.add.collider(this.pshots, this.solids, (s) => this.popShot(s as Sprite));
     this.physics.add.collider(this.pshots, this.cracked, (s) => this.popShot(s as Sprite));
@@ -1222,6 +1430,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private restoreEnemy(e: Enemy) {
     // só comemora (e conta) se a restauração aconteceu de fato
     if (!e.restore()) return;
+    if (++this.combo >= 5) {
+      this.combo = 0;
+      this.dropHeart(this.player.hit.x, this.player.body.bottom - 40);
+      this.events.emit('toast', 'Combo de 5! Um coração!');
+    }
     this.sfx('hit_enemy');
     this.time.delayedCall(120, () => this.sfx('enemy_restored'));
     this.fx('fx-burst', e.hit.x, e.hit.y, 0.6);
@@ -1381,6 +1594,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   // ---------- fluxo ----------
 
   private feedbackHurt() {
+    this.combo = 0;
     this.sfx('hurt', 0);
     this.shakeCamera(140, 0.008);
     this.flashScreen(120, 255, 80, 100);
@@ -1409,6 +1623,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private finish() {
+    if (this.isSub) return this.finishSub();
     this.finished = true;
     this.player.frozen = true;
     this.player.victory = true;
@@ -1466,7 +1681,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private restartLevel() {
-    this.goTo(this.levelIndex);
+    this.cameras.main.fadeOut(300);
+    this.time.delayedCall(320, () => this.scene.restart(this.initData));
   }
 
   private pushHud() {
@@ -1478,7 +1694,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       shards: [...this.shards],
       levelName: this.level.name,
       levelId: this.level.id,
-      showShards: !this.level.arena,
+      showShards: !this.level.arena && !this.isSub,
     };
     this.events.emit('hud', state);
   }
@@ -1559,10 +1775,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.player.update(dt, this.controls);
     this.updateGlideSound();
     this.updateHints(dt);
+    this.updateInteractive(dt);
     this.checkSwing();
     for (const e of this.enemies) e.update(dt);
     this.boss?.update(dt * this.tuning.bossSpeed);
-    this.bossDamage?.update();
     // vira o chefão para o lado de Íris, conforme a direção em que cada arte foi desenhada
     if (this.boss) {
       const art = BOSS_ART_FACING[this.level.world] ?? 'front';
