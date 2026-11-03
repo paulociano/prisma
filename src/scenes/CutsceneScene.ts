@@ -70,7 +70,7 @@ export class CutsceneScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#000000');
     this.add.rectangle(0, GAME_H - 110, GAME_W, 220, 0x0a0614, 0.72).setOrigin(0, 0).setDepth(5);
     this.caption = this.add
-      .text(GAME_W / 2, GAME_H - 72, '', { ...textStyle(26), align: 'center', lineSpacing: 8, wordWrap: { width: GAME_W - 120 } })
+      .text(GAME_W / 2, GAME_H - 58, '', { ...textStyle(21), align: 'center', lineSpacing: 6, wordWrap: { width: GAME_W - 160 } })
       .setOrigin(0.5)
       .setDepth(6);
     this.add.text(GAME_W - 16, 14, 'ESC pular', textStyle(16)).setOrigin(1, 0).setAlpha(0.7).setDepth(6);
