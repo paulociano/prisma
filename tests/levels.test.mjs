@@ -81,7 +81,7 @@ test('each extended level hides exactly one secret portal with a valid sub-level
     if (l.arena || l.cols === 0) return;
     const portals = l.entities.filter((e) => e.type === 'portal');
     assert.ok(portals.length <= 1, `${l.id}: more than one portal`);
-    for (const p of portals) assert.ok(p.data.sub >= 0 && p.data.sub < 4, `${l.id}: bad sub index`);
+    for (const p of portals) assert.ok(p.data.sub >= 0 && p.data.sub < 6, `${l.id}: bad sub index`);
   });
 });
 

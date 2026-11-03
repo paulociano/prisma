@@ -95,8 +95,12 @@ export class SandSerpent implements Boss {
     this.timer = time / (s === 'dazed' || s === 'hurt' ? 1 : this.speed);
   }
 
+  /** Parado: mostra a forma atual do chefe (inteira, rachada ou desmoronando, conforme os golpes que levou). */
   private idleAnim() {
-    if (this.art) this.view.play('serpent-idle', true);
+    if (!this.art) return;
+    const lost = this.maxHp - this.hp;
+    if (lost > 0) this.pose('end', Math.min(lost, 2) - 1);
+    else this.view.play('serpent-idle', true);
   }
 
   private pose(tex: 'atk' | 'end', frame: number) {
@@ -283,7 +287,7 @@ export class SandSerpent implements Boss {
       this.defeat();
       return true;
     }
-    this.pose('end', END.cracked);
+    this.pose('end', Math.min(this.maxHp - this.hp, 2) - 1);
     this.enter('hurt', 0.8);
     return true;
   }
@@ -313,8 +317,8 @@ export class SandSerpent implements Boss {
     for (const s of this.shots.getChildren()) s.destroy();
     this.mound?.destroy();
     this.warnFx?.destroy();
-    this.pose('end', END.cracked);
-    const seq = [END.crumble, END.burst, END.restored];
+    this.pose('end', END.crumble);
+    const seq = [END.burst, END.restored];
     seq.forEach((f, i) =>
       this.scene.time.delayedCall(700 * (i + 1), () => {
         this.pose('end', f);

@@ -233,7 +233,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (this.level.arena) {
       cam.setBounds(0, 0, worldW, GAME_H); // arena: câmera parada
     } else {
-      cam.setBounds(0, 0, worldW, worldH);
+      // fase mais estreita que a tela (torres verticais): centraliza em vez de encostar na esquerda
+      const pad = Math.max(0, GAME_W - worldW) / 2;
+      cam.setBounds(-pad, 0, worldW + pad * 2, worldH);
       cam.startFollow(this.player.hit, true, 0.12, 0.12);
       cam.setDeadzone(60, 140);
     }
@@ -857,7 +859,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       burst: (x, y, n) => this.burst(x, y, n),
       setWind: (v) => (this.bossWind = v),
       onBossHp: (hp, max) => {
-        this.bossDamage?.onHp(hp, max);
         this.events.emit('boss-hp', { name: this.boss?.name ?? '', hp, max });
       },
       onBossDefeated: () => this.bossDefeated(),
@@ -1778,7 +1779,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.checkSwing();
     for (const e of this.enemies) e.update(dt);
     this.boss?.update(dt * this.tuning.bossSpeed);
-    this.bossDamage?.update();
     // vira o chefão para o lado de Íris, conforme a direção em que cada arte foi desenhada
     if (this.boss) {
       const art = BOSS_ART_FACING[this.level.world] ?? 'front';
