@@ -1130,7 +1130,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     }
     // portais para os sub-níveis
     if (this.portalLock && this.portals.every((p) => Math.abs(p.x - this.player.hit.x) > TILE * 3)) this.portalLock = false;
-    if (!this.portalLock && !this.finished && !this.player.dead && !this.isSub) {
+    if (!this.portalLock && !this.finished && !this.player.dead && !this.player.frozen && !this.isSub) {
       const p = this.portals.find((q) => q.on && Math.abs(q.x - this.player.hit.x) < 34 && Math.abs(q.y - this.player.body.bottom) < 40);
       if (p) this.enterSub(p);
     }
@@ -1308,6 +1308,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private enterSub(p: { x: number; y: number; sub: number }) {
+    // só uma vez: sem isso, a cada quadro (60/s) o portal agendava uma nova reinicialização da cena e o jogo congelava
+    if (this.portalLock || this.finished) return;
+    this.portalLock = true;
     this.player.frozen = true;
     this.sfx('checkpoint', 0);
     this.burst(p.x, p.y - 40, 24, [0xb9a8ff, 0xffffff]);
