@@ -1079,7 +1079,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (inRoom !== this.inChamber) {
       this.inChamber = inRoom;
       if (!this.isSub || inRoom) {
-        const name = inRoom ? 'chamber' : musicForLevel(this.level.world, !!this.level.arena);
+        const name = inRoom ? (this.level.world === 7 && this.cache.audio.exists('music_chamber_w7') ? 'chamber_w7' : 'chamber') : musicForLevel(this.level.world, !!this.level.arena);
         if (this.cache.audio.exists(`music_${name}`)) playMusic(this, name);
       }
     }
