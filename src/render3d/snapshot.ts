@@ -61,6 +61,20 @@ export interface LabelView {
   color?: string;
 }
 
+/** Uma partícula viva do 2D (vapor, brilho, bolha), em px do mundo. */
+export interface ParticleView {
+  key: string;
+  frame: string;
+  x: number;
+  y: number;
+  /** Tamanho exibido (lado maior), em px. */
+  size: number;
+  alpha: number;
+  /** Cor de tinta do Phaser (0xRRGGBB). */
+  tint: number;
+  additive: boolean;
+}
+
 /** Cor que cobre a tela inteira (fade e flash da câmera 2D). */
 export interface ScreenTint {
   r: number;
@@ -76,6 +90,7 @@ export interface WorldSnapshot {
   camY: number;
   entities: EntityView[];
   labels: LabelView[];
+  particles: ParticleView[];
   tint?: ScreenTint;
 }
 

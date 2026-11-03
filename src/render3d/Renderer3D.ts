@@ -7,6 +7,7 @@ import { render3dEnabled } from '.';
 import { CAMERA, cameraPose, toUnits, type EntityView, type LabelView, type SpriteView, type WorldSnapshot } from './snapshot';
 import { ModelLibrary } from './ModelLibrary';
 import { SpriteBoards } from './SpriteBoards';
+import { Particles3D } from './Particles3D';
 import { modelKey } from './models';
 
 // Visual 3D (2.5D): desenha a GameScene em Three.js num canvas por baixo do canvas do Phaser.
@@ -35,11 +36,15 @@ export class Renderer3D {
   private readonly boards: SpriteBoards;
   private readonly shadows = new Map<object, THREE.Mesh>();
   private entityMats: EntityMaterials = {};
+  /** Faixa de chão atrás do caminho (altura e profundidades), montada com o fundo da fase. */
+  private backStrip?: { floorY: number; z0: number; z1: number };
+  private readonly particles: Particles3D;
   private readonly clock = new THREE.Clock();
 
   constructor(private readonly game: Phaser.Game) {
     this.models = new ModelLibrary(game);
     this.boards = new SpriteBoards(game);
+    this.particles = new Particles3D(game);
     this.canvas.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     this.tintEl.style.cssText = 'position:absolute;pointer-events:none;z-index:0;display:none';
     document.body.prepend(this.canvas, this.tintEl);
@@ -58,7 +63,7 @@ export class Renderer3D {
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     Object.assign(this.sun.shadow.camera, { left: -16, right: 16, top: 12, bottom: -12, near: 1, far: 60 });
-    this.scene.add(this.sun, this.sun.target, this.levelRoot, this.entityRoot, this.labelRoot);
+    this.scene.add(this.sun, this.sun.target, this.levelRoot, this.entityRoot, this.labelRoot, this.particles.root);
 
     // o canvas do Phaser (HUD, diálogos, menus) fica por cima
     Object.assign(game.canvas.style, { position: 'relative', zIndex: '1' });
@@ -76,6 +81,7 @@ export class Renderer3D {
     if (this.builtFor !== snap.level) this.buildLevel(snap);
     this.syncEntities(snap.entities, scene.time.now / 1000, Math.min(this.clock.getDelta(), 0.1));
     this.syncLabels(snap.labels);
+    this.particles.sync(snap.particles);
     const tint = snap.tint;
     this.tintEl.style.background = tint ? `rgba(${tint.r},${tint.g},${tint.b},${tint.alpha})` : 'transparent';
 
@@ -120,6 +126,7 @@ export class Renderer3D {
     this.clearEntities();
     disposeChildren(this.labelRoot);
     this.labels.clear();
+    this.particles.clear();
     this.builtFor = level;
     this.buildEntityMaterials(level);
     // nas arenas o 2D usa o piso desenhado na arte; no 3D a perspectiva separa os dois, então o chão é modelado
@@ -158,21 +165,21 @@ export class Renderer3D {
       const board = this.boards.create();
       const s: SpriteView = { key, frame, x: x * TILE, y: -(baseY + height / 2) * TILE, w: wPx, h: hPx, flipX: rand() < 0.5, flipY: false, angle: 0, alpha: 1, depth };
       this.boards.place(board, s, z);
-      (board.material as THREE.MeshBasicMaterial).fog = z < -10; // os mais distantes ficam enevoados
       this.levelRoot.add(board);
+      return board;
     };
 
+    // em pé na faixa de chão atrás do caminho, na frente da camada média
     const back = `w${level.world}_depth_props`;
     const backFrames = frames(back);
-    const floorY = -(level.rows - 1);
-    for (let x = -8 + rand() * 4; backFrames.length && x < level.cols + 8; x += 4 + rand() * 5) {
-      const far = rand() < 0.3;
-      const z = far ? -11 - rand() * 8 : -3.5 - rand() * 4;
-      const height = far ? 4.5 + rand() * 2.5 : 2.6 + rand() * 1.6;
-      place(back, pick(backFrames), x, floorY - 0.05, height, z, z); // mais longe, desenhado antes
+    const { floorY, z0, z1 } = this.backStrip!;
+    for (let x = -8 + rand() * 4; backFrames.length && x < level.cols + 8; x += 3.5 + rand() * 4.5) {
+      const z = z0 - 0.3 + (z1 - z0 + 0.6) * rand();
+      place(back, pick(backFrames), x, floorY - 0.05, 1.7 + rand() * 1.2, z, z); // mais longe, desenhado antes
     }
 
-    // primeiro plano: só onde há chão em toda a largura, e com o topo abaixo do chão mais baixo
+    // primeiro plano: na frente dos blocos e desenhado por cima de tudo, só onde há chão
+    // (com um bloco de folga de cada lado dos buracos) e com o topo abaixo do chão mais baixo
     const front = `w${level.world}_front_props`;
     const frontFrames = frames(front);
     const surface = (c: number) => {
@@ -180,16 +187,17 @@ export class Renderer3D {
       const r = level.tiles.findIndex((row) => row[c] === T.Solid);
       return r < 0 ? undefined : -r;
     };
-    for (let x = 4 + rand() * 6; frontFrames.length && x < level.cols - 2; x += 9 + rand() * 7) {
+    for (let x = 4 + rand() * 6; frontFrames.length && x < level.cols - 2; x += 8 + rand() * 7) {
       const frame = pick(frontFrames);
       const f = this.game.textures.getFrame(front, frame);
-      const height = 1.2 + rand() * 0.7;
+      const height = 1.0 + rand() * 0.5;
       const half = (height * f.realWidth) / f.realHeight / 2;
       const tops: (number | undefined)[] = [];
-      for (let c = Math.floor(x - half); c <= Math.floor(x + half); c++) tops.push(surface(c));
-      if (tops.some((t) => t === undefined)) continue; // não esconde buracos
-      const top = Math.min(...(tops as number[])) - 0.5;
-      place(front, frame, x, top - height, height, 2.4 + rand() * 1.2, 30);
+      for (let c = Math.floor(x - half) - 1; c <= Math.floor(x + half) + 1; c++) tops.push(surface(c));
+      if (tops.some((t) => t === undefined)) continue;
+      const top = Math.min(...(tops as number[])) - 0.25;
+      const board = place(front, frame, x, top - height, height, FRONT_Z + rand() * 0.4, 40);
+      (board.material as THREE.MeshBasicMaterial).depthTest = false;
     }
   }
 
@@ -292,47 +300,66 @@ export class Renderer3D {
   }
 
   /** Artes de fundo do 2D como planos em profundidade: o parallax vem da perspectiva. */
+  /**
+   * Fundo encostado no fim dos blocos, sem campo vazio no meio: uma faixa curta de chão atrás
+   * do caminho, a camada média logo atrás dela e a distante bem longe. Sob a faixa fica a parede
+   * do chão, que é o que aparece pelos buracos. O primeiro plano (bg_near) vai na frente de tudo.
+   */
   private buildBackdrop(level: LevelData) {
     const w = level.world;
-    const span = level.cols + 60;
-    const near = this.texture(`w${w}_bg_near`)?.image as HTMLImageElement | undefined;
-    // chão atrás dos blocos: a câmera, um pouco elevada, enxerga onde as artes 2D não cobrem.
-    // Com a superfície do mundo (ground_top) fica a mesma do caminho, um pouco mais escura para recuar;
-    // sem ela, a textura do chão tingida com a cor média do primeiro plano.
-    const surface = this.texture(`w${w}_ground_top`, true);
-    const groundTex = (surface ?? this.texture(`w${w}_ground`, true))?.clone();
-    if (groundTex) {
-      groundTex.userData.owned = true;
-      groundTex.repeat.set(span / 1.5, 45 / 1.5);
-      groundTex.needsUpdate = true;
-    }
-    const tint = surface ? new THREE.Color(0xc4c4c4) : near ? averageColor(near) : new THREE.Color(0x3a2a40);
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(span, 45),
-      new THREE.MeshStandardMaterial({ color: tint, map: groundTex, roughness: 1 }),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.set(level.cols / 2, -(level.rows - 1), -DEPTH / 2 - 22.5);
-    floor.receiveShadow = true;
-    this.levelRoot.add(floor);
-    // [textura, z, altura, y do topo]; o primeiro plano fica baixo e só mostra a folhagem (como no 2D)
+    const span = level.cols + 60, cx = level.cols / 2;
+    const floorY = groundLine(level);
+    const back = -DEPTH / 2;
+    this.backStrip = { floorY, z0: back, z1: back - STRIP };
+
+    const surface = this.texture(`w${w}_ground_top`, true) ?? this.texture(`w${w}_ground`, true);
+    const strip = new THREE.Mesh(tiledPlane(span, STRIP), new THREE.MeshStandardMaterial({ map: surface, color: surface ? 0xd8d8d8 : 0x6a5040, roughness: 1 }));
+    strip.rotation.x = -Math.PI / 2;
+    strip.position.set(cx, floorY, back - STRIP / 2);
+    strip.receiveShadow = true;
+    this.levelRoot.add(strip);
+
+    const side = this.texture(`w${w}_ground`, true);
+    const wallH = floorY + level.rows + 6;
+    const wall = new THREE.Mesh(tiledPlane(span, wallH), new THREE.MeshStandardMaterial({ map: side, color: side ? 0x8c8c8c : 0x4a3830, roughness: 1 }));
+    wall.position.set(cx, floorY - wallH / 2, back - 0.02);
+    this.levelRoot.add(wall);
+
+    // [textura, z, altura, y da base]: a média começa logo abaixo da linha do chão, atrás da faixa
     const layers: [string, number, number, number][] = [
-      [`w${w}_bg_far`, -40, 40, 21],
-      [`w${w}_bg_mid`, -22, 22, 8],
-      [`w${w}_bg_near`, -9, 9, -8.6],
+      [`w${w}_bg_far`, -40, 40, -19],
+      [`w${w}_bg_mid`, back - STRIP - 0.1, 14, floorY - 0.4],
     ];
-    for (const [key, z, h, top] of layers) {
-      const tex = this.texture(key, true)?.clone();
-      if (!tex) continue;
-      tex.userData.owned = true; // cópia própria (repeat diferente): liberada junto com a fase
-      const img = tex.image as HTMLImageElement;
-      const tileW = h * (img.width / img.height);
-      tex.repeat.set(span / tileW, 1);
-      tex.needsUpdate = true;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(span, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false }));
-      plane.position.set(level.cols / 2, top - h / 2, z);
+    for (const [key, z, h, bottom] of layers) {
+      const plane = this.backdropPlane(key, span, h);
+      if (!plane) continue;
+      plane.position.set(cx, bottom + h / 2, z);
       this.levelRoot.add(plane);
     }
+
+    // primeiro plano na frente dos blocos, só abaixo da linha do chão: emoldura sem cobrir o caminho
+    // faixa baixa: a folhagem do bg_near fica na parte de baixo da imagem e precisa cair dentro da tela
+    const nearH = 2;
+    const near = this.backdropPlane(`w${w}_bg_near`, span, nearH);
+    if (near) {
+      const m = near.material as THREE.MeshBasicMaterial;
+      m.depthTest = false;
+      m.depthWrite = false;
+      near.renderOrder = 60;
+      near.position.set(cx, floorY - 0.3 - nearH / 2, FRONT_Z);
+      this.levelRoot.add(near);
+    }
+  }
+
+  /** Plano com uma arte de fundo repetida na horizontal (cópia própria da textura, liberada com a fase). */
+  private backdropPlane(key: string, width: number, height: number) {
+    const tex = this.texture(key, true)?.clone();
+    if (!tex) return undefined;
+    tex.userData.owned = true;
+    const img = tex.image as HTMLImageElement;
+    tex.repeat.set(width / (height * (img.width / img.height)), 1);
+    tex.needsUpdate = true;
+    return new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ map: tex, transparent: true, fog: false }));
   }
 
   // ---------- objetos (lidos do retrato a cada quadro) ----------
@@ -520,6 +547,30 @@ const mat = (color: THREE.ColorRepresentation, extra: THREE.MeshStandardMaterial
 const glow = (color: THREE.ColorRepresentation, intensity = 0.5) => mat(color, { emissive: color, emissiveIntensity: intensity });
 
 /** Forma de cada tipo de objeto. Provisórias: os modelos .glb substituem estas formas. */
+/** Profundidade da faixa de chão atrás do caminho, antes da camada média do fundo. */
+const STRIP = 2.2;
+/** Onde fica o primeiro plano: logo na frente da face dos blocos (z = +1,5). */
+const FRONT_Z = 2.1;
+
+/** Altura mais comum do topo do chão na fase (em unidades 3D): onde o fundo encosta. */
+function groundLine(level: LevelData) {
+  const count = new Map<number, number>();
+  for (let c = 0; c < level.cols; c++) {
+    const r = level.tiles.findIndex((row) => row[c] === T.Solid);
+    if (r >= 0) count.set(r, (count.get(r) ?? 0) + 1);
+  }
+  const best = [...count].sort((a, b) => b[1] - a[1])[0];
+  return -(best ? best[0] : level.rows - 2);
+}
+
+/** Plano com UVs em unidades do mundo (a textura repete uma vez por unidade). */
+function tiledPlane(w: number, h: number) {
+  const geo = new THREE.PlaneGeometry(w, h);
+  const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * h);
+  return geo;
+}
+
 interface EntityMaterials {
   platform?: THREE.Material;
   breakable?: THREE.Material;
@@ -602,18 +653,6 @@ function createEntity(e: EntityView, mats: EntityMaterials): THREE.Object3D {
       return new THREE.Mesh(new THREE.BoxGeometry(w, h, w), mat(0xcccccc, { wireframe: true }));
   }
   return new THREE.Mesh(new THREE.BoxGeometry(w, h, 1), mat(0xffffff, { wireframe: true, transparent: true, opacity: 0.4 }));
-}
-
-/** Cor média dos pixels opacos da metade de baixo de uma imagem, escurecida para o chão. */
-function averageColor(img: HTMLImageElement) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 32;
-  const g = c.getContext('2d')!;
-  g.drawImage(img, 0, 0, 32, 32);
-  const d = g.getImageData(0, 16, 32, 16).data;
-  let r = 0, gr = 0, b = 0, n = 0;
-  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) (r += d[i], gr += d[i + 1], b += d[i + 2], n++);
-  return n ? new THREE.Color(r / n / 255, gr / n / 255, b / n / 255).convertSRGBToLinear().multiplyScalar(0.7) : new THREE.Color(0x3a2a40);
 }
 
 /** Libera da GPU tudo que estava no grupo (geometrias, materiais e texturas próprias). */

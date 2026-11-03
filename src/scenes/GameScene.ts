@@ -24,7 +24,7 @@ import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
 import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
 import type { Line } from './DialogueScene';
-import type { EntityKind, EntityView, LabelView, SpriteView, WorldSnapshot } from '../render3d/snapshot';
+import type { EntityKind, EntityView, LabelView, ParticleView, SpriteView, WorldSnapshot } from '../render3d/snapshot';
 import { render3dEnabled } from '../render3d';
 import { animName } from '../render3d/models';
 
@@ -79,6 +79,8 @@ const ARENA_FLOOR: Record<number, number> = { 1: 0.757, 2: 0.742, 3: 0.78, 4: 0.
 /** Gêiser de vapor: ciclo de descanso → aviso → jato que lança Íris. */
 interface Vent {
   area: Phaser.Geom.Rectangle;
+  /** Fonte termal desenhada na base do gêiser (só quando o mundo tem a arte). */
+  base?: Phaser.GameObjects.Image;
   steam: Phaser.GameObjects.Particles.ParticleEmitter;
   period: number;
   t: number;
@@ -590,8 +592,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private addVent(cx: number, bottom: number, d: Record<string, number>) {
     // base: fonte termal da decoração do mundo, se houver
+    let base: Phaser.GameObjects.Image | undefined;
     if (has(this, this.tex('props')) && this.level.world === 2) {
-      this.world.add(this.add.image(cx, bottom + 10, this.tex('props'), '3').setOrigin(0.5, 1).setScale(0.22));
+      base = this.add.image(cx, bottom + 10, this.tex('props'), '3').setOrigin(0.5, 1).setScale(0.22);
+      this.world.add(base);
     } else this.world.add(this.add.ellipse(cx, bottom - 4, 56, 16, 0x8a6a5a));
     const steam = this.add.particles(cx, bottom - 10, 'dot', {
       speedY: { min: -760, max: -520 },
@@ -605,7 +609,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     });
     steam.setDepth(6);
     const period = d.period ?? 2.6;
-    this.vents.push({ area: new Phaser.Geom.Rectangle(cx - 26, bottom - 4 * TILE, 52, 4 * TILE), steam, period, t: (d.phase ?? 0) * period, launched: false });
+    this.vents.push({ area: new Phaser.Geom.Rectangle(cx - 26, bottom - 4 * TILE, 52, 4 * TILE), base, steam, period, t: (d.phase ?? 0) * period, launched: false });
   }
 
   /** Fases do ciclo: 0–55% descanso, 55–75% aviso (fumacinha), 75–100% jato. */
@@ -1576,7 +1580,29 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // decoração do cenário (casinha, arcos, plantas): placas em pé no fundo do chão
     for (const d of this.decor.list as Phaser.GameObjects.Image[]) {
       const a = art(d);
-      if (a.sprite) out.push({ id: d, kind: 'decor', x: a.sprite.x, y: a.sprite.y, w: a.sprite.w, h: a.sprite.h, ...a });
+      if (!a.sprite) continue;
+      // no 2D a decoração afunda 16 px no chão; no 3D isso a esconderia dentro da tampa do bloco
+      a.sprite.y -= 16;
+      out.push({ id: d, kind: 'decor', x: a.sprite.x, y: a.sprite.y, w: a.sprite.w, h: a.sprite.h, ...a });
+    }
+    for (const v of this.vents) {
+      const a = art(v.base);
+      if (a.sprite) out.push({ id: v.base!, kind: 'prop', variant: 'vent', x: a.sprite.x, y: a.sprite.y, w: a.sprite.w, h: a.sprite.h, ...a });
+    }
+
+    // partículas (vapor dos gêiseres, brilhos, bolhas, poeira) em coordenadas do mundo
+    const particles: ParticleView[] = [];
+    for (const go of this.children.list) {
+      if (!(go instanceof Phaser.GameObjects.Particles.ParticleEmitter) || !go.visible || go.scrollFactorX === 0) continue;
+      const additive = go.blendMode === Phaser.BlendModes.ADD;
+      go.forEachAlive((p) => {
+        if (particles.length >= 600) return;
+        const f = p.frame;
+        particles.push({
+          key: go.texture.key, frame: String(f.name), x: p.worldPosition.x, y: p.worldPosition.y,
+          size: Math.max(f.realWidth, f.realHeight) * Math.abs(p.scaleX), alpha: p.alpha * go.alpha, tint: p.tint, additive,
+        });
+      }, this);
     }
 
     const labels: LabelView[] = [];
@@ -1596,6 +1622,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         : flash.isRunning
           ? { r: flash.red, g: flash.green, b: flash.blue, alpha: flash.alpha }
           : undefined;
-    return { level: this.level, camX: cam.midPoint.x, camY: cam.midPoint.y, entities: out, labels, tint };
+    return { level: this.level, camX: cam.midPoint.x, camY: cam.midPoint.y, entities: out, labels, particles, tint };
   }
 }
