@@ -627,6 +627,17 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1 });
           break;
         }
+        case 'chamber': {
+          const w = e.data?.w ?? 4, h = e.data?.h ?? 4;
+          if (!this.textures.exists('blk_alcove')) break;
+          const ts = this.add.tileSprite(e.col * TILE, bottom, w * TILE, h * TILE, 'blk_alcove').setOrigin(0, 1).setDepth(1).setTint(0x6c6488);
+          void ts;
+          if (this.textures.exists('blk_crystal')) {
+            this.add.image(e.col * TILE + w * TILE * 0.35, bottom, 'blk_crystal').setOrigin(0.5, 1).setDepth(2);
+            this.add.image(e.col * TILE + w * TILE * 0.85, bottom, 'blk_crystal').setOrigin(0.5, 1).setScale(0.7).setDepth(2);
+          }
+          break;
+        }
         case 'chest': {
           const art = has(this, 'collectibles');
           const c = this.pickups.create(cx, bottom - 28, art ? 'collectibles' : 'crate', art ? String(F.collectibles.chest) : undefined) as Sprite;

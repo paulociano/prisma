@@ -42,6 +42,7 @@ export type EntityType =
   | 'fakewall'
   | 'chest'
   | 'door'
+  | 'chamber'
   | 'guardian'
   | 'boss';
 
@@ -202,6 +203,12 @@ export class LevelBuilder {
   /** Porta de sala conectada: tocar em uma leva Íris até a outra porta de mesmo `id`. */
   door(col: number, row: number, id = 1) {
     this.entities.push({ type: 'door', col, row, data: { id } });
+    return this;
+  }
+
+  /** Fundo decorativo de câmara (só visual): w x h blocos, canto inferior esquerdo em (col, row). */
+  chamber(col: number, row: number, w: number, h: number) {
+    this.entities.push({ type: 'chamber', col, row, data: { w, h } });
     return this;
   }
 
