@@ -38,7 +38,7 @@ export class PennantScene extends Phaser.Scene {
     if (art) {
       // arte pronta do pergaminho (área útil 960x560 no centro)
       const bg = this.add.image(0, 0, 'pergaminho');
-      bg.setScale(Math.min((W + 120) / bg.width, (H + 120) / bg.height));
+      bg.setScale(GAME_H * 1.1 / bg.height); // ocupa quase toda a altura da tela
       root.add(bg);
     }
     // folha
@@ -58,33 +58,45 @@ export class PennantScene extends Phaser.Scene {
     }
     root.add(g);
 
+    // layout: sobre a arte o papel é maior (quase a tela inteira); no desenho por código usa 960x560
+    const L = art
+      ? { left: -440, width: 880, flagX: -400, flagY: -196, ruleY: -150, textTop: -128, bottom: 205, hintY: 288 }
+      : { left: -W / 2 + 75, width: W - 150, flagX: -W / 2 + 70, flagY: -H / 2 + 64, ruleY: -H / 2 + 128, textTop: -H / 2 + 148, bottom: H / 2 - 50, hintY: H / 2 - 30 };
+
     // flâmula em miniatura: as listras da bandeira
-    const fx = -W / 2 + 70, fy = -H / 2 + 64, fw = 130, fh = 80;
+    const fx = L.flagX, fy = L.flagY, fw = 130, fh = 80;
     const idx = PENNANTS.findIndex((q) => q.id === p.id);
     if (has(this, 'pennants')) {
-      // arte pronta: a flâmula desenhada, em vez das listras
       const img = this.add.image(fx + fw / 2 - 10, fy + 6, 'pennants', String(idx)).setOrigin(0.5);
       img.setScale(110 / img.height);
       root.add(img);
     }
     const flag = this.add.graphics();
     (p.id === 'intersexo' ? [0xffd800] : p.colors).forEach((c, i, arr) => flag.fillStyle(c, 1).fillRect(fx, fy - fh / 2 + (fh * i) / arr.length, fw, Math.ceil(fh / arr.length) + 1));
-    if (p.id === 'intersexo') flag.lineStyle(9, 0x7902aa, 1).strokeCircle(fx + fw / 2, fy, 24); // anel roxo sobre o campo amarelo
+    if (p.id === 'intersexo') flag.lineStyle(9, 0x7902aa, 1).strokeCircle(fx + fw / 2, fy, 24);
     flag.lineStyle(4, 0x4a3320, 1).strokeRect(fx, fy - fh / 2, fw, fh);
     if (!has(this, 'pennants')) root.add(flag);
 
-    const title = this.add.text(fx + fw + 36, fy, p.title, { fontFamily: SERIF, fontSize: '40px', fontStyle: 'bold', color: '#4a2c14', wordWrap: { width: W - fw - 160 } }).setOrigin(0, 0.5);
+    const title = this.add.text(fx + fw + 36, fy, p.title, { fontFamily: SERIF, fontSize: '40px', fontStyle: 'bold', color: '#4a2c14', wordWrap: { width: L.width - fw - 60 } }).setOrigin(0, 0.5);
     root.add(title);
-    const rule = this.add.graphics().lineStyle(3, 0x8a6a3a, 0.8).lineBetween(-W / 2 + 70, -H / 2 + 128, W / 2 - 70, -H / 2 + 128);
-    root.add(rule);
+    root.add(this.add.graphics().lineStyle(3, 0x8a6a3a, 0.8).lineBetween(L.left, L.ruleY, L.left + L.width, L.ruleY));
 
-    const body = { fontFamily: SERIF, fontSize: '30px', color: '#3a2412', wordWrap: { width: W - 150 }, lineSpacing: 8 } as const;
-    const what = this.add.text(-W / 2 + 75, -H / 2 + 148, p.what, body);
-    const h2 = this.add.text(-W / 2 + 75, what.y + what.height + 22, 'Como respeitar e ajudar', { fontFamily: SERIF, fontSize: '28px', fontStyle: 'bold', color: '#7a3c8a' });
-    const how = this.add.text(-W / 2 + 75, h2.y + h2.height + 8, p.how, body);
+    // texto: começa em 32px e diminui até caber no papel (qualquer fonte, qualquer tamanho de texto)
+    const what = this.add.text(L.left, L.textTop, p.what, {});
+    const h2 = this.add.text(L.left, 0, 'Como respeitar e ajudar', { fontFamily: SERIF, fontStyle: 'bold', color: '#7a3c8a' });
+    const how = this.add.text(L.left, 0, p.how, {});
+    for (let fs = 40; fs >= 20; fs -= 1) {
+      const st = { fontFamily: SERIF, fontSize: `${fs}px`, color: '#3a2412', wordWrap: { width: L.width }, lineSpacing: Math.round(fs / 4) };
+      what.setStyle(st).setText(p.what);
+      h2.setFontSize(Math.round(fs * 0.95));
+      h2.y = what.y + what.height + 14;
+      how.setStyle(st).setText(p.how);
+      how.y = h2.y + h2.height + 6;
+      if (how.y + how.height <= L.bottom) break;
+    }
     root.add([what, h2, how]);
 
-    const hint = this.add.text(0, H / 2 - 30, 'Aperte PULAR ou ENTER para guardar', { fontFamily: SERIF, fontSize: '20px', fontStyle: 'italic', color: art ? '#fff1c9' : '#6b4a20', stroke: art ? '#4a2c14' : undefined, strokeThickness: art ? 4 : 0 }).setOrigin(0.5);
+    const hint = this.add.text(0, L.hintY, 'Aperte PULAR ou ENTER para guardar', { fontFamily: SERIF, fontSize: '20px', fontStyle: 'italic', color: art ? '#fff1c9' : '#6b4a20', stroke: art ? '#4a2c14' : undefined, strokeThickness: art ? 4 : 0 }).setOrigin(0.5);
     root.add(hint);
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 

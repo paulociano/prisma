@@ -132,3 +132,49 @@ hidden gothic crypt chamber, soft pipe organ pad, music box melody, low choir hu
 mysterious and hopeful, 80 bpm, seamless loop, no vocals lyrics, instrumental, loopable
 ```
 (o jogo ainda usa só `chamber`; avise se quiser a versão por mundo.)
+
+---
+
+## G. Espinhos e chão quebrado dos chefões (substitui os desenhos por código)
+Dois sprite sheets novos. Sem eles o jogo usa os triângulos/linhas de antes; com eles (após `npm run assets`) entram automaticamente. Use o **Bloco de sprite sheet** do `PROMPTS.md` no fim de cada prompt.
+
+**G.1 Folha de espinhos** · Paisagem · 📎 `level_objects.png` (estilo) · 💾 `assets/raw/comum/spikes.png` · 8 itens, grade 4x2
+```
+Landscape 1536x1024. Platformer hazard sprite sheet, 4x2 grid, wide gaps, never touching,
+strict side view, transparent background. Match the attached references (warm storybook
+painted style, crisp outline, lit from top-left). Every item is a ROW OF SHARP SPIKES
+growing from a flat base strip, exactly as wide as it is a square tile (about 1:1), the
+sharp tips clearly visible and slightly menacing but not gory — no blood.
+row 1 (floor spike tiles, one per world theme, high contrast so they read at a glance):
+1 IRON SPIKES — five dark steel spikes on a rusty plate, cold silver highlights on the tips;
+2 CRYSTAL SPIKES — five violet-and-pink crystal shards with a faint inner glow, on a dark stone base;
+3 THORN VINES — five curved dark-green thorns on twisting vine, small red buds at the base;
+4 BONE-STONE SPIKES — five pale cream stone fangs on a cracked gray slab.
+row 2 (boss-arena fissure eruption, a single burst that shoots up from a crack):
+5 SMALL ERUPTION — one thin violet crystal spike with a tiny stone chip at the base, about 1:3;
+6 MEDIUM ERUPTION — two crystal spikes of different heights leaning slightly, 1:3;
+7 LARGE ERUPTION — a tall central crystal spike flanked by two shorter ones, 1:3.5, bright
+  white-violet core, a few floating stone chips around it;
+8 (spare) a loose crystal shard lying flat, for decoration.
+```
+💡 Variações úteis (gere outra versão trocando só a linha 2 por cores de cada mundo): mundo 1 verde-musgo, 2 vermelho-argila, 3 dourado, 4 azul-gelo, 5 turquesa, 6 rosa-neon, 7 branco-lilás.
+
+**G.2 Folha do chão quebrado dos chefões** · Paisagem · 📎 `w1/boss_arena.png` (chão de uma arena, para casar com a pedra) · 💾 `assets/raw/comum/boss_cracks.png` · 6 itens, grade 3x2
+```
+Landscape 1536x1024. Boss-arena broken-floor decal sprite sheet, 3x2 grid, wide gaps,
+never touching, TOP-DOWN-ish flat decals seen from a slight side angle, each about 5:1
+wide and thin, lying flat on a stone floor, transparent background, matching the attached
+arena floor stone and palette. No characters, no text.
+row 1 (warning cracks, before the spikes burst):
+1 THIN CRACK — a jagged hairline fissure with a faint violet glow inside;
+2 WIDE CRACK — a thicker fissure with small chips lifting at the edges, glow stronger;
+3 BRANCHING CRACK — a central fissure with two short side branches, glow pulsing-looking.
+row 2 (craters, right after the eruption):
+4 SMALL CRATER — a broken oval hole with raised stone chips around it, dark inside,
+  a few violet crystal splinters;
+5 MEDIUM CRATER — a wider jagged break with loose rubble pieces on the surface;
+6 LARGE CRATER — a long irregular broken gap with stepped stone edges and scattered rubble.
+```
+💡 Para o chão quebrado "de verdade" (nas bordas da arena ou plataformas partidas), peça uma terceira folha com o mesmo prompt trocando o item 4–6 por **lajes quebradas de 64×64** (borda esquerda, centro, borda direita) e descreva a cor da pedra de cada mundo.
+
+📐 Ordem dos quadros = índice no jogo; não troque a ordem. Espinhos de piso: quadro `(mundo-1) % 4`. Erupção: quadros 5, 6 e 7 (índices 4–6). Rachaduras: índices 0–2; crateras: 3–5.

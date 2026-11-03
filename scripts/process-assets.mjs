@@ -67,6 +67,8 @@ const SHEETS = [
   { key: 'rumor', src: 'inimigos/rumor.png', expect: 6, height: 64, grid: [3, 2] },
   { key: 'stare', src: 'inimigos/stare.png', expect: 6, height: 64, grid: [3, 2] },
   { key: 'silence', src: 'inimigos/silence.png', expect: 6, height: 80, grid: [3, 2] },
+  { key: 'spikes', src: 'comum/spikes.png', expect: 8, height: 128, grid: [4, 2] },
+  { key: 'boss_cracks', src: 'comum/boss_cracks.png', expect: 6, height: 96, grid: [3, 2] },
   { key: 'pergaminho', src: 'comum/pergaminho.png', type: 'image', height: 740 },
   { key: 'pennants', src: 'comum/pennants.png', expect: 12, height: 128, grid: [4, 3] },
   { key: 'level_blocks', src: 'comum/level_blocks.png', expect: 12, height: 128, grid: [4, 3] },

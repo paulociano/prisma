@@ -433,7 +433,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           body.checkCollision.down = body.checkCollision.left = body.checkCollision.right = false;
         } else if (t === T.Spike) {
           // perigos ficam fora do filtro de cor: precisam ser legíveis desde o início
-          if (art) {
+          if (this.textures.exists('spikes')) {
+            // arte própria dos espinhos: uma variação por mundo (0 ferro, 1 cristal, 2 espinhos-vivos, 3 osso/pedra)
+            const img = this.add.image(x + TILE / 2, y + TILE + 2, 'spikes', String((this.level.world - 1) % 4)).setOrigin(0.5, 1);
+            img.setScale((TILE + 6) / img.width).setDepth(2);
+          } else if (art) {
             const img = this.add.image(x + TILE / 2, y + TILE + 4, this.tex('tiles'), String(F.w1Tiles.thorns)).setOrigin(0.5, 1);
             img.setScale((TILE + 8) / img.width).setDepth(2);
           } else this.add.image(x, y, 'spike').setOrigin(0).setDepth(2);
@@ -1235,10 +1239,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const w = this.level.cols * TILE;
     const x = Phaser.Math.Clamp(this.player.hit.x + Phaser.Math.Between(-220, 220), 160, w - 160);
     const y = this.bossGround;
-    const crack = this.add.graphics().setDepth(3);
-    crack.lineStyle(6, 0x1a1024, 0.95).beginPath().moveTo(x - 50, y - 2);
-    for (let i = 1; i <= 6; i++) crack.lineTo(x - 50 + i * 17, y - 2 + (i % 2 ? -5 : 4));
-    crack.strokePath();
+    const crackArt = this.textures.exists('boss_cracks');
+    const crack: { destroy: () => void } = crackArt
+      ? this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(0, 2))).setOrigin(0.5, 0.5).setDepth(3).setDisplaySize(150, 28)
+      : (() => {
+          const cg = this.add.graphics().setDepth(3);
+          cg.lineStyle(6, 0x1a1024, 0.95).beginPath().moveTo(x - 50, y - 2);
+          for (let i = 1; i <= 6; i++) cg.lineTo(x - 50 + i * 17, y - 2 + (i % 2 ? -5 : 4));
+          cg.strokePath();
+          return cg;
+        })();
     // aviso: faixa avermelhada que pulsa devagar (sem pisca-pisca) sobre a área que vai estourar
     const warn = this.add.rectangle(x, y - 3, 120, 10, 0xff4d5e, 0.55).setDepth(3);
     this.tweens.add({ targets: warn, alpha: 0.2, scaleY: 2, duration: 600, yoyo: true, repeat: 1 });
@@ -1252,10 +1262,20 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       if (this.finished) return;
       this.sfx('spring', 0);
       this.shakeCamera(120, 0.006);
-      const spikes: Phaser.GameObjects.Triangle[] = [];
+      if (crackArt) {
+        // cratera que fica no chão e some devagar
+        const cr = this.add.image(x, y + 2, 'boss_cracks', String(Phaser.Math.Between(3, 5))).setDepth(3).setDisplaySize(150, 28);
+        this.tweens.add({ targets: cr, alpha: 0, delay: 1400, duration: 900, onComplete: () => cr.destroy() });
+      }
+      const spikes: Phaser.GameObjects.GameObject[] = [];
+      const spikeArt = this.textures.exists('spikes');
       for (let i = -2; i <= 2; i++) {
-        const t = this.add.triangle(x + i * 20, y, 0, 70, 10, 0, 20, 70, 0xb9a8ff, 1).setOrigin(0.5, 1).setDepth(8).setScale(1, 0.1);
-        this.tweens.add({ targets: t, scaleY: 1, duration: 120, ease: 'Back.Out' });
+        // arte: cristais de erupção (quadros 4 a 6 da folha de espinhos); senão, triângulos
+        const t: Phaser.GameObjects.Image | Phaser.GameObjects.Triangle = spikeArt
+          ? this.add.image(x + i * 22, y + 2, 'spikes', String(4 + (Math.abs(i) === 2 ? 0 : Math.abs(i) === 1 ? 1 : 2))).setOrigin(0.5, 1).setDepth(8).setScale(0.1)
+          : this.add.triangle(x + i * 20, y, 0, 70, 10, 0, 20, 70, 0xb9a8ff, 1).setOrigin(0.5, 1).setDepth(8).setScale(1, 0.1);
+        const full = spikeArt ? 85 / (t as Phaser.GameObjects.Image).height : 1;
+        this.tweens.add({ targets: t, scaleY: full, scaleX: spikeArt ? full : 1, duration: 120, ease: 'Back.Out' });
         spikes.push(t);
       }
       const area = new Phaser.Geom.Rectangle(x - 55, y - 80, 110, 80);
