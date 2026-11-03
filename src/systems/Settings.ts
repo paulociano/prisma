@@ -11,6 +11,7 @@ export interface Settings {
   difficulty: Difficulty;
   reduceFlashes: boolean;
   reduceCameraShake: boolean;
+  reduceMotion: boolean;
   extraVisualSignals: boolean;
 }
 
@@ -40,7 +41,7 @@ export function difficultyTuning(world: number) {
 
 const KEY = 'prisma-settings-v1';
 let cache: Settings | undefined;
-const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, extraVisualSignals: false };
+const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, reduceMotion: false, extraVisualSignals: false };
 
 function normalizeSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS };
@@ -50,6 +51,7 @@ function normalizeSettings(value: unknown): Settings {
     colorblind: data.colorblind === 'protan' || data.colorblind === 'deutan' || data.colorblind === 'tritan' ? data.colorblind : 'off',
     reduceFlashes: data.reduceFlashes === true,
     reduceCameraShake: data.reduceCameraShake === true,
+    reduceMotion: data.reduceMotion === true,
     extraVisualSignals: data.extraVisualSignals === true,
   };
 }

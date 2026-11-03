@@ -20,6 +20,8 @@ import { STORY } from '../story';
 import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../systems/Audio';
 import { ColorRestore } from '../systems/ColorRestore';
 import { Controls } from '../systems/Controls';
+import { Ambient } from '../systems/Ambient';
+import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
 import { ENDING, TRUE_ENDING } from './CutsceneScene';
 import { worldEpilogueWithFallback } from '../story/cutsceneWorlds';
@@ -71,6 +73,7 @@ const totalShards = (s: SaveData) => Object.values(s.shards).reduce((n, a) => n 
 const prismHearts = (s: SaveData) => Math.min(2, Math.floor(totalShards(s) / SHARDS_PER_HEART));
 
 /** Altura do piso desenhado em cada arena de chefão (fração da altura da imagem). */
+const BEHIND_FX = -5;
 const ARENA_FLOOR: Record<number, number> = { 1: 0.757, 2: 0.742, 3: 0.78, 4: 0.77, 5: 0.757, 6: 0.69, 7: 0.79 };
 
 /** Gêiser de vapor: ciclo de descanso → aviso → jato que lança Íris. */
@@ -158,6 +161,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.physics.world.setBoundsCollision(true, true, false, false);
 
     this.controls = new Controls(this);
+    this.arenaRect = undefined;
+    this.bgFarFx = this.bgMidFx = undefined;
+    this.ambient = new Ambient(this, BEHIND_FX);
     this.buildBackground();
     this.world = this.add.container(0, 0).setDepth(0);
     this.buildTiles();
@@ -179,6 +185,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.buildWater();
 
     this.color = new ColorRestore([this.bgContainer, this.world], Math.max(1, colorTotal));
+    // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
+    if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
+    else if (this.bgFarFx && this.bgMidFx) levelFx(this.ambient, this.level.world, { far: this.bgFar, mid: this.bgMid, farInto: this.bgFarFx, midInto: this.bgMidFx });
 
     this.setupCollisions();
     this.setupEvents();
@@ -240,6 +249,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   // ---------- construção da fase ----------
 
   private bgContainer!: Phaser.GameObjects.Container;
+  private ambient!: Ambient;
+  private bgFarFx?: Phaser.GameObjects.Container;
+  private bgMidFx?: Phaser.GameObjects.Container;
+  private waves: { ts: Phaser.GameObjects.TileSprite; speed: number; sc: number }[] = [];
+  private arenaRect?: Rect;
 
   private buildBackground() {
     if (this.level.arena && has(this, this.level.arena)) {
@@ -249,13 +263,21 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       img.setScale(Math.max(GAME_W / img.width, 640 / (floor * img.height)));
       img.x = (GAME_W - img.displayWidth) / 2;
       img.y = 640 - floor * img.displayHeight;
+      this.arenaRect = { x: img.x, y: img.y, w: img.displayWidth, h: img.displayHeight };
       this.bgContainer = this.add.container(0, 0, [img]);
     } else if (has(this, this.tex('bg_far'))) {
       this.bgFar = this.add.tileSprite(0, 0, GAME_W, GAME_H, this.tex('bg_far')).setOrigin(0);
       this.bgMid = this.add.tileSprite(0, 40, GAME_W, GAME_H, this.tex('bg_mid')).setOrigin(0);
       // primeiro plano baixo: só o topo da folhagem aparece, sem cobrir buracos e espinhos
       this.bgNear = this.add.tileSprite(0, 330, GAME_W, GAME_H, this.tex('bg_near')).setOrigin(0);
-      this.bgContainer = this.add.container(0, 0, [this.bgFar, this.bgMid, this.bgNear]);
+      // largura real das imagens (o TileSprite esconde isso): os efeitos presos à arte precisam dela
+      for (const [layer, name] of [[this.bgFar, 'bg_far'], [this.bgMid, 'bg_mid']] as const) {
+        const src = this.textures.get(this.tex(name)).getSourceImage();
+        layer.setData({ period: src.width, height: src.height });
+      }
+      this.bgFarFx = this.add.container(0, 0);
+      this.bgMidFx = this.add.container(0, 0);
+      this.bgContainer = this.add.container(0, 0, [this.bgFar, this.bgFarFx, this.bgMid, this.bgMidFx, this.bgNear]);
     } else {
       const sky = this.add.image(0, 0, 'sky').setOrigin(0).setDisplaySize(GAME_W, GAME_H);
       this.bgFar = this.add.tileSprite(0, GAME_H - 420, GAME_W, 360, 'hills_far').setOrigin(0);
@@ -1066,6 +1088,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const w = this.level.cols * TILE, h = this.level.rows * TILE + 600 - this.waterY;
     this.add.rectangle(0, this.waterY, w, h, 0x2bb6d6, 0.16).setOrigin(0).setDepth(14);
     if (this.level.water > 0) this.add.rectangle(0, this.waterY, w, 4, 0xe8fbff, 0.6).setOrigin(0).setDepth(14);
+    this.waves = [];
+    if (this.ambient.on && this.level.water > 0) {
+      // ondas que correm na superfície: uma faixa do tamanho da tela que acompanha a câmera
+      for (const [dy, a, speed, sc] of [[-8, 0.5, 36, 1], [-2, 0.3, -24, 0.7]] as const) {
+        const ts = this.add.tileSprite(0, this.waterY + dy, GAME_W + 64, 16 * sc, 'fx_wave').setOrigin(0).setTileScale(sc).setAlpha(a).setTint(0xe8fbff).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
+        this.waves.push({ ts, speed, sc });
+      }
+    }
     this.add
       .particles(0, 0, 'dot', {
         x: { min: 0, max: w },
@@ -1510,6 +1540,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (this.bgFar) this.bgFar.tilePositionX = cam.scrollX * 0.08;
     if (this.bgMid) this.bgMid.tilePositionX = cam.scrollX * 0.25;
     if (this.bgNear) this.bgNear.tilePositionX = cam.scrollX * 0.5;
+    this.ambient.update(dt, cam.scrollX, this.color.value);
+    for (const w of this.waves) {
+      w.ts.x = cam.scrollX - 32;
+      w.ts.tilePositionX = (cam.scrollX - 32 + (this.time.now / 1000) * w.speed) / w.sc;
+    }
 
     // Faísca segue Íris flutuando
     const tx = this.player.hit.x - this.player.facing * 48;

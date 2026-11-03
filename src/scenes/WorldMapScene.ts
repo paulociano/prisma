@@ -7,6 +7,8 @@ import { worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
 import { loadSave, type SaveData } from '../systems/Save';
 import { applyColorblind } from '../systems/Settings';
+import { Ambient } from '../systems/Ambient';
+import { mapFx } from '../systems/WorldFx';
 
 // Ícones do atlas "map_icons".
 const ICON = { locked: 0, open: 1, done: 2, bossLocked: 3, bossDone: 4, iris: 5 };
@@ -54,6 +56,8 @@ export class WorldMapScene extends Phaser.Scene {
   private markers: (Phaser.GameObjects.Image | Phaser.GameObjects.Arc)[] = [];
   private markerLabels: Phaser.GameObjects.Text[] = [];
   private leaving = false;
+  private fx?: Ambient;
+  private fxColor = 1;
 
   constructor() {
     super('WorldMap');
@@ -63,6 +67,7 @@ export class WorldMapScene extends Phaser.Scene {
     applyColorblind(this);
     this.save = loadSave();
     this.leaving = false;
+    this.fx = undefined;
     this.markers = [];
     this.markerLabels = [];
     this.world = data.world;
@@ -77,8 +82,15 @@ export class WorldMapScene extends Phaser.Scene {
     const pts = nodes.map(([fx, fy]) => new Phaser.Math.Vector2(fx * GAME_W, fy * GAME_H));
 
     // fundo: a ilustração do mapa do mundo; sem ela, o cenário do mundo escurecido + caminho desenhado
-    if (art) this.add.image(GAME_W / 2, GAME_H / 2, `w${this.world}_map`).setDisplaySize(GAME_W, (GAME_W / 1536) * 1024);
-    else {
+    if (art) {
+      this.add.image(GAME_W / 2, GAME_H / 2, `w${this.world}_map`).setDisplaySize(GAME_W, (GAME_W / 1536) * 1024);
+      // água, cachoeiras, névoa e fumaça em movimento por cima da ilustração (abaixo das clareiras)
+      this.fx = new Ambient(this, 0);
+      mapFx(this.fx, this.world);
+      // quanto mais fases concluídas, mais o mundo "respira" (menos névoa, mais vida)
+      const done = this.levels.filter((l) => this.save.completed.includes(l.id)).length;
+      this.fxColor = 0.5 + 0.5 * (done / Math.max(1, this.levels.length));
+    } else {
       const bg = `w${this.world}_bg_far`;
       if (has(this, bg)) this.add.image(GAME_W / 2, GAME_H / 2, bg).setDisplaySize((GAME_H / 720) * 2160, GAME_H);
       this.add.rectangle(0, 0, GAME_W, GAME_H, 0x120d1a, 0.35).setOrigin(0);
@@ -144,6 +156,10 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private pts: Phaser.Math.Vector2[] = [];
+
+  update(_time: number, delta: number) {
+    this.fx?.update(delta / 1000, 0, this.fxColor);
+  }
 
   private bob() {
     this.tweens.add({ targets: this.token, y: '-=8', duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
