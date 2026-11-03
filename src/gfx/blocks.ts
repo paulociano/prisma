@@ -69,4 +69,20 @@ export function ensureBlockTextures(scene: Phaser.Scene) {
     g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.5, 'rgba(190,150,255,0.8)'); g.addColorStop(1, 'rgba(120,80,255,0)');
     c.fillStyle = g; c.beginPath(); c.ellipse(32, 52, 30, 44, 0, 0, Math.PI * 2); c.fill();
   });
+  bake(scene, 'blk_door', 64, 96, (c) => {
+    c.fillStyle = '#4a4256'; rr(c, 4, 6, 56, 90, 26); c.fill();
+    c.fillStyle = '#1c1530'; rr(c, 10, 14, 44, 82, 20); c.fill();
+    const g = c.createLinearGradient(0, 14, 0, 96);
+    g.addColorStop(0, 'rgba(185,168,255,0.9)'); g.addColorStop(1, 'rgba(255,216,107,0.35)');
+    c.fillStyle = g; rr(c, 14, 18, 36, 78, 16); c.fill();
+    c.fillStyle = '#ffd86b'; c.beginPath(); c.arc(42, 62, 3.5, 0, Math.PI * 2); c.fill();
+  });
+  if (!scene.textures.exists('vig_risk')) {
+    const t = scene.textures.createCanvas('vig_risk', 640, 360)!;
+    const c = t.getContext();
+    const g = c.createRadialGradient(320, 180, 140, 320, 180, 400);
+    g.addColorStop(0, 'rgba(255,40,70,0)'); g.addColorStop(1, 'rgba(255,40,70,0.85)');
+    c.fillStyle = g; c.fillRect(0, 0, 640, 360);
+    t.refresh();
+  }
 }

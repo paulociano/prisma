@@ -40,6 +40,8 @@ export type EntityType =
   | 'gate'
   | 'portal'
   | 'fakewall'
+  | 'chest'
+  | 'door'
   | 'guardian'
   | 'boss';
 
@@ -189,6 +191,17 @@ export class LevelBuilder {
   /** Parede falsa (só visual, atravessável) de w x h blocos; o canto inferior esquerdo é (col, row). */
   fakewall(col: number, row: number, w: number, h: number) {
     this.entities.push({ type: 'fakewall', col, row, data: { w, h } });
+    return this;
+  }
+
+  /** Baú de recompensa: abre ao toque e solta um coração e faíscas. */
+  chest(col: number, row: number) {
+    return this.add('chest', col, row);
+  }
+
+  /** Porta de sala conectada: tocar em uma leva Íris até a outra porta de mesmo `id`. */
+  door(col: number, row: number, id = 1) {
+    this.entities.push({ type: 'door', col, row, data: { id } });
     return this;
   }
 

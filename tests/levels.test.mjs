@@ -110,3 +110,13 @@ test('every level gets its own extension segment and a hidden portal', async () 
     }
   }
 });
+
+test('doors come in pairs and chests exist in vaults and annex rooms', () => {
+  LEVELS.forEach((build) => {
+    const l = build();
+    const ids = {};
+    for (const e of l.entities.filter((x) => x.type === 'door')) ids[e.data.id] = (ids[e.data.id] ?? 0) + 1;
+    for (const [id, n] of Object.entries(ids)) assert.equal(n, 2, `${l.id}: door ${id} needs exactly one partner`);
+  });
+  assert.ok(LEVELS.some((b) => b().entities.some((e) => e.type === 'chest')));
+});
