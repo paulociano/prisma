@@ -120,3 +120,11 @@ test('doors come in pairs and chests exist in vaults and annex rooms', () => {
   });
   assert.ok(LEVELS.some((b) => b().entities.some((e) => e.type === 'chest')));
 });
+
+test('early worlds only get gentle challenges (difficulty grows with the world)', async () => {
+  const { allowedRating } = await import('../.debug/extend.mjs');
+  assert.ok(allowedRating(1, 0) < allowedRating(4, 1));
+  assert.ok(allowedRating(4, 1) < allowedRating(7, 2));
+  assert.ok(allowedRating(1, 0) < 2.5, 'world 1 level 1 must exclude the hardest beats');
+  assert.ok(allowedRating(7, 2) >= 3, 'last levels allow every beat');
+});
