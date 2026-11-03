@@ -13,6 +13,21 @@ import { PauseScene } from './scenes/PauseScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 
+// Sem WebGL o jogo não roda (o filtro de cor depende dele): mostra um aviso em vez de uma tela preta.
+function hasWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+if (!hasWebGL()) {
+  const box = document.getElementById('game');
+  if (box) box.innerHTML = '<p style="color:#e9dcff;font:20px/1.5 sans-serif;text-align:center;padding:12vh 24px">PRISMA precisa de aceleração gráfica (WebGL).<br>Ative a aceleração por hardware no navegador ou tente outro navegador atualizado.</p>';
+  throw new Error('WebGL indisponível');
+}
+
 const game = new Phaser.Game({
   type: Phaser.WEBGL, // o filtro de cor precisa de WebGL
   parent: 'game',
