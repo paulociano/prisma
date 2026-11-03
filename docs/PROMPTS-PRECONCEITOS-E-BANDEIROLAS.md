@@ -145,3 +145,18 @@ readable at 100 pixels tall. Stripe colors from top to bottom:
 - Confira as cores de cada bandeira antes de aprovar o quadro; as listras precisam estar certas.
 - Os textos citam fatos verificáveis: Gilbert Baker 1978 (arco-íris), Daniel Quasar 2018 (progresso), Michael Page 1998 (bissexual), Monica Helms 1999 (trans), Kye Rowan 2014 (não-binária), Morgan Carpenter 2013 (intersexo), 17/05/1990 (OMS), união estável em 2011 e casamento em 2013 (STF/CNJ), criminalização em 2019 (STF), nome e gênero sem cirurgia em 2018 (STF), CFP 1999. Revise com uma pessoa da comunidade antes de publicar.
 - Se algum desses textos precisar de ajuste, edite só `src/story/pennants.ts`.
+
+---
+
+## D. Pergaminho do cartão da bandeirola
+Imagem única (não é sprite sheet) usada como fundo do cartão que abre ao pegar uma bandeirola. O texto, o título e a flâmula são desenhados pelo jogo por cima, então a arte **não pode ter texto, letras nem bandeira**.
+
+📎 Anexe a imagem de estilo do jogo (mesma referência das outras artes).
+💾 Salve como `assets/raw/comum/pergaminho.png` (PNG com fundo transparente; ~1100×680 px ou maior, mesma proporção).
+📐 Área útil de texto: retângulo central ocupando ~87% da largura e ~82% da altura, margens internas livres de qualquer detalhe. Rolos de madeira ficam colados em cima e embaixo, saindo um pouco para os lados.
+
+```
+A large horizontal parchment scroll for a 2D game dialog card, front view, perfectly flat and symmetrical, landscape ratio about 11:7. A wooden roll with warm carved end caps along the top edge and an identical one along the bottom edge, each slightly wider than the paper. Between them a sheet of aged cream-yellow paper with subtle fibers, soft darker stained edges, tiny worn corners and a few faint rainbow-tinted watercolor specks at the extreme corners only. The whole center of the paper is a clean, empty, evenly lit area with no marks, ready to hold text; keep at least 8% of clean margin inside the paper edges. Soft drop shadow under the scroll. Warm storybook painted style matching the reference image, crisp clean outline, high resolution, transparent background. NO text, NO letters, NO symbols, NO flag, NO characters, NO frame decorations inside the writing area.
+```
+
+💡 Se a arte não existir, o jogo desenha um pergaminho simples por código; ao colocar o PNG na pasta e rodar `npm run assets`, ele passa a usar a arte automaticamente.

@@ -1,18 +1,18 @@
 import type { Line } from '../scenes/DialogueScene';
 
-// Falas do Mundo 7. Ás é cavaleire assexual da Cidadela (falas sem gênero).
+// Falas do Mundo 7. Ás é cavaleiro(a) assexual da Cidadela; as falas evitam marcas de gênero sem precisar de linguagem neutra.
 
 export const ACE_FREED: Line[] = [
   { who: 'ace', mood: 'grateful', text: 'Íris... Você chegou até aqui. Até o coração do cinza.' },
   { who: 'iris', mood: 'happy', text: 'Ás! Todo mundo me falou de você pelo caminho.' },
   { who: 'ace', mood: 'worried', text: 'Monocromo diz que ninguém deve ser diferente. Que existe um jeito "certo" de amar, de sentir, de ser. Eu nunca coube nesse jeito.' },
-  { who: 'spark', mood: 'talking', text: 'E nem precisa caber! Você é inteire do jeito que é!' },
+  { who: 'spark', mood: 'talking', text: 'E nem precisa caber! Você é do jeito que é, e isso já basta!' },
   { who: 'ace', mood: 'proud', text: 'Então leve meu escudo no coração, Íris. Com ele, você aguenta um golpe a mais.' },
 ];
 
 export const ACE_AFTER: Line[] = [
   { who: 'ace', mood: 'proud', text: 'Monocromo espera no trono. Todos os guardiões estão com você: Rubi, Sol e Luna, Aurora, Ramo, Marina, Bix... e eu.' },
-  { who: 'iris', mood: 'determined', text: 'Então vamos juntes. Por todas as cores.' },
+  { who: 'iris', mood: 'determined', text: 'Então vamos em frente, lado a lado. Por todas as cores.' },
 ];
 
 export const MONO_INTRO: Line[] = [

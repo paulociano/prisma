@@ -70,13 +70,16 @@ export class EndingScene extends Phaser.Scene {
       '',
       'e todo mundo que brilha do próprio jeito.',
       '',
-      'Obrigade por jogar. 🏳️‍🌈',
+      'Desenvolvido por',
+      'Paulo Henrique Graciano',
+      '',
+      'Obrigado por jogar. 🏳️‍🌈',
     ];
     const credits = this.add.text(GAME_W / 2, GAME_H + 20, lines.join('\n'), { ...textStyle(25), align: 'center', lineSpacing: 9 }).setOrigin(0.5, 0);
     this.tweens.add({
       targets: credits,
-      y: 24, // termina acima da fila de personagens
-      duration: 14000,
+      y: -200, // termina acima da fila de personagens
+      duration: 20000,
       ease: 'Sine.Out',
       onComplete: () => {
         const hint = this.add.text(GAME_W / 2, GAME_H - 215, 'aperte qualquer tecla', textStyle(20)).setOrigin(0.5);

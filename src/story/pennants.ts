@@ -47,7 +47,7 @@ export const PENNANTS: Pennant[] = [
   {
     id: 'nao-binarie', title: 'Orgulho Não-Binário',
     colors: [0xfcf434, 0xffffff, 0x9c59d1, 0x2c2c2c],
-    what: 'Criada por Kye Rowan em 2014. Pessoas não-binárias não se identificam apenas como homem ou apenas como mulher. Podem usar pronomes como "ele", "ela" ou "elu".',
+    what: 'Criada por Kye Rowan em 2014. Pessoas não-binárias não se identificam apenas como homem ou apenas como mulher. Podem preferir ser chamadas por "ele", por "ela" ou por outro pronome que escolherem.',
     how: 'Se não souber os pronomes, pergunte com gentileza e use os que a pessoa pedir. Errou? Corrija sem drama e siga em frente: o esforço conta.',
   },
   {

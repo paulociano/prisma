@@ -34,7 +34,15 @@ export class PennantScene extends Phaser.Scene {
     const W = 960, H = 560, cx = GAME_W / 2, cy = GAME_H / 2;
     const root = this.add.container(cx, cy);
     const g = this.add.graphics();
+    const art = this.textures.exists('pergaminho');
+    if (art) {
+      // arte pronta do pergaminho (área útil 960x560 no centro)
+      const bg = this.add.image(0, 0, 'pergaminho');
+      bg.setScale(Math.min((W + 120) / bg.width, (H + 120) / bg.height));
+      root.add(bg);
+    }
     // folha
+    if (!art) {
     g.fillStyle(0x000000, 0.28).fillRoundedRect(-W / 2 + 8, -H / 2 + 16, W, H, 14); // sombra
     g.fillStyle(0xf3e4b8, 1).fillRect(-W / 2 + 14, -H / 2, W - 28, H);
     g.fillStyle(0xe6d29a, 1);
@@ -46,6 +54,7 @@ export class PennantScene extends Phaser.Scene {
       g.fillStyle(0xd4a965, 1).fillRoundedRect(-W / 2 - 14, y - 22, W + 28, 18, 9);
       g.fillStyle(0x7a5528, 1).fillCircle(-W / 2 - 14, y, 14).fillCircle(W / 2 + 14, y, 14);
       g.lineStyle(3, 0x6b4a20, 1).strokeRoundedRect(-W / 2 - 14, y - 22, W + 28, 44, 22);
+    }
     }
     root.add(g);
 
