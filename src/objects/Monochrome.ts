@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { has } from '../gfx/art';
 import type { Boss, BossHost } from './Boss';
+import { MONO_MASKS } from '../story/w7';
 
 type Body = Phaser.Physics.Arcade.Body;
 type Sprite = Phaser.Physics.Arcade.Sprite;
@@ -291,26 +292,37 @@ export class Monochrome implements Boss {
     return true;
   }
 
-  /** Fim da forma 1: o manto racha, desmorona e ele volta em armadura de cristal. */
+  /** Fim da forma 1: a máscara racha e cai, o medo fala, e ele volta em armadura de cristal. */
   private transform() {
     this.state = 'transform';
     for (const s of this.shots.getChildren()) s.destroy();
     this.pose('end', END.cracked, 1);
-    this.scene.time.delayedCall(700, () => {
+    this.host.dim(0.45, 350);
+    this.scene.time.delayedCall(600, () => {
       this.pose('end', END.crumble, 1);
       this.scene.cameras.main.shake(600, 0.015);
       this.host.burst(this.hit.x, this.hit.y, 40);
+      this.host.stormFlash(1);
     });
-    this.scene.time.delayedCall(1600, () => {
+    this.scene.time.delayedCall(1500, () => this.host.cinematic(MONO_MASKS, () => this.reveal()));
+  }
+
+  /** Depois da fala: rajada de raios, a armadura surge e a luta recomeça. */
+  private reveal() {
+    this.host.dim(0.9, 250);
+    this.host.stormFlash(3);
+    this.scene.cameras.main.shake(500, 0.012);
+    this.scene.time.delayedCall(550, () => {
       this.phase = 2;
       this.name = 'Monocromo · forma final';
       this.hp = this.maxHp;
       this.step = 0;
-      this.scene.cameras.main.flash(300, 230, 220, 255);
+      this.host.burst(this.hit.x, this.hit.y - 40, 40);
+      this.host.dim(0, 600);
       this.idleAnim();
       this.host.onBossHp(this.hp, this.maxHp);
-      this.enter('idle', 1.2);
     });
+    this.scene.time.delayedCall(1400, () => this.enter('idle', 1.2));
   }
 
   private defeat() {
