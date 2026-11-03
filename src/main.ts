@@ -42,7 +42,7 @@ const game = new Phaser.Game({
 });
 
 // acesso para depuração no console do navegador (só em desenvolvimento)
-if (import.meta.env.DEV) (window as unknown as { game: Phaser.Game }).game = game;
+if (import.meta.env.DEV || location.search.includes('debug')) (window as unknown as { game: Phaser.Game }).game = game;
 
 // Erro inesperado em produção: mostra um aviso amigável (o progresso já está salvo no navegador).
 if (!import.meta.env.DEV) {
