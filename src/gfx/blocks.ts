@@ -16,7 +16,41 @@ const rr = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: num
   c.roundRect(x, y, w, h, r);
 };
 
+/** Copia um quadro de um atlas de arte para uma textura própria (ajustada ao retângulo w x h, encostada embaixo). */
+function fromAtlas(scene: Phaser.Scene, key: string, atlas: string, frame: number, w: number, h: number) {
+  if (scene.textures.exists(key) || !scene.textures.exists(atlas)) return false;
+  const f = scene.textures.get(atlas).get(String(frame));
+  if (!f) return false;
+  const k = Math.min(w / f.cutWidth, h / f.cutHeight);
+  const dw = Math.round(f.cutWidth * k), dh = Math.round(f.cutHeight * k);
+  const tex = scene.textures.createCanvas(key, w, h);
+  if (!tex) return false;
+  tex.getContext().drawImage(f.source.image as CanvasImageSource, f.cutX, f.cutY, f.cutWidth, f.cutHeight, Math.round((w - dw) / 2), h - dh, dw, dh);
+  tex.refresh();
+  return true;
+}
+
+export const PORTAL_FRAMES = 4;
+
+/** Troca as texturas desenhadas por código pela arte (folhas level_blocks e secret_portals), quando existe. */
+function useArt(scene: Phaser.Scene) {
+  fromAtlas(scene, 'blk_bump', 'level_blocks', 0, 64, 64);
+  fromAtlas(scene, 'blk_bump_used', 'level_blocks', 1, 64, 64);
+  fromAtlas(scene, 'blk_pushbox', 'level_blocks', 2, 64, 64);
+  fromAtlas(scene, 'blk_plate', 'level_blocks', 3, 76, 34);
+  fromAtlas(scene, 'blk_plate_down', 'level_blocks', 4, 76, 34);
+  fromAtlas(scene, 'blk_gate', 'level_blocks', 5, 64, 64);
+  fromAtlas(scene, 'blk_weight', 'level_blocks', 6, 88, 128);
+  fromAtlas(scene, 'blk_cracked', 'level_blocks', 7, 66, 66);
+  fromAtlas(scene, 'blk_ghost', 'level_blocks', 9, 64, 64);
+  fromAtlas(scene, 'blk_wall', 'level_blocks', 10, 64, 64);
+  for (let i = 0; i < PORTAL_FRAMES; i++) fromAtlas(scene, `blk_portal${i}`, 'secret_portals', 4 + i, 80, 128);
+  fromAtlas(scene, 'blk_portal', 'secret_portals', 4, 80, 128);
+  fromAtlas(scene, 'blk_door', 'doors', 0, 72, 120);
+}
+
 export function ensureBlockTextures(scene: Phaser.Scene) {
+  useArt(scene);
   bake(scene, 'blk_bump', 64, 64, (c) => {
     c.fillStyle = '#ffb32e'; rr(c, 1, 1, 62, 62, 10); c.fill();
     c.fillStyle = '#ffd86b'; rr(c, 5, 5, 54, 24, 8); c.fill();
