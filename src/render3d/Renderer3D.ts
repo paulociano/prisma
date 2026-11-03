@@ -39,6 +39,8 @@ export class Renderer3D {
   /** Faixa de chão atrás do caminho (altura e profundidades), montada com o fundo da fase. */
   private backStrip?: { floorY: number; z0: number; z1: number };
   private readonly particles: Particles3D;
+  /** Textura de luz da água (Recife), deslocada a cada quadro. */
+  private caustics?: THREE.Texture;
   private readonly clock = new THREE.Clock();
 
   constructor(private readonly game: Phaser.Game) {
@@ -82,6 +84,10 @@ export class Renderer3D {
     this.syncEntities(snap.entities, scene.time.now / 1000, Math.min(this.clock.getDelta(), 0.1));
     this.syncLabels(snap.labels);
     this.particles.sync(snap.particles);
+    if (this.caustics) {
+      const t = scene.time.now / 1000;
+      this.caustics.offset.set(t * 0.03, Math.sin(t * 0.4) * 0.05);
+    }
     const tint = snap.tint;
     this.tintEl.style.background = tint ? `rgba(${tint.r},${tint.g},${tint.b},${tint.alpha})` : 'transparent';
 
@@ -127,6 +133,7 @@ export class Renderer3D {
     disposeChildren(this.labelRoot);
     this.labels.clear();
     this.particles.clear();
+    this.caustics = undefined;
     this.builtFor = level;
     this.buildEntityMaterials(level);
     // nas arenas o 2D usa o piso desenhado na arte; no 3D a perspectiva separa os dois, então o chão é modelado
@@ -189,7 +196,9 @@ export class Renderer3D {
         const height = row.min + rand() * row.var;
         const width = widthOf(back, frame, height);
         const z = row.z + (rand() - 0.5) * 0.2;
-        place(back, frame, x + width / 2, floorY - 0.05, height, z, z); // mais longe, desenhado antes
+        const board = place(back, frame, x + width / 2, floorY - 0.05, height, z, z); // mais longe, desenhado antes
+        // um pouco mais escuro que a camada de jogo: Íris e os inimigos se destacam do cenário
+        (board.material as THREE.MeshBasicMaterial).color.setHex(0xd2d2d2);
         x += width * (0.55 + rand() * 0.25); // sobrepõe a próxima peça
       }
     }
@@ -254,6 +263,22 @@ export class Renderer3D {
     water.position.set(level.cols / 2, (top + bottom) / 2, 0);
     water.renderOrder = 100; // depois das placas: como no 2D, a água tinge quem está submerso
     this.levelRoot.add(water);
+    // brilho de luz ondulando na frente da água (opcional; anima em frame())
+    const caustics = this.texture(`w${level.world}_water_caustics`, true)?.clone();
+    if (caustics) {
+      caustics.userData.owned = true;
+      const width = level.cols + 40, height = top - bottom;
+      caustics.repeat.set(width / 4, height / 4);
+      caustics.needsUpdate = true;
+      const light = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, height),
+        new THREE.MeshBasicMaterial({ map: caustics, transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }),
+      );
+      light.position.set(level.cols / 2, (top + bottom) / 2, (DEPTH + 1) / 2 + 0.01);
+      light.renderOrder = 102;
+      this.levelRoot.add(light);
+      this.caustics = caustics;
+    }
     if ((level.water ?? 0) > 0) {
       const surface = new THREE.Mesh(
         new THREE.PlaneGeometry(level.cols + 40, DEPTH + 1),
@@ -281,10 +306,12 @@ export class Renderer3D {
     );
 
     // a câmera em perspectiva enxerga um pouco abaixo da fase: o chão continua para baixo
+    // (menos nas ilhas flutuantes, que viraram pilares até o fundo)
     const bottom = level.rows - 1;
-    level.tiles[bottom].forEach((t, c) => {
-      if (t === T.Solid) for (let r = level.rows; r < level.rows + 4; r++) solid.push([c, r]);
-    });
+    if (!isFloating(level))
+      level.tiles[bottom].forEach((t, c) => {
+        if (t === T.Solid) for (let r = level.rows; r < level.rows + 4; r++) solid.push([c, r]);
+      });
 
     // texturas opcionais (docs/PROMPTS-2.5D.md); sem elas, ficam as cores provisórias
     const w = level.world;
@@ -335,18 +362,28 @@ export class Renderer3D {
     const back = -DEPTH / 2;
     this.backStrip = { floorY, z0: back, z1: back - STRIP };
 
-    const surface = this.texture(`w${w}_ground_top`, true) ?? this.texture(`w${w}_ground`, true);
-    const strip = new THREE.Mesh(tiledPlane(span, STRIP), new THREE.MeshStandardMaterial({ map: surface, color: surface ? 0xd8d8d8 : 0x6a5040, roughness: 1 }));
-    strip.rotation.x = -Math.PI / 2;
-    strip.position.set(cx, floorY, back - STRIP / 2);
-    strip.receiveShadow = true;
-    this.levelRoot.add(strip);
+    // onde nenhuma camada cobre (embaixo das ilhas flutuantes, por exemplo), o fundo e a névoa
+    // continuam com a cor da base do céu do mundo, em vez de um azul-escuro fixo
+    const far = this.texture(`w${w}_bg_far`)?.image as HTMLImageElement | undefined;
+    const sky = far ? bottomColor(far) : new THREE.Color(0x1d1530);
+    (this.scene.background as THREE.Color).copy(sky);
+    (this.scene.fog as THREE.Fog).color.copy(sky);
 
-    const side = this.texture(`w${w}_ground`, true);
-    const wallH = floorY + level.rows + 6;
-    const wall = new THREE.Mesh(tiledPlane(span, wallH), new THREE.MeshStandardMaterial({ map: side, color: side ? 0x8c8c8c : 0x4a3830, roughness: 1 }));
-    wall.position.set(cx, floorY - wallH / 2, back - 0.02);
-    this.levelRoot.add(wall);
+    // ilhas flutuantes (gravidade baixa): sem chão atrás nem parede embaixo, os vãos mostram o céu
+    if (!isFloating(level)) {
+      const surface = this.texture(`w${w}_ground_top`, true) ?? this.texture(`w${w}_ground`, true);
+      const strip = new THREE.Mesh(tiledPlane(span, STRIP), new THREE.MeshStandardMaterial({ map: surface, color: surface ? 0xd8d8d8 : 0x6a5040, roughness: 1 }));
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(cx, floorY, back - STRIP / 2);
+      strip.receiveShadow = true;
+      this.levelRoot.add(strip);
+
+      const side = this.texture(`w${w}_ground`, true);
+      const wallH = floorY + level.rows + 6;
+      const wall = new THREE.Mesh(tiledPlane(span, wallH), new THREE.MeshStandardMaterial({ map: side, color: side ? 0x8c8c8c : 0x4a3830, roughness: 1 }));
+      wall.position.set(cx, floorY - wallH / 2, back - 0.02);
+      this.levelRoot.add(wall);
+    }
 
     // [textura, z, altura, y da base]: a média começa logo abaixo da linha do chão, atrás da faixa
     const layers: [string, number, number, number][] = [
@@ -574,6 +611,22 @@ const glow = (color: THREE.ColorRepresentation, intensity = 0.5) => mat(color, {
 const STRIP = 2.2;
 /** Onde fica o primeiro plano: logo na frente da face dos blocos (z = +1,5). */
 const FRONT_Z = 2.1;
+
+/** Cor média da faixa de baixo de uma imagem (a base do céu de fundo). */
+function bottomColor(img: HTMLImageElement) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d')!;
+  g.drawImage(img, 0, 0, 32, 32);
+  const d = g.getImageData(0, 26, 32, 6).data;
+  let r = 0, gr = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) (r += d[i], gr += d[i + 1], b += d[i + 2]);
+  const n = d.length / 4;
+  return new THREE.Color().setRGB(r / n / 255, gr / n / 255, b / n / 255, THREE.SRGBColorSpace);
+}
+
+/** Fase de ilhas flutuantes (Ilhas do Céu): a gravidade baixa é a marca dela no LevelBuilder. */
+const isFloating = (level: LevelData) => (level.gravity ?? 1) < 1;
 
 /** Altura mais comum do topo do chão na fase (em unidades 3D): onde o fundo encosta. */
 function groundLine(level: LevelData) {
