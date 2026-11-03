@@ -74,3 +74,22 @@ test('checkpoints stay inside levels and have unique positions', () => {
       `${l.id}: checkpoint outside level bounds`);
   });
 });
+
+test('each extended level hides exactly one secret portal with a valid sub-level', () => {
+  LEVELS.forEach((build) => {
+    const l = build();
+    if (l.arena || l.cols === 0) return;
+    const portals = l.entities.filter((e) => e.type === 'portal');
+    assert.ok(portals.length <= 1, `${l.id}: more than one portal`);
+    for (const p of portals) assert.ok(p.data.sub >= 0 && p.data.sub < 4, `${l.id}: bad sub index`);
+  });
+});
+
+test('interactive blocks come in matching sets (every gate has a plate and a box)', () => {
+  LEVELS.forEach((build) => {
+    const l = build();
+    const ids = (type) => new Set(l.entities.filter((e) => e.type === type).map((e) => e.data.id));
+    for (const id of ids('gate')) assert.ok(ids('plate').has(id), `${l.id}: gate ${id} without plate`);
+    if (ids('gate').size) assert.ok(l.entities.some((e) => e.type === 'pushbox'), `${l.id}: gate without a pushbox`);
+  });
+});

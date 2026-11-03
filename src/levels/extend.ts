@@ -1,4 +1,5 @@
 import { LevelBuilder, T, type EntityType, type LevelData } from './LevelBuilder';
+import { SUB_COUNT } from './subs';
 
 // Trecho extra de cada fase normal: ~50 blocos encaixados no meio da fase, montados com
 // "blocos de construção" (montanhas, torres, ilhas flutuantes, paredes de caixas...) e com
@@ -142,7 +143,49 @@ function chimney(s: Seg) {
   s.x += 14;
 }
 
-const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney };
+/** Fileira de blocos de bater com a cabeça: surpresa, faíscas e um inimigo para quebrar o ritmo. */
+function bumps(s: Seg, w: number, i: number) {
+  const t = top(s);
+  s.b.ground(s.x, s.x + 11, s.h);
+  s.b.bump(s.x + 2, t - 3, 1).bump(s.x + 5, t - 3, 0).bump(s.x + 8, t - 3, 1);
+  s.b.add(pick(WORLD[w].ground, i), s.x + 10, t - 1);
+  s.x += 12;
+}
+
+/** Cofre: empurre a caixa até a placa; o portão da ilha alta abre e o coração fica livre. */
+function vault(s: Seg, w: number, i: number) {
+  const t = top(s);
+  s.b.ground(s.x, s.x + 16, s.h);
+  s.b.pushbox(s.x + 1, t - 1);
+  s.b.plate(s.x + 4, t - 1, 1).plate(s.x + 5, t - 1, 1);
+  s.b.block(s.x + 6, t - 1, s.x + 7, t - 1); // degrau: também trava a caixa sobre a placa
+  s.b.block(s.x + 8, t - 3, s.x + 13, t - 3); // ilha: dá para passar por baixo
+  const gh = Math.min(4, t - 4);
+  s.b.gate(s.x + 9, t - 4 - gh + 1, gh, 1);
+  s.b.add('heart', s.x + 11, t - 5).coins(s.x + 10, s.x + 13, t - 4);
+  s.b.add(pick(WORLD[w].ground, i), s.x + 15, t - 1);
+  s.x += 17;
+}
+
+/** Entrada secreta: parede falsa (mundos pares) ou ilha alta alcançada por uma mola (ímpares). */
+function secret(s: Seg, w: number, i: number) {
+  const t = top(s);
+  const sub = (w + i) % SUB_COUNT;
+  s.b.ground(s.x, s.x + 13, s.h);
+  if (w % 2 === 0 || w === 5 || t < 8) {
+    s.b.coins(s.x + 3, s.x + 8, t - 1);
+    s.b.portal(s.x + 11, t - 1, sub);
+    s.b.fakewall(s.x + 10, t - 1, 3, 3);
+  } else {
+    s.b.add('spring', s.x + 3, t - 1);
+    s.b.coins(s.x + 3, s.x + 3, t - 3).coins(s.x + 3, s.x + 3, t - 5);
+    s.b.block(s.x + 5, t - 5, s.x + 8, t - 5);
+    s.b.portal(s.x + 7, t - 6, sub);
+  }
+  s.x += 14;
+}
+
+const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault };
 
 /** Monta o trecho do mundo `w` (variação `v` = número da fase). */
 function buildSegment(w: number, v: number, h: number, rows: number) {
@@ -152,10 +195,14 @@ function buildSegment(w: number, v: number, h: number, rows: number) {
   b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
   const beats = WORLD[w].beats;
   // 4 desafios por fase, começando num ponto diferente da lista a cada fase
-  for (let k = 0; k < 4; k++) {
+  // 3 desafios do mundo + 1 de blocos interativos (alterna entre fileira de blocos e cofre) + 1 segredo
+  for (let k = 0; k < 3; k++) {
     BEATS[pick(beats, v + k)](s, w, v + k);
     flat(s, 2);
   }
+  (v % 2 ? vault : bumps)(s, w, v);
+  flat(s, 2);
+  secret(s, w, v);
   flat(s, 2);
   return { b, width: s.x };
 }
@@ -177,6 +224,14 @@ const surfaceRow = (l: LevelData, c: number) => {
 
 /** Coluna no meio da fase com chão liso e nada por perto (entidades, vento, plataformas). */
 function findInsertion(l: LevelData) {
+  for (const radius of [4, 2]) {
+    const c = findInsertionAt(l, radius);
+    if (c !== undefined) return c;
+  }
+  return undefined;
+}
+
+function findInsertionAt(l: LevelData, radius: number) {
   // só o que ocupa várias colunas não pode ser cortado ao meio; o resto apenas se desloca.
   // Inimigos e objetos de chão logo em cima do ponto também ficam de fora (o trecho começa no chão).
   const SPAN = new Set(['wind', 'mover', 'searchlight', 'vent', 'spring', 'checkpoint', 'guardian', 'exit']);
@@ -194,6 +249,10 @@ function findInsertion(l: LevelData) {
     const r = surfaceRow(l, c);
     // emenda: as duas colunas dos dois lados no mesmo nível, sem nada acima delas
     if (r < 2 || surfaceRow(l, c - 1) !== r || busy(c) || busy(c - 1)) continue;
+    // nada de partir um trecho de paredes/pilares: `radius` colunas de cada lado também são chão liso
+    let flat = true;
+    for (let k = -radius; k <= radius && flat; k++) flat = surfaceRow(l, c + k) === r;
+    if (!flat) continue;
     candidates.push(c);
   }
   candidates.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));

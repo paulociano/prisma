@@ -7,6 +7,7 @@
 import { PHYS } from '../src/config';
 import { BASE, LEVELS } from '../src/levels';
 import type { LevelData } from '../src/levels/LevelBuilder';
+import { buildSub, SUB_COUNT } from '../src/levels/subs';
 
 const TILE = 64, W = 40, H = 92, DT = 1 / 60;
 
@@ -161,5 +162,14 @@ for (const build of base ? BASE : LEVELS) {
   const r = checkLevel(l, { dj: got(1), dash: got(2), wj: got(3) });
   if (!r.ok) fails++;
   console.log(`${l.id}  ${r.ok ? 'ok' : `NÃO CHEGA: parou na coluna ${r.furthest}`}  (${l.cols} colunas, ${Date.now() - t0} ms)`);
+}
+// sub-níveis secretos: têm que ser vencíveis só com o pulo simples
+if (!base && !only) {
+  for (let k = 0; k < SUB_COUNT; k++) {
+    const l = buildSub(1, k);
+    const r = checkLevel(l, { dj: false, dash: false, wj: false });
+    if (!r.ok) fails++;
+    console.log(`${l.id}  ${r.ok ? 'ok' : `NÃO CHEGA: parou na coluna ${r.furthest}`}  (sub-nível)`);
+  }
 }
 process.exit(fails ? 1 : 0);
