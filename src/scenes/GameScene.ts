@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals } from '../systems/Settings';
+import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals, getSettings } from '../systems/Settings';
 import { COLOR_POINTS, GAME_H, GAME_W, PHYS, RAINBOW, TILE } from '../config';
 import { F, has } from '../gfx/art';
 import { texRes } from '../gfx/textures';
@@ -992,6 +992,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // portais escondidos: caixas ao lado ou piso rachado por cima precisam ter sido quebrados
     for (const p of this.portals) {
       if (p.on) continue;
+      // pista sutil: cintilações no ar quando Íris passa perto (mais raras com "reduzir movimento")
+      if (Math.abs(p.x - this.player.hit.x) < TILE * 6 && Math.random() < dt * (getSettings().reduceMotion ? 0.25 : 0.8)) this.sparkle(p.x + (Math.random() - 0.5) * TILE, p.y - Math.random() * TILE * 1.4, 0xd9c8ff);
       if (p.mode === 2) {
         const near = (this.crates.getChildren() as Sprite[]).filter((c) => Math.abs(c.x - p.x) < TILE * 1.2 && Math.abs(c.y - (p.y - TILE / 2)) < TILE * 0.6).length;
         if (near < 2) this.revealPortal(p);
