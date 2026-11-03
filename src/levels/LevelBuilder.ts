@@ -43,6 +43,7 @@ export type EntityType =
   | 'chest'
   | 'door'
   | 'chamber'
+  | 'crumble'
   | 'guardian'
   | 'boss';
 
@@ -203,6 +204,12 @@ export class LevelBuilder {
   /** Porta de sala conectada: tocar em uma leva Íris até a outra porta de mesmo `id`. */
   door(col: number, row: number, id = 1) {
     this.entities.push({ type: 'door', col, row, data: { id } });
+    return this;
+  }
+
+  /** Plataforma que desmorona: treme logo depois de pisada, cai e volta. `w` blocos de largura. */
+  crumble(col: number, row: number, w = 2) {
+    this.entities.push({ type: 'crumble', col, row, data: { w } });
     return this;
   }
 

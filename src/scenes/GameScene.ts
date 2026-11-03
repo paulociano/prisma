@@ -146,6 +146,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private portalLock = false;
   private doors: { x: number; y: number; id: number; view: Phaser.GameObjects.Image }[] = [];
   private doorLock = false;
+  private lookAhead = false;
+  private crumbles: { body: Phaser.GameObjects.Zone; view: Phaser.GameObjects.Rectangle; t: number; state: 'idle' | 'shake' | 'gone'; x: number; y: number }[] = [];
+  private inChamber = false;
   private risk?: Phaser.GameObjects.Image;
   private combo = 0;
   private mercyGiven = false;
@@ -173,7 +176,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.isSub = data?.sub !== undefined && !!data?.from;
     this.levelIndex = Phaser.Math.Clamp((this.isSub ? data.from!.level : data?.level) ?? this.save.level, 0, LEVELS.length - 1);
     this.level = this.isSub ? buildSub(Math.floor(this.levelIndex / 4) + 1, data.sub!) : LEVELS[this.levelIndex]();
-    this.plates = []; this.gates = []; this.portals = []; this.doors = []; this.doorLock = false; this.risk = undefined; this.fakewalls = []; this.weights = []; this.fissureT = 8; this.bossLost = 0;
+    this.plates = []; this.gates = []; this.portals = []; this.doors = []; this.doorLock = false; this.lookAhead = false; this.crumbles = []; this.inChamber = false; this.risk = undefined; this.fakewalls = []; this.weights = []; this.fissureT = 8; this.bossLost = 0;
     this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
     this.enemies = [];
     this.movers = [];
@@ -248,6 +251,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       cam.setBounds(-pad, 0, worldW + pad * 2, worldH);
       cam.startFollow(this.player.hit, true, 0.12, 0.12);
       cam.setDeadzone(60, 140);
+      this.lookAhead = true;
     }
     cam.fadeIn(400);
 
@@ -625,6 +629,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         case 'door': {
           const view = this.add.image(cx, bottom, 'blk_door').setOrigin(0.5, 1).setDepth(3);
           this.doors.push({ x: cx, y: bottom, id: e.data?.id ?? 1, view });
+          break;
+        }
+        case 'crumble': {
+          const w = (e.data?.w ?? 2) * TILE;
+          const x0 = e.col * TILE + w / 2, y0 = e.row * TILE;
+          const view = this.add.rectangle(x0, y0 + 11, w - 4, 22, 0xb9a8ff).setStrokeStyle(3, 0x6c5a9c).setDepth(4);
+          const z = this.add.zone(x0, y0 + 10, w, 20);
+          this.oneways.add(z);
+          (z.body as Phaser.Physics.Arcade.StaticBody).checkCollision.down = (z.body as Phaser.Physics.Arcade.StaticBody).checkCollision.left = (z.body as Phaser.Physics.Arcade.StaticBody).checkCollision.right = false;
+          this.crumbles.push({ body: z, view, t: 0, state: 'idle', x: x0, y: y0 });
           break;
         }
         case 'chamber': {
@@ -1021,6 +1035,44 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const near = this.player.hit.x > w.x - TILE * 2 && this.player.hit.x < w.x + w.width + TILE * 2 && Math.abs(this.player.hit.y - (w.y - w.height / 2)) < TILE * 3;
       w.alpha += ((near ? 0.3 : 1) - w.alpha) * Math.min(1, dt * 5);
       if (Math.random() < dt * 0.9) this.sparkle(w.x + Math.random() * w.width, w.y - Math.random() * w.height, 0xd9c8ff);
+    }
+    // plataformas que desmoronam: tremem 0,45 s depois de pisadas, caem e voltam depois de 2,6 s
+    for (const c of this.crumbles) {
+      const sb = c.body.body as Phaser.Physics.Arcade.StaticBody;
+      if (c.state === 'idle') {
+        const on = this.player.body.bottom >= c.y - 4 && this.player.body.bottom <= c.y + 22 && this.player.onGround && Math.abs(this.player.hit.x - c.x) < sb.width / 2 + 10;
+        if (on) { c.state = 'shake'; c.t = 0.45; }
+      } else if (c.state === 'shake') {
+        c.t -= dt;
+        c.view.x = c.x + Math.sin(this.time.now / 25) * 2.5;
+        if (c.t <= 0) {
+          c.state = 'gone'; c.t = 2.6; sb.enable = false;
+          this.burst(c.x, c.y + 12, 10, [0xb9a8ff, 0xffffff]);
+          this.tweens.add({ targets: c.view, y: c.y + 140, alpha: 0, duration: 450 });
+        }
+      } else {
+        c.t -= dt;
+        if (c.t <= 0) {
+          c.state = 'idle'; sb.enable = true;
+          c.view.setPosition(c.x, c.y + 11).setAlpha(0);
+          this.tweens.add({ targets: c.view, alpha: 1, duration: 300 });
+        }
+      }
+    }
+    // câmera olha um pouco à frente de Íris (suave, só horizontal)
+    if (this.lookAhead && !getSettings().reduceMotion) {
+      const cam = this.cameras.main;
+      const want = -this.player.facing * 90;
+      cam.followOffset.x += (want - cam.followOffset.x) * Math.min(1, dt * 2.2);
+    }
+    // música própria das câmaras secretas (sala do alto e sub-níveis): só se a faixa existir
+    const inRoom = this.isSub || (this.doors.length > 0 && this.player.hit.y < 10 * TILE);
+    if (inRoom !== this.inChamber) {
+      this.inChamber = inRoom;
+      if (!this.isSub || inRoom) {
+        const name = inRoom ? 'chamber' : musicForLevel(this.level.world, !!this.level.arena);
+        if (this.cache.audio.exists(`music_${name}`)) playMusic(this, name);
+      }
     }
     // salas conectadas: portas em pares levam de um lado ao outro (acendem quando Íris chega perto)
     if (this.textures.exists('blk_door_on')) {
@@ -1452,7 +1504,12 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private setupCollisions() {
     const p = this.player.hit;
     this.physics.add.collider(p, this.solids);
-    this.physics.add.collider(p, this.oneways);
+    this.physics.add.collider(
+      p,
+      this.oneways,
+      () => { this.player.onOneWayAt = this.time.now; },
+      () => this.player.dropTime <= 0,
+    );
     this.physics.add.collider(p, this.crates);
     this.physics.add.collider(p, this.cages);
     this.physics.add.collider(p, this.cracked);

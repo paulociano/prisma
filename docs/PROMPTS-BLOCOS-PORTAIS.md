@@ -109,3 +109,26 @@ No text, no ground, no shadow.
 
 ## E. Peças da câmara secreta (já geradas)
 Ordem da folha `secret_chamber.png`: 1 poço de pedra com cavidade, 2 fundo da alcova com runas, 3 degrau, 4 laje rachada, 5 entulho, 6 cristal violeta.
+
+---
+
+## F. Música das câmaras secretas
+
+Toca dentro dos sub-níveis (✦) e na sala conectada do alto, no lugar da música do mundo; ao voltar, a música do mundo retorna. O jogo só troca se o arquivo existir, então não quebra sem ele.
+
+**F.1 Faixa única** · Suno (suno.com) ou Udio, modo **Instrumental** · 💾 `assets/audio/musica/chamber.mp3` (depois `npm run assets`)
+```
+mysterious hidden chamber, soft celesta and glass harmonica over a warm low synth pad,
+slow plucked harp arpeggios, a distant crystalline shimmer, gentle sub bass pulse,
+curious and magical rather than scary, secret treasure room atmosphere, intimate and calm,
+a little playful, 88 bpm, seamless loop, no vocals, no drums, instrumental, loopable,
+mix leaves room for sound effects
+```
+Parâmetros úteis: duração 1 a 2 minutos, **sem final** (fade-out curto no fim para o loop emendar), volume um pouco mais baixo que as faixas dos mundos.
+
+**F.2 Variação para o mundo 7 (opcional)** · 💾 `assets/audio/musica/chamber_w7.mp3`
+```
+hidden gothic crypt chamber, soft pipe organ pad, music box melody, low choir hum, glowing violet crystals,
+mysterious and hopeful, 80 bpm, seamless loop, no vocals lyrics, instrumental, loopable
+```
+(o jogo ainda usa só `chamber`; avise se quiser a versão por mundo.)

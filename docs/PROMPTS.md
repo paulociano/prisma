@@ -779,6 +779,7 @@ Ative o modo **Instrumental**. Salve em `assets/audio/musica/` como `.mp3`. Peç
 | `w7.mp3` | "epic dark gothic, pipe organ and choir pads slowly turning hopeful with strings, tense platformer, 128 bpm, instrumental, loopable" |
 | `boss.mp3` | "intense boss battle, driving drums, orchestral hits, electric guitar, synth bass, heroic, 150 bpm, instrumental, loopable" |
 | `boss_final.mp3` | "epic final boss, full orchestra and choir, synthwave elements, emotional and heroic climax, 160 bpm, instrumental" |
+| `chamber.mp3` | "mysterious hidden chamber, celesta and glass harmonica, warm low pad, plucked harp arpeggios, crystalline shimmer, curious and magical, 88 bpm, instrumental, loopable" (câmaras secretas; ver `PROMPTS-BLOCOS-PORTAIS.md`) |
 | `victory.mp3` | "short triumphant fanfare jingle, brass and bells, 5 seconds" |
 | `ending.mp3` | "emotional celebratory pop ballad, piano and strings building to a joyful anthem, instrumental" |
 

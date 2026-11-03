@@ -24,6 +24,9 @@ export function checkLevel(level: LevelData, opts: Opts) {
   const grid = new Uint8Array(rows * cols);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) grid[r * cols + c] = tiles[r][c];
   for (const e of level.entities) {
+    if (e.type === 'crumble') for (let c = e.col; c < e.col + (e.data?.w ?? 2) && c < cols; c++) if (grid[e.row * cols + c] === 0) grid[e.row * cols + c] = 2;
+  }
+  for (const e of level.entities) {
     if (e.type !== 'mover' || !e.data) continue;
     const d = e.data;
     for (let r = Math.min(e.row, e.row + d.dy); r <= Math.max(e.row, e.row + d.dy); r++)
