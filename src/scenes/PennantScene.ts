@@ -96,7 +96,7 @@ export class PennantScene extends Phaser.Scene {
     }
     root.add([what, h2, how]);
 
-    const hint = this.add.text(0, L.hintY, 'Aperte PULAR ou ENTER para guardar', { fontFamily: SERIF, fontSize: '20px', fontStyle: 'italic', color: art ? '#fff1c9' : '#6b4a20', stroke: art ? '#4a2c14' : undefined, strokeThickness: art ? 4 : 0 }).setOrigin(0.5);
+    const hint = this.add.text(0, L.hintY, 'Aperte PULAR ou ENTER para guardar  (ou toque)', { fontFamily: SERIF, fontSize: '22px', fontStyle: 'italic', color: art ? '#fff1c9' : '#6b4a20', stroke: art ? '#4a2c14' : undefined, strokeThickness: art ? 4 : 0 }).setOrigin(0.5);
     root.add(hint);
     this.tweens.add({ targets: hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { applyColorblind } from '../systems/Settings';
+import { isTouchDevice } from '../systems/Touch';
+import { applyColorblind, textBoost } from '../systems/Settings';
 import { GAME_H, GAME_W } from '../config';
 import { has } from '../gfx/art';
 import { textStyle } from '../gfx/ui';
@@ -70,16 +71,23 @@ export class CutsceneScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#000000');
     this.add.rectangle(0, GAME_H - 110, GAME_W, 220, 0x0a0614, 0.72).setOrigin(0, 0).setDepth(5);
     this.caption = this.add
-      .text(GAME_W / 2, GAME_H - 58, '', { ...textStyle(21), align: 'center', lineSpacing: 6, wordWrap: { width: GAME_W - 160 } })
+      .text(GAME_W / 2, GAME_H - 58, '', { ...textStyle(Math.round(21 * textBoost())), align: 'center', lineSpacing: 6, wordWrap: { width: GAME_W - 160 } })
       .setOrigin(0.5)
       .setDepth(6);
-    this.add.text(GAME_W - 16, 14, 'ESC pular', textStyle(16)).setOrigin(1, 0).setAlpha(0.7).setDepth(6);
+    this.add.text(GAME_W - 16, 14, isTouchDevice() ? 'toque: avançar · segure: pular' : 'ESC pular', textStyle(22)).setOrigin(1, 0).setAlpha(0.7).setDepth(6);
 
     const footer = this.registry.get('cs-footer') as string;
     if (footer) this.add.text(GAME_W / 2, 18, footer, textStyle(18, '#ffd93d')).setOrigin(0.5, 0).setDepth(6);
 
     this.input.keyboard!.on('keydown', (ev: KeyboardEvent) => (ev.key === 'Escape' ? this.finish() : this.advance()));
-    this.input.on('pointerdown', () => this.advance());
+    // toque: avança; segurar por 1 s pula tudo
+    let holdTimer: Phaser.Time.TimerEvent | undefined;
+    this.input.on('pointerdown', () => {
+      this.advance();
+      holdTimer?.remove();
+      holdTimer = this.time.delayedCall(1000, () => this.finish());
+    });
+    this.input.on('pointerup', () => holdTimer?.remove());
     this.input.gamepad?.on('down', () => this.advance());
 
     if (!this.slides.length) return this.finish();

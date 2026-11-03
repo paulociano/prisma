@@ -5,6 +5,7 @@ import { panel, textStyle } from '../gfx/ui';
 import { LEVEL_META, isUnlocked } from '../levels';
 import { worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
+import { isTouchDevice } from '../systems/Touch';
 import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { applyColorblind } from '../systems/Settings';
@@ -119,7 +120,7 @@ export class WorldMapScene extends Phaser.Scene {
 
       const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
       const label = l.boss ? `${l.id}  ♛` : `${l.id}  ◆ ${got}/3${this.save.secrets[l.id] ? ' ✦' : ''}`;
-      this.markerLabels.push(this.add.text(p.x, p.y + 44, label, textStyle(17, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0));
+      this.markerLabels.push(this.add.text(p.x, p.y + 44, label, textStyle(20, open ? '#ffffff' : '#9a93a8')).setOrigin(0.5, 0));
     });
 
     const p0 = pts[this.cursor];
@@ -132,7 +133,7 @@ export class WorldMapScene extends Phaser.Scene {
     const panelY = GAME_H - 77;
     panel(this, GAME_W / 2, panelY, 900, 118);
     this.info = this.add.text(GAME_W / 2, panelY + 5, '', { ...textStyle(24, '#3b2252'), align: 'center', wordWrap: { width: 810, useAdvancedWrap: true } }).setOrigin(0.5).setStroke('#ffffff', 4);
-    this.add.text(GAME_W / 2, panelY + 39, '← → escolher fase   ·   ENTER jogar   ·   ESC mapa-múndi', textStyle(16, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 2);
+    this.add.text(GAME_W / 2, panelY + 39, isTouchDevice() ? 'toque numa fase para jogar' : '← → fase  ·  ENTER jogar  ·  ESC voltar', textStyle(22, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 2);
 
     const kb = this.input.keyboard!;
     const step = (d: number) => {

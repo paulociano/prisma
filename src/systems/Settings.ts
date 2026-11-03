@@ -13,6 +13,10 @@ export interface Settings {
   reduceCameraShake: boolean;
   reduceMotion: boolean;
   extraVisualSignals: boolean;
+  largeText: boolean;
+  autoDialogue: boolean;
+  musicVol: number; // 0 a 100
+  sfxVol: number; // 0 a 100
 }
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
@@ -41,7 +45,9 @@ export function difficultyTuning(world: number) {
 
 const KEY = 'prisma-settings-v1';
 let cache: Settings | undefined;
-const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, reduceMotion: false, extraVisualSignals: false };
+const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, reduceMotion: false, extraVisualSignals: false, largeText: false, autoDialogue: false, musicVol: 100, sfxVol: 100 };
+
+const vol = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v / 10) * 10)) : 100);
 
 function normalizeSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS };
@@ -53,6 +59,10 @@ function normalizeSettings(value: unknown): Settings {
     reduceCameraShake: data.reduceCameraShake === true,
     reduceMotion: data.reduceMotion === true,
     extraVisualSignals: data.extraVisualSignals === true,
+    largeText: data.largeText === true,
+    autoDialogue: data.autoDialogue === true,
+    musicVol: vol(data.musicVol),
+    sfxVol: vol(data.sfxVol),
   };
 }
 
@@ -137,3 +147,6 @@ export function refreshColorblind(game: Phaser.Game) {
 export const extraSignals = () => getSettings().colorblind !== 'off' || getSettings().extraVisualSignals;
 export const canShakeCamera = () => !getSettings().reduceCameraShake;
 export const canFlashScreen = () => !getSettings().reduceFlashes;
+
+/** Fator de tamanho para diálogos e legendas (opção "Texto grande"). */
+export const textBoost = () => (getSettings().largeText ? 1.2 : 1);

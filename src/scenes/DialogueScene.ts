@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyColorblind } from '../systems/Settings';
+import { applyColorblind, getSettings, textBoost } from '../systems/Settings';
 import { GAME_H, GAME_W } from '../config';
 import { has } from '../gfx/art';
 import { playSfx } from '../systems/Audio';
@@ -131,10 +131,10 @@ export class DialogueScene extends Phaser.Scene {
     const mask = this.make.graphics({}, false).fillCircle(x - boxW / 2 + 110, y, 76);
     this.portrait.setMask(mask.createGeometryMask());
     const textX = x - boxW / 2 + 215;
-    this.nameText = this.add.text(textX, y - boxH / 2 + 20, '', { fontFamily: FONT, fontSize: '28px', fontStyle: 'bold', stroke: '#24133a', strokeThickness: 6 });
+    this.nameText = this.add.text(textX, y - boxH / 2 + 20, '', { fontFamily: FONT, fontSize: `${Math.round(28 * textBoost())}px`, fontStyle: 'bold', stroke: '#24133a', strokeThickness: 6 });
     this.bodyText = this.add.text(textX, y - boxH / 2 + 64, '', {
       fontFamily: FONT,
-      fontSize: '26px',
+      fontSize: `${Math.round(26 * textBoost())}px`,
       color: '#ffffff',
       wordWrap: { width: boxW - 260 },
       lineSpacing: 6,
@@ -163,7 +163,10 @@ export class DialogueScene extends Phaser.Scene {
     this.arrow.setVisible(false);
   }
 
+  private autoT = 0;
+
   private advance() {
+    this.autoT = 0;
     const line = this.lines[this.index];
     if (this.shown < line.text.length) {
       this.shown = line.text.length; // primeiro toque completa a frase
@@ -184,6 +187,12 @@ export class DialogueScene extends Phaser.Scene {
     if (!line) return;
     if (this.shown < line.text.length) this.shown = Math.min(line.text.length, this.shown + (CPS * dtMs) / 1000);
     this.bodyText.setText(line.text.slice(0, Math.floor(this.shown)));
-    this.arrow.setVisible(this.shown >= line.text.length);
+    const done = this.shown >= line.text.length;
+    this.arrow.setVisible(done);
+    // "Diálogo automático": avança sozinho depois de um tempo de leitura
+    if (done && getSettings().autoDialogue) {
+      this.autoT += dtMs;
+      if (this.autoT > 1500 + line.text.length * 45) this.advance();
+    } else this.autoT = 0;
   }
 }

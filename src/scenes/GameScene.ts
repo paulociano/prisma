@@ -22,6 +22,7 @@ import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
+import { isTouchDevice } from '../systems/Touch';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -1498,10 +1499,33 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
    * Dicas como balõezinhos discretos: fundo translúcido arredondado, texto leve,
    * e só aparecem (com fade) quando Íris se aproxima.
    */
+  /** Troca os nomes das teclas pelos do aparelho em uso (toque, gamepad ou teclado). */
+  private hintForDevice(t: string): string {
+    if (isTouchDevice()) {
+      return t
+        .replace('← →  andar', 'Toque ◀ ▶  para andar')
+        .replace('ESPAÇO  pular', 'Toque PULAR')
+        .replace('X  golpe de echarpe', 'Toque GOLPE (echarpe)')
+        .replace('pressione SHIFT/L (RB/Y no controle)', 'toque DASH')
+        .replace('aperte BAIXO', 'toque ▼')
+        .replace('aperte ↓', 'toque ▼');
+    }
+    if (this.input.gamepad && this.input.gamepad.total > 0) {
+      return t
+        .replace('← →  andar', 'Analógico / direcional  andar')
+        .replace('ESPAÇO  pular', 'A  pular')
+        .replace('X  golpe de echarpe', 'X  golpe de echarpe')
+        .replace('pressione SHIFT/L (RB/Y no controle)', 'pressione RB ou Y')
+        .replace('aperte BAIXO', 'aperte ↓ no direcional')
+        .replace('aperte ↓', 'aperte ↓ no direcional');
+    }
+    return t;
+  }
+
   private buildHints() {
     this.hintBubbles = [];
     for (const h of this.level.hints) {
-      const hintText = h.text.replace('← →  andar', '← → / analógico  andar').replace('ESPAÇO  pular', 'ESPAÇO / A  pular').replace('X  golpe de echarpe', 'X / botão X  golpe de echarpe');
+      const hintText = this.hintForDevice(h.text);
       const text = this.add
         .text(0, 0, hintText, {
           fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',

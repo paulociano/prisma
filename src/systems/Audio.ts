@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
+import { getSettings } from './Settings';
 
 // Música e efeitos. O gerenciador de som do Phaser é global (vale para todas as cenas),
 // então a música continua tocando ao trocar de cena e só muda quando pedimos outra faixa.
 // Arquivos ausentes são ignorados em silêncio: dá para ir adicionando sons aos poucos.
 
-const MUSIC_VOL = 0.45;
-const SFX_VOL = 0.7;
+const MUSIC_BASE = 0.45;
+const SFX_BASE = 0.7;
+// o volume final também depende do controle de Opções (0–100%)
+const musicVol = () => MUSIC_BASE * (getSettings().musicVol / 100);
+const sfxVol = () => SFX_BASE * (getSettings().sfxVol / 100);
 const MUTE_KEY = 'prisma-mute';
 
 let current: Phaser.Sound.BaseSound | undefined;
@@ -38,7 +42,7 @@ export function playMusic(scene: Phaser.Scene, name: string, loop = true) {
     const snd = scene.sound.add(key, { loop, volume: 0 });
     snd.play();
     current = snd;
-    scene.tweens.add({ targets: snd, volume: muted ? 0 : MUSIC_VOL, duration: 800 });
+    scene.tweens.add({ targets: snd, volume: muted ? 0 : musicVol(), duration: 800 });
   });
 }
 
@@ -62,10 +66,15 @@ export function stopMusic(scene: Phaser.Scene, fadeMs = 400) {
 export function playSfx(scene: Phaser.Scene, name: string, detune = 80) {
   const key = `sfx_${name}`;
   if (muted || !scene.cache.audio.exists(key)) return;
-  scene.sound.play(key, { volume: SFX_VOL, detune: Phaser.Math.Between(-detune, detune) });
+  scene.sound.play(key, { volume: sfxVol(), detune: Phaser.Math.Between(-detune, detune) });
 }
 
 export const isMuted = () => muted;
+
+/** Reaplica o volume de música (ao mexer no controle de Opções). */
+export function applyMusicVolume() {
+  if (current) (current as Phaser.Sound.WebAudioSound).setVolume(muted ? 0 : musicVol());
+}
 
 export function toggleMute(scene: Phaser.Scene) {
   muted = !muted;
@@ -74,7 +83,7 @@ export function toggleMute(scene: Phaser.Scene) {
   } catch {
     // sem armazenamento: vale só nesta sessão
   }
-  if (current) (current as Phaser.Sound.WebAudioSound).setVolume(muted ? 0 : MUSIC_VOL);
+  if (current) (current as Phaser.Sound.WebAudioSound).setVolume(muted ? 0 : musicVol());
   scene.events.emit('toast', muted ? 'Som desligado (M)' : 'Som ligado (M)');
   return muted;
 }

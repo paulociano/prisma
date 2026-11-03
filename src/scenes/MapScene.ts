@@ -6,6 +6,7 @@ import { panel, textStyle } from '../gfx/ui';
 import { LEVEL_META, isUnlocked } from '../levels';
 import { WORLDS, worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
+import { isTouchDevice } from '../systems/Touch';
 import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { Ambient } from '../systems/Ambient';
@@ -64,7 +65,7 @@ export class MapScene extends Phaser.Scene {
     panel(this, GAME_W / 2, GAME_H - 105, 1100, 190);
     this.title = this.add.text(GAME_W / 2, GAME_H - 178, '', textStyle(30)).setOrigin(0.5);
     this.cards = this.add.container(0, 0);
-    this.add.text(GAME_W - 16, 16, '← → escolher mundo · ENTER entrar · ESC título', textStyle(18)).setOrigin(1, 0);
+    if (!isTouchDevice()) this.add.text(GAME_W - 16, 16, '← → mundo · ENTER entrar · ESC título', textStyle(22)).setOrigin(1, 0);
 
     const kb = this.input.keyboard!;
     const step = (d: number) => {
@@ -155,7 +156,7 @@ export class MapScene extends Phaser.Scene {
       const items: Phaser.GameObjects.GameObject[] = [bg, icon, name];
       if (!l.boss && open) {
         const got = (this.save.shards[l.id] ?? []).filter(Boolean).length;
-        items.push(this.add.text(x - cw / 2 + 76, y + 18, `◆ ${got}/3${this.save.secrets[l.id] ? '  ✦' : ''}`, { ...textStyle(16, selected ? '#7a3cc0' : '#c9b6ff'), strokeThickness: selected ? 0 : 3 }));
+        items.push(this.add.text(x - cw / 2 + 76, y + 18, `◆ ${got}/3${this.save.secrets[l.id] ? '  ✦' : ''}`, { ...textStyle(20, selected ? '#7a3cc0' : '#c9b6ff'), strokeThickness: selected ? 0 : 3 }));
       }
       if (open) bg.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.enterWorld(l.index));
       this.cards.add(items);

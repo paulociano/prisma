@@ -4,6 +4,7 @@ import { GAME_H, GAME_W, RAINBOW } from '../config';
 import { has } from '../gfx/art';
 import { button, menuNav, textStyle } from '../gfx/ui';
 import { playMusic } from '../systems/Audio';
+import { isTouchDevice } from '../systems/Touch';
 import { INTRO } from './CutsceneScene';
 import { clearSave, hasSave } from '../systems/Save';
 
@@ -54,7 +55,7 @@ export class TitleScene extends Phaser.Scene {
     buttons.push(button(this, x, saved ? 580 : 500, 360, 'Opções', () => this.scene.start('Options', { from: 'Title' })));
     menuNav(this, buttons);
 
-    this.add.text(16, GAME_H - 34, '↑ ↓ escolher · ENTER confirmar', textStyle(18)).setAlpha(0.85);
+    if (!isTouchDevice()) this.add.text(16, GAME_H - 38, '↑ ↓ escolher · ENTER confirmar', textStyle(22)).setAlpha(0.85);
     this.cameras.main.fadeIn(500);
     playMusic(this, 'title');
   }
