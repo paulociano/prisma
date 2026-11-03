@@ -194,6 +194,7 @@ function annex(s: Seg, w: number, i: number) {
   // casca da sala (linhas 1..8) e pilar que a sustenta
   s.b.block(x, 1, x + 13, 1).block(x, 8, x + 13, 8).block(x, 1, x, 8).block(x + 13, 1, x + 13, 8);
   s.b.block(x + 5, 9, x + 8, Math.max(9, t - 4)); // pende da sala; o chão embaixo continua livre
+  s.b.chamber(x + 1, 7, 12, 6);
   s.b.door(x + 11, t - 1, 1);
   s.b.door(x + 2, 7, 1);
   s.b.spikes(x + 6, x + 7, 7);
