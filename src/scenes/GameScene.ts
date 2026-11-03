@@ -634,7 +634,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         }
         case 'pennant': {
           const n = e.data?.n ?? 0;
-          const img = this.pickups.create(cx, bottom - 52, `pennant_${n}`) as Sprite;
+          const img = this.pickups.create(cx, bottom - 56, `pennant_${n}`) as Sprite;
           img.setData('kind', 'pennant').setData('n', n).setDepth(6);
           if (this.save.learned[`p:${PENNANTS[n]?.id}`]) img.setAlpha(0.6); // já lida: continua lá, mais discreta
           this.tweens.add({ targets: img, angle: { from: -3, to: 3 }, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.InOut' });

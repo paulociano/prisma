@@ -57,7 +57,7 @@ function useArt(scene: Phaser.Scene) {
 function ensurePennants(scene: Phaser.Scene) {
   PENNANTS.forEach((p, i) => {
     const key = `pennant_${i}`;
-    if (fromAtlas(scene, key, 'pennants', i, 72, 104) || scene.textures.exists(key)) return;
+    if (fromAtlas(scene, key, 'pennants', i, 96, 112) || scene.textures.exists(key)) return;
     bake(scene, key, 72, 104, (c) => {
       c.fillStyle = '#6b5b7b'; c.fillRect(8, 4, 5, 98); // mastro
       c.fillStyle = '#ffd86b'; c.beginPath(); c.arc(10.5, 5, 5, 0, Math.PI * 2); c.fill();

@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { GAME_H, GAME_W } from '../config';
 import { applyColorblind } from '../systems/Settings';
 import { playSfx } from '../systems/Audio';
-import type { Pennant } from '../story/pennants';
+import { PENNANTS, type Pennant } from '../story/pennants';
+import { has } from '../gfx/art';
 
 const SERIF = 'Georgia, "Palatino Linotype", "Book Antiqua", serif';
 
@@ -50,11 +51,18 @@ export class PennantScene extends Phaser.Scene {
 
     // flâmula em miniatura: as listras da bandeira
     const fx = -W / 2 + 70, fy = -H / 2 + 64, fw = 130, fh = 80;
+    const idx = PENNANTS.findIndex((q) => q.id === p.id);
+    if (has(this, 'pennants')) {
+      // arte pronta: a flâmula desenhada, em vez das listras
+      const img = this.add.image(fx + fw / 2 - 10, fy + 6, 'pennants', String(idx)).setOrigin(0.5);
+      img.setScale(110 / img.height);
+      root.add(img);
+    }
     const flag = this.add.graphics();
     (p.id === 'intersexo' ? [0xffd800] : p.colors).forEach((c, i, arr) => flag.fillStyle(c, 1).fillRect(fx, fy - fh / 2 + (fh * i) / arr.length, fw, Math.ceil(fh / arr.length) + 1));
     if (p.id === 'intersexo') flag.lineStyle(9, 0x7902aa, 1).strokeCircle(fx + fw / 2, fy, 24); // anel roxo sobre o campo amarelo
     flag.lineStyle(4, 0x4a3320, 1).strokeRect(fx, fy - fh / 2, fw, fh);
-    root.add(flag);
+    if (!has(this, 'pennants')) root.add(flag);
 
     const title = this.add.text(fx + fw + 36, fy, p.title, { fontFamily: SERIF, fontSize: '40px', fontStyle: 'bold', color: '#4a2c14', wordWrap: { width: W - fw - 160 } }).setOrigin(0, 0.5);
     root.add(title);
