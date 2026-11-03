@@ -29,3 +29,11 @@ export const MONO_RESTORED: Line[] = [
   { who: 'spark', mood: 'excited', text: 'O VIOLETA VOLTOU! O arco-íris está completo, Íris!' },
   { who: 'iris', mood: 'happy', text: 'Prisma está brilhando de novo. Do jeito que sempre devia ter sido.' },
 ];
+
+/** Entre a forma 1 e a forma final: a máscara cai e o medo aparece. */
+export const MONO_MASKS: Line[] = [
+  { who: 'mono', mood: 'angry', text: 'Pare! Sem a máscara... eu não sei o que sobra de mim.' },
+  { who: 'iris', mood: 'determined', text: 'Sobra você. Só você. Isso nunca foi o problema.' },
+  { who: 'spark', mood: 'worried', text: 'Íris, olha a luz nas rachaduras! São as cores dele tentando sair!' },
+  { who: 'mono', mood: 'angry', text: 'NÃO! Se eu mostrar quem sou, vão me deixar sozinho! Última armadura... e ninguém mais vai me ver!' },
+];

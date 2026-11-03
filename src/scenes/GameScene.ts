@@ -148,6 +148,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.guardian = undefined;
     this.boss = undefined;
     this.bossDamage = undefined;
+    this.dimRect = undefined;
     this.bossMarker = undefined;
     this.vents = [];
     this.searchlights = [];
@@ -786,6 +787,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         this.events.emit('boss-hp', { name: this.boss?.name ?? '', hp, max });
       },
       onBossDefeated: () => this.bossDefeated(),
+      cinematic: (lines, done) => this.talk(lines, done),
+      stormFlash: (n) => this.stormFlash(n),
+      dim: (a, ms) => this.dimScreen(a, ms),
     };
   }
 
@@ -802,6 +806,42 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     } else if (boss.dangerous && this.player.hurt(boss.hit.x)) {
       this.feedbackHurt();
     }
+  }
+
+  private dimRect?: Phaser.GameObjects.Rectangle;
+
+  private dimScreen(alpha: number, ms: number) {
+    this.dimRect ??= this.add.rectangle(0, 0, GAME_W, GAME_H, 0x0b0714, 1).setOrigin(0).setScrollFactor(0).setDepth(18).setAlpha(0);
+    this.tweens.add({ targets: this.dimRect, alpha, duration: ms });
+  }
+
+  /** Raios rápidos para marcar o clímax; com "Reduzir flashes" só há um raio fraco e sem piscar. */
+  private stormFlash(n: number) {
+    if (!canFlashScreen()) return;
+    const f = this.add.rectangle(0, 0, GAME_W, GAME_H, 0xffffff, 1).setOrigin(0).setScrollFactor(0).setDepth(19).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+    for (let i = 0; i < n; i++) {
+      this.time.delayedCall(i * 210, () => {
+        f.setFillStyle(i % 2 ? 0xb8a0ff : 0xffffff);
+        this.tweens.add({ targets: f, alpha: { from: 0.45, to: 0 }, duration: 160 });
+        this.bolt();
+      });
+    }
+    this.time.delayedCall(n * 210 + 300, () => f.destroy());
+  }
+
+  /** Um raio em zigue-zague caindo do alto da tela. */
+  private bolt() {
+    const cam = this.cameras.main;
+    const g = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
+    let x = cam.scrollX + Phaser.Math.Between(120, GAME_W - 120), y = 0;
+    g.lineStyle(5, 0xe8dcff, 1).beginPath().moveTo(x, y);
+    while (y < GAME_H * 0.8) {
+      x += Phaser.Math.Between(-40, 40);
+      y += Phaser.Math.Between(40, 90);
+      g.lineTo(x, y);
+    }
+    g.strokePath();
+    this.tweens.add({ targets: g, alpha: 0, duration: 220, onComplete: () => g.destroy() });
   }
 
   private bossDefeated() {

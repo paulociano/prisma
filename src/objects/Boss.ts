@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { Line } from '../scenes/DialogueScene';
 
 type Body = Phaser.Physics.Arcade.Body;
 
@@ -14,6 +15,12 @@ export interface BossHost {
   /** Empurrão horizontal sobre Íris (vento), em px/s; 0 desliga. */
   setWind(v: number): void;
   onBossHp(hp: number, max: number): void;
+  /** Fala em cena (congela Íris) e chama onDone ao terminar. */
+  cinematic(lines: Line[], onDone: () => void): void;
+  /** Raios/flashes rápidos (n pulsos). Sem flash, vira só um escurecer suave. */
+  stormFlash(n: number): void;
+  /** Escurece a tela até `alpha` em `ms` (0 volta ao normal). */
+  dim(alpha: number, ms: number): void;
   onBossDefeated(): void;
 }
 
