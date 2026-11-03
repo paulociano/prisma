@@ -3,6 +3,7 @@ import { GAME_H, GAME_W, RAINBOW } from '../config';
 import { button, menuNav, panel, textStyle } from '../gfx/ui';
 import { applyMusicVolume, playSfx } from '../systems/Audio';
 import { isTouchDevice } from '../systems/Touch';
+import { feedbackUrl } from '../systems/Stats';
 import {
   COLORBLIND_LABEL,
   DIFFICULTY_LABEL,
@@ -126,6 +127,8 @@ export class OptionsScene extends Phaser.Scene {
         ? ['TOQUE NA TELA', '◀ ▶ andar  ·  ▼ descer/mergulho', 'PULAR (segure para ir mais alto)', 'GOLPE de echarpe  ·  TIRO  ·  DASH', 'II pausa']
         : ['TECLADO', '← → ou A D: andar    ↓ ou S: descer / mergulho', 'ESPAÇO, Z ou ↑: pular (segure para ir mais alto)', 'X ou J: golpe   C ou I: tiro   SHIFT ou L: dash', 'P ou ESC: pausa   M: som   R: reiniciar', '', 'GAMEPAD', 'A pular · X golpe · B tiro · Y ou R1 dash · Start pausa'];
       this.add.text(cx, cy - 86, lines.join('\n'), { ...SMALL, fontSize: '21px', lineSpacing: 6 }).setOrigin(0.5, 0);
+
+      add(button(this, cx, cy + 152, 440, 'Enviar feedback', () => window.open(feedbackUrl(), '_blank', 'noopener')));
     }
 
     const next = add(button(this, cx, cy + 232, 440, `Próxima página ▶`, () => this.goPage((this.page + 1) % PAGES.length)), (d) => this.goPage((this.page + d + PAGES.length) % PAGES.length));

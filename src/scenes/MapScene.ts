@@ -7,6 +7,7 @@ import { LEVEL_META, isUnlocked } from '../levels';
 import { WORLDS, worldInfo } from '../levels/worlds';
 import { playMusic, playSfx } from '../systems/Audio';
 import { isTouchDevice } from '../systems/Touch';
+import { PENNANTS } from '../story/pennants';
 import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { Ambient } from '../systems/Ambient';
@@ -66,6 +67,16 @@ export class MapScene extends Phaser.Scene {
     this.title = this.add.text(GAME_W / 2, GAME_H - 178, '', textStyle(30)).setOrigin(0.5);
     this.cards = this.add.container(0, 0);
     if (!isTouchDevice()) this.add.text(GAME_W - 16, 16, '← → mundo · ENTER entrar · ESC título', textStyle(22)).setOrigin(1, 0);
+
+    // galeria das bandeirolas (tecla B ou botão)
+    const gal = this.add.text(16, 16, `🏳️‍🌈 Bandeirolas ${PENNANTS.filter((p) => this.save.learned[`p:${p.id}`]).length}/${PENNANTS.length}`, textStyle(24)).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    const openGallery = () => {
+      playSfx(this, 'menu_select', 0);
+      this.scene.sleep();
+      this.scene.launch('PennantGallery');
+    };
+    gal.on('pointerdown', openGallery);
+    this.input.keyboard!.on('keydown-B', openGallery);
 
     const kb = this.input.keyboard!;
     const step = (d: number) => {

@@ -22,6 +22,7 @@ import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
+import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
@@ -2004,6 +2005,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private die() {
+    recordDeath(this.level.id, this.player.hit.x / TILE);
     this.sfx('death', 0);
     this.player.dead = true;
     this.cameras.main.fadeOut(500, 20, 10, 30);

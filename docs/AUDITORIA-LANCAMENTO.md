@@ -122,5 +122,7 @@ Dados: 7 mundos × 4 fases = 28 (21 de exploração, 7 chefões). Fases 244–27
 9. Galeria de bandeirolas (4.6), opções de texto grande/diálogo automático (5.1), legenda de sons (5.2).
 10. Refatorar `GameScene` (8.1) e teste de fumaça de UI (8.2).
 
-## 10. Já corrigido nesta auditoria
-- Aviso amigável quando o navegador não tem WebGL (antes: tela preta).
+## 10. Status das recomendações (atualizado)
+**Feito:** 2.1 carregamento por mundo (início ≈ 18 MB; total 219 → 48 MB) · 2.2/2.2b imagens em WebP e música em MP3 96 kbps · 2.3 hash no nome dos arquivos · 2.6 aviso sem WebGL · 2.7 testes e `check-levels` no deploy · 3.1 controles de toque multitoque · 3.2 dicas por dispositivo · 3.3 lista de controles · 3.4 volumes · 3.6 dica de menu só fora do toque · 4.1 textos ≥ 20–22 px nos menus · 4.2 Opções em 3 páginas · 4.6 galeria de bandeirolas (tecla B / botão no mapa) · 5.1 texto grande e diálogo automático · 6.5 contagem local de mortes + botão "Enviar feedback" (abre uma issue no GitHub com o resumo) · 7.3 favicon, descrição e imagem de compartilhamento · 8.4 aviso de erro inesperado.
+
+**Pendente:** 2.4 medir FPS em celular real (e avaliar o filtro de cor) · 3.3 remapeamento de teclas · 4.4/4.5 confirmações (reiniciar, novo jogo) · 5.2 legenda de sons · 5.4 revisão das bandeirolas pela comunidade · 6.2 playtest da curva de dificuldade · 6.7 ícone de itens faltando no mapa · 7.1 ligar peças restantes de `level_blocks` · 8.1 dividir `GameScene` · 8.2 teste de fumaça de UI.

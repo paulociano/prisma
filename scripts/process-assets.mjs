@@ -6,6 +6,7 @@
 // Uso: npm run assets
 import sharp from 'sharp';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -625,5 +626,27 @@ for (const [dir, prefix] of [['musica', 'music'], ['sfx', 'sfx']]) {
   }
 }
 console.log(`  ✔ áudio: ${manifest.audio.length} arquivo(s)`);
+
+// Versão no nome dos arquivos (foo.ab12cd34.webp): ao publicar de novo, o navegador não usa cópia velha.
+const stamp = (rel) => {
+  const f = path.join(OUT_DIR, rel);
+  const h = crypto.createHash('md5').update(fs.readFileSync(f)).digest('hex').slice(0, 8);
+  const parsed = path.parse(rel);
+  const next = path.join(parsed.dir, `${parsed.name}.${h}${parsed.ext}`).replace(/\\/g, '/');
+  fs.renameSync(f, path.join(OUT_DIR, next));
+  return next;
+};
+for (const e of manifest.sprites) {
+  if (e.json) {
+    const jf = path.join(OUT_DIR, e.json);
+    const j = JSON.parse(fs.readFileSync(jf, 'utf8'));
+    e.file = stamp(e.file);
+    if (j.meta) j.meta.image = path.basename(e.file);
+    fs.writeFileSync(jf, JSON.stringify(j));
+    e.json = stamp(e.json);
+  } else e.file = stamp(e.file);
+}
+for (const a of manifest.audio) a.file = stamp(a.file);
+
 fs.writeFileSync(path.join(OUT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
 console.log(`Pronto: ${manifest.sprites.length} asset(s) em ${SPRITES_DIR}`);

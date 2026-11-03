@@ -24,6 +24,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Tests and level check
+        run: |
+          npm run test:save
+          npm run test:input
+          npm run test:levels
+          npm run check-levels
       - name: Process game assets
         run: npm run assets
       - name: Build game

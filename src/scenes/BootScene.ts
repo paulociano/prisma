@@ -44,7 +44,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.json('manifest', 'assets/manifest.json');
+    this.load.json('manifest', `assets/manifest.json?v=${Date.now()}`); // sempre a lista mais nova; os arquivos têm hash no nome
   }
 
   create() {
