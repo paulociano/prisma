@@ -6,7 +6,20 @@ import { SUB_COUNT } from './subs';
 // os inimigos e mecanismos de cada mundo. Tudo dentro de limites de pulo testados:
 // subir no máximo 2 blocos por pulo e vãos de até 3 blocos sem pulo duplo (até 5 com ele).
 
-type Seg = { b: LevelBuilder; x: number; h: number; rows: number };
+type Seg = { b: LevelBuilder; x: number; h: number; rows: number; r: () => number };
+
+/** Gerador pseudoaleatório com semente: cada fase (mundo + número) tem o seu trecho, sempre o mesmo. */
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rint = (s: Seg, a: number, b: number) => a + Math.floor(s.r() * (b - a + 1));
+const oneOf = <K>(s: Seg, arr: K[]) => arr[Math.floor(s.r() * arr.length)];
 
 // O que existe em cada mundo (inimigos e habilidades já liberadas antes da fase 3).
 const WORLD: Record<number, { ground: EntityType[]; air: EntityType[]; dj: boolean; beats: string[] }> = {
@@ -31,11 +44,12 @@ function flat(s: Seg, n: number) {
 
 /** Montanha em degraus de 1 bloco: sobe 3, platô com inimigo, desce. */
 function mountain(s: Seg, w: number, i: number) {
-  const steps = [1, 2, 3, 3, 3, 2, 1];
+  const steps = oneOf(s, [[1, 2, 3, 3, 3, 2, 1], [1, 2, 3, 4, 3, 2, 1], [1, 1, 2, 3, 3, 2, 1], [1, 2, 2, 3, 4, 4, 2]]);
   steps.forEach((dh, k) => s.b.ground(s.x + k * 2, s.x + k * 2 + 1, s.h + dh));
-  const peak = top(s) - 3;
+  const peak = top(s) - Math.max(...steps);
   s.b.coinArc(s.x + 2, peak - 2, 5);
   s.b.add(pick(WORLD[w].ground, i), s.x + 7, peak - 1);
+  if (s.r() < 0.6) s.b.add(pick(WORLD[w].ground, i + 1), s.x + 2, top(s) - steps[1] - 1);
   s.x += steps.length * 2;
   flat(s, 2);
 }
@@ -43,13 +57,13 @@ function mountain(s: Seg, w: number, i: number) {
 /** Ilhas flutuantes de pedra sobre um abismo, em alturas alternadas. */
 function islands(s: Seg, w: number, i: number) {
   const t = top(s);
-  const gap = WORLD[w].dj ? 3 : 2;
-  const rows = [t - 1, t - 3, t - 2, t - 1];
+  const gap = WORLD[w].dj ? rint(s, 3, 4) : rint(s, 2, 3);
+  const rows = oneOf(s, [[t - 1, t - 3, t - 2, t - 1], [t - 2, t - 3, t - 1, t - 3, t - 1], [t - 1, t - 2, t - 4, t - 3, t - 1], [t - 2, t - 1, t - 3, t - 2, t - 4, t - 2]]);
   let x = s.x + gap;
   rows.forEach((r, k) => {
     s.b.block(x, r, x + 1, r);
     s.b.coins(x, x + 1, r - 1);
-    if (k === 1) s.b.add(pick(WORLD[w].air, i), x + 1, r - 3);
+    if (k === 1 || (k === 3 && s.r() < 0.5)) s.b.add(pick(WORLD[w].air, i + k), x + 1, r - 3);
     x += 2 + gap;
   });
   s.x = x;
@@ -82,9 +96,11 @@ function crates(s: Seg, w: number, i: number) {
 function twoRoutes(s: Seg, w: number, i: number) {
   const t = top(s);
   s.b.ground(s.x, s.x + 15, s.h);
-  s.b.spikes(s.x + 4, s.x + 5, t - 1);
-  s.b.spikes(s.x + 10, s.x + 11, t - 1);
+  const a = rint(s, 3, 5), c = rint(s, 9, 11);
+  s.b.spikes(s.x + a, s.x + a + 1, t - 1);
+  s.b.spikes(s.x + c, s.x + c + 1, t - 1);
   s.b.add(pick(WORLD[w].ground, i), s.x + 8, t - 1);
+  if (s.r() < 0.5) s.b.add(pick(WORLD[w].ground, i + 1), s.x + 13, t - 1);
   s.b.oneway(s.x + 2, s.x + 4, t - 3);
   s.b.oneway(s.x + 6, s.x + 9, t - 4);
   s.b.oneway(s.x + 11, s.x + 13, t - 3);
@@ -167,22 +183,38 @@ function vault(s: Seg, w: number, i: number) {
   s.x += 17;
 }
 
-/** Entrada secreta: parede falsa (mundos pares) ou ilha alta alcançada por uma mola (ímpares). */
+/**
+ * Entrada secreta, sempre escondida. O portal só aparece depois de:
+ *  - bater a cabeça num bloco invisível (as faíscas no alto denunciam o lugar);
+ *  - quebrar uma das caixas que o emparedam (echarpe, tiro ou mergulho);
+ *  - quebrar o piso rachado que cobre uma câmara (mergulho estelar, só no mundo 7).
+ */
 function secret(s: Seg, w: number, i: number) {
   const t = top(s);
   const sub = (w + i) % SUB_COUNT;
-  s.b.ground(s.x, s.x + 13, s.h);
-  if (w % 2 === 0 || w === 5 || t < 8) {
-    s.b.coins(s.x + 3, s.x + 8, t - 1);
-    s.b.portal(s.x + 11, t - 1, sub);
-    s.b.fakewall(s.x + 10, t - 1, 3, 3);
+  const modes = w === 7 ? [1, 2, 3] : [1, 2];
+  const mode = w === 7 ? modes[i % 3] : modes[(w + i) % 2];
+  s.b.ground(s.x, s.x + 15, s.h);
+  const x = s.x;
+  if (mode === 1) {
+    s.b.bump(x + 7, t - 3, 3);
+    s.b.coins(x + 6, x + 8, t - 5);
+    s.b.portal(x + 11, t - 1, sub, 1);
+  } else if (mode === 2) {
+    for (const c of [x + 8, x + 10]) { s.b.add('crate', c, t - 1); s.b.add('crate', c, t - 2); }
+    s.b.add('crate', x + 9, t - 2);
+    s.b.coins(x + 8, x + 10, t - 4);
+    s.b.portal(x + 9, t - 1, sub, 2);
   } else {
-    s.b.add('spring', s.x + 3, t - 1);
-    s.b.coins(s.x + 3, s.x + 3, t - 3).coins(s.x + 3, s.x + 3, t - 5);
-    s.b.block(s.x + 5, t - 5, s.x + 8, t - 5);
-    s.b.portal(s.x + 7, t - 6, sub);
+    const c = x + 4;
+    s.b.block(c - 2, t - 1, c - 2, t - 1).block(c - 1, t - 2, c - 1, t - 1).block(c, t - 3, c, t - 1);
+    s.b.block(c + 3, t - 3, c + 3, t - 1).block(c + 4, t - 2, c + 4, t - 1).block(c + 5, t - 1, c + 5, t - 1);
+    s.b.cracked(c + 1, c + 2, t - 3);
+    s.b.oneway(c + 2, c + 2, t - 2); // degrau lá dentro, para conseguir sair
+    s.b.portal(c + 1, t - 1, sub, 3);
+    s.b.coins(c + 1, c + 2, t - 5);
   }
-  s.x += 14;
+  s.x += 16;
 }
 
 /** Linhas extras no alto da fase para a torre (o mapa deixa de ser só horizontal). */
@@ -215,22 +247,69 @@ function tower2(s: Seg, w: number, i: number) {
   s.x += 18;
 }
 
-const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2 };
 
-/** Monta o trecho do mundo `w` (variação `v` = número da fase). */
-function buildSegment(w: number, v: number, h: number, rows: number, tall = false) {
-  const b = new LevelBuilder('seg', 'seg', w, 120, rows);
-  const s: Seg = { b, x: 0, h, rows };
+/** Corredor de espinhos em pares, com inimigos entre eles. */
+function gauntlet(s: Seg, w: number, i: number) {
+  const t = top(s);
+  s.b.ground(s.x, s.x + 19, s.h);
+  const at = [rint(s, 3, 4), rint(s, 8, 9), rint(s, 13, 14)];
+  at.forEach((c) => { s.b.spikes(s.x + c, s.x + c + 1, t - 1); s.b.coins(s.x + c, s.x + c + 1, t - 3); });
+  s.b.add(pick(WORLD[w].ground, i), s.x + 6, t - 1);
+  s.b.add(pick(WORLD[w].ground, i + 1), s.x + 11, t - 1);
+  s.b.add(pick(WORLD[w].air, i), s.x + rint(s, 7, 12), t - 5);
+  s.b.add(pick(WORLD[w].ground, i + 2), s.x + 17, t - 1);
+  s.x += 20;
+}
+
+/** Fosso de espinhos longo, com blocos pequenos em alturas variadas. */
+function zigzag(s: Seg, w: number, i: number) {
+  const t = top(s);
+  const n = rint(s, 5, 6);
+  const gap = WORLD[w].dj ? rint(s, 2, 3) : 2;
+  s.b.ground(s.x, s.x + n * (2 + gap) + 1, 1).spikes(s.x, s.x + n * (2 + gap) + 1, s.rows - 2);
+  let x = s.x + 1, last = t - 1;
+  for (let k = 0; k < n; k++) {
+    const r = Math.max(t - 4, Math.min(t - 1, last + oneOf(s, [-2, -1, 0, 1, 2])));
+    s.b.block(x, r, x + 1, r);
+    if (k % 2 === 1) s.b.coins(x, x + 1, r - 1);
+    if (k === 2) s.b.add(pick(WORLD[w].air, i), x + 1, r - 3);
+    last = r;
+    x += 2 + gap;
+  }
+  s.x = x + 1;
+  flat(s, 2);
+}
+
+/** Emboscada: caixas servem de abrigo e três inimigos fecham o corredor. */
+function ambush(s: Seg, w: number, i: number) {
+  const t = top(s);
+  s.b.ground(s.x, s.x + 15, s.h);
+  s.b.add('crate', s.x + 3, t - 1).add('crate', s.x + 3, t - 2);
+  s.b.add('crate', s.x + 9, t - 1);
+  s.b.add(pick(WORLD[w].ground, i), s.x + 5, t - 1);
+  s.b.add(pick(WORLD[w].ground, i + 1), s.x + 7, t - 1);
+  s.b.add(pick(WORLD[w].ground, i + 2), s.x + 12, t - 1);
+  s.b.add(pick(WORLD[w].air, i), s.x + 8, t - 4);
+  s.b.coins(s.x + 4, s.x + 8, t - 3);
+  s.x += 16;
+}
+
+const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush };
+
+/** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
+export function buildSegment(w: number, v: number, h: number, rows: number, tall = false) {
+  const b = new LevelBuilder('seg', 'seg', w, 170, rows);
+  const s: Seg = { b, x: 0, h, rows, r: rng(w * 1009 + v * 7919 + 17) };
   flat(s, 3);
   b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
-  const beats = WORLD[w].beats;
-  // 4 desafios por fase, começando num ponto diferente da lista a cada fase
-  // 3 desafios do mundo + 1 de blocos interativos (alterna entre fileira de blocos e cofre) + 1 segredo
-  for (let k = 0; k < 3; k++) {
-    // fases com a torre (terceira fase de cada mundo): o terceiro desafio é a subida vertical
-    if (tall && k === 2 && top(s) - 19 >= 0) tower2(s, w, v);
-    else BEATS[pick(beats, v + k)](s, w, v + k);
-    flat(s, 2);
+  // 4 desafios embaralhados (com a semente da fase) entre os do mundo e os novos, mais difíceis
+  const pool = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush'];
+  for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(s.r() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+  for (let k = 0; k < 4; k++) {
+    // fases com a torre (terceira fase de cada mundo): o último desafio é a subida vertical
+    if (tall && k === 3 && top(s) - 19 >= 0) tower2(s, w, v);
+    else BEATS[pool[k]](s, w, v + k);
+    flat(s, rint(s, 1, 3));
   }
   (v % 2 ? vault : bumps)(s, w, v);
   flat(s, 2);

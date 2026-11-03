@@ -141,7 +141,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private pushboxes!: Phaser.Physics.Arcade.Group;
   private plates: { x: number; y: number; id: number; view: Phaser.GameObjects.Image; on: boolean }[] = [];
   private gates: { ts: Phaser.GameObjects.TileSprite; id: number; open: boolean }[] = [];
-  private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image }[] = [];
+  private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image; mode: number; on: boolean }[] = [];
   private fakewalls: Phaser.GameObjects.TileSprite[] = [];
   private portalLock = false;
   private combo = 0;
@@ -586,6 +586,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         }
         case 'bump': {
           const b = this.bumps.create(cx, cy, 'blk_bump') as Sprite;
+          if ((e.data?.reward ?? 0) === 3) b.setAlpha(0); // bloco invisível: só aparece depois da cabeçada
           b.setDepth(4).setData('reward', e.data?.reward ?? 0).setData('baseY', cy).refreshBody();
           break;
         }
@@ -610,8 +611,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         }
         case 'portal': {
           const view = this.add.image(cx, bottom, 'blk_portal').setOrigin(0.5, 1).setDepth(3).setBlendMode(Phaser.BlendModes.ADD);
-          this.tweens.add({ targets: view, alpha: 0.55, scaleX: 1.12, duration: 900, yoyo: true, repeat: -1 });
-          this.portals.push({ x: cx, y: bottom, sub: e.data?.sub ?? 0, view });
+          const mode = e.data?.hidden ?? 0; // 0 visível; 1 bloco invisível; 2 caixas; 3 piso rachado
+          const p = { x: cx, y: bottom, sub: e.data?.sub ?? 0, view, mode, on: mode === 0 };
+          if (mode) view.setVisible(false);
+          else this.tweens.add({ targets: view, alpha: 0.55, scaleX: 1.12, duration: 900, yoyo: true, repeat: -1 });
+          this.portals.push(p);
           break;
         }
         case 'fakewall': {
@@ -901,9 +905,25 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.tweens.add({ targets: b, y: y0 - 12, duration: 90, yoyo: true });
     this.burst(b.x, y0 - 20, 8, [0xffd86b, 0xffffff]);
     const reward = b.getData('reward') as number;
+    b.setAlpha(1);
+    if (reward === 3) {
+      for (const p of this.portals) if (p.mode === 1 && Math.abs(p.x - b.x) < TILE * 8) this.revealPortal(p);
+      return;
+    }
     const heart = reward === 2 || (reward === 0 && this.player.hp < this.player.maxHp);
     if (heart) this.popPickup('heart', b.x, y0 - TILE);
     else [-34, 0, 34].forEach((dx, i) => this.time.delayedCall(i * 90, () => this.popPickup('coin', b.x + dx, y0 - TILE - (i % 2) * 18)));
+  }
+
+  /** Um portal escondido aparece (bloco invisível batido, caixas ou piso rachado quebrados). */
+  private revealPortal(p: { x: number; y: number; view: Phaser.GameObjects.Image; on: boolean }) {
+    if (p.on) return;
+    p.on = true;
+    p.view.setVisible(true).setAlpha(0);
+    this.tweens.add({ targets: p.view, alpha: 0.9, duration: 500, onComplete: () => this.tweens.add({ targets: p.view, alpha: 0.55, scaleX: 1.12, duration: 900, yoyo: true, repeat: -1 }) });
+    this.burst(p.x, p.y - 48, 18, [0xd9c8ff, 0xffffff, 0xffd86b]);
+    this.sfx('spring', 0);
+    this.events.emit('toast', 'Uma passagem secreta se abriu!');
   }
 
   /** Faz um coletável saltar para fora de (x, y) e ficar parado logo acima. */
@@ -969,10 +989,21 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       w.alpha += ((near ? 0.3 : 1) - w.alpha) * Math.min(1, dt * 5);
       if (Math.random() < dt * 0.9) this.sparkle(w.x + Math.random() * w.width, w.y - Math.random() * w.height, 0xd9c8ff);
     }
+    // portais escondidos: caixas ao lado ou piso rachado por cima precisam ter sido quebrados
+    for (const p of this.portals) {
+      if (p.on) continue;
+      if (p.mode === 2) {
+        const near = (this.crates.getChildren() as Sprite[]).filter((c) => Math.abs(c.x - p.x) < TILE * 1.2 && Math.abs(c.y - (p.y - TILE / 2)) < TILE * 0.6).length;
+        if (near < 2) this.revealPortal(p);
+      } else if (p.mode === 3) {
+        const caps = (this.cracked.getChildren() as Sprite[]).filter((c) => Math.abs(c.x - p.x) < TILE * 2.2 && c.y < p.y && p.y - c.y < TILE * 3.5).length;
+        if (caps === 0) this.revealPortal(p);
+      }
+    }
     // portais para os sub-níveis
     if (this.portalLock && this.portals.every((p) => Math.abs(p.x - this.player.hit.x) > TILE * 3)) this.portalLock = false;
     if (!this.portalLock && !this.finished && !this.player.dead && !this.isSub) {
-      const p = this.portals.find((q) => Math.abs(q.x - this.player.hit.x) < 34 && Math.abs(q.y - this.player.body.bottom) < 40);
+      const p = this.portals.find((q) => q.on && Math.abs(q.x - this.player.hit.x) < 34 && Math.abs(q.y - this.player.body.bottom) < 40);
       if (p) this.enterSub(p);
     }
     // um coração caído do céu, uma vez por luta, quando Íris está por um fio
