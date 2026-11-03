@@ -3,6 +3,7 @@ import { GAME_H, GAME_W, PHYS } from './config';
 import { BootScene } from './scenes/BootScene';
 import { CutsceneScene } from './scenes/CutsceneScene';
 import { DialogueScene } from './scenes/DialogueScene';
+import { PennantScene } from './scenes/PennantScene';
 import { EndingScene } from './scenes/EndingScene';
 import { GameScene } from './scenes/GameScene';
 import { HudScene } from './scenes/HudScene';
@@ -21,7 +22,7 @@ const game = new Phaser.Game({
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: 'arcade', arcade: { gravity: { x: 0, y: PHYS.gravity }, debug: false } },
   input: { gamepad: true },
-  scene: [BootScene, TitleScene, MapScene, GameScene, HudScene, DialogueScene, PauseScene, EndingScene, CutsceneScene, OptionsScene, WorldMapScene],
+  scene: [BootScene, TitleScene, MapScene, GameScene, HudScene, DialogueScene, PennantScene, PauseScene, EndingScene, CutsceneScene, OptionsScene, WorldMapScene],
 });
 
 // acesso para depuração no console do navegador (só em desenvolvimento)

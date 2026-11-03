@@ -23,7 +23,7 @@ import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
-import { LESSONS, PENNANTS, lessonLines, pennantLines } from '../story/pennants';
+import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
 import { arenaFx, levelFx, type Rect } from '../systems/WorldFx';
 import { loadSave, writeSave, type SaveData } from '../systems/Save';
@@ -1868,7 +1868,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       (s.body as Phaser.Physics.Arcade.Body).enable = false;
       s.setData('kind', 'read');
       const got = PENNANTS.filter((q) => this.save.learned[`p:${q.id}`]).length;
-      this.talk(pennantLines(pen), () => this.events.emit('toast', first ? `Bandeirola ${got}/${PENNANTS.length} guardada!` : 'Bandeirola relida'));
+      this.player.frozen = true;
+      this.scene.launch('Pennant', {
+        pennant: pen,
+        onDone: () => {
+          this.player.frozen = this.finished;
+          this.events.emit('toast', first ? `Bandeirola ${got}/${PENNANTS.length} guardada!` : 'Bandeirola relida');
+        },
+      });
       return;
     } else if (kind === 'read') {
       return;
