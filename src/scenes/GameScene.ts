@@ -147,6 +147,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private portals: { x: number; y: number; sub: number; view: Phaser.GameObjects.Image; mode: number; on: boolean }[] = [];
   private fakewalls: Phaser.GameObjects.TileSprite[] = [];
   private portalLock = false;
+  /** o chefão foi restaurado: acabam as fissuras e os espinhos da arena */
+  private bossDone = false;
   private doors: { x: number; y: number; id: number; view: Phaser.GameObjects.Image }[] = [];
   private doorLock = false;
   private lookAhead = false;
@@ -180,7 +182,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.levelIndex = Phaser.Math.Clamp((this.isSub ? data.from!.level : data?.level) ?? this.save.level, 0, LEVELS.length - 1);
     this.level = this.isSub ? buildSub(Math.floor(this.levelIndex / 4) + 1, data.sub!) : LEVELS[this.levelIndex]();
     this.plates = []; this.gates = []; this.portals = []; this.doors = []; this.doorLock = false; this.lookAhead = false; this.crumbles = []; this.inChamber = false; this.risk = undefined; this.fakewalls = []; this.weights = []; this.fissureT = 8; this.bossLost = 0;
-    this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
+    this.bossDone = false; this.portalLock = false; this.combo = 0; this.mercyGiven = false; this.bossStarted = false;
     this.enemies = [];
     this.movers = [];
     this.guardian = undefined;
@@ -1233,7 +1235,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
    * Fica mais frequente a cada golpe que o chefão leva. Só a posição conta: sem flashes.
    */
   private updateFissures(dt: number) {
-    if (!this.boss || !this.bossStarted || this.finished || this.player.dead || this.boss.state === 'transform') return;
+    if (!this.boss || !this.bossStarted || this.bossDone || this.finished || this.player.dead || this.boss.state === 'transform' || this.boss.state === 'defeated') return;
     this.fissureT -= dt;
     if (this.fissureT > 0) return;
     const lost = this.bossLost;
@@ -1261,7 +1263,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.time.delayedCall(1200, () => {
       dust.destroy();
       crack.destroy();
-      if (this.finished) return;
+      if (this.finished || this.bossDone) return; // chefão já restaurado: a rachadura some sem soltar espinhos
       this.sfx('spring', 0);
       this.shakeCamera(120, 0.006);
       if (crackArt) {
@@ -1374,6 +1376,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   }
 
   private bossDefeated() {
+    this.bossDone = true;
     this.bossDamage?.finale();
     this.color.complete();
     this.sfx('boss_restored', 0);
