@@ -30,6 +30,46 @@ function whenUnlocked(scene: Phaser.Scene, fn: () => void) {
   else fn();
 }
 
+type Snd = Phaser.Sound.BaseSound;
+const fades = new Map<Snd, ReturnType<typeof setInterval>>();
+
+/** Volume só se o som ainda existe (um som destruído não tem mais nó de ganho e o Phaser dá erro). */
+function safeVolume(snd: Snd, v: number) {
+  const node = snd as unknown as { volumeNode?: unknown };
+  if ('volumeNode' in node && !node.volumeNode) return; // WebAudio já destruído
+  try {
+    (snd as Phaser.Sound.WebAudioSound).setVolume(Math.max(0, Math.min(1, v)));
+  } catch {
+    // som já destruído: nada a fazer
+  }
+}
+
+function cancelFade(snd: Snd) {
+  const id = fades.get(snd);
+  if (id !== undefined) clearInterval(id);
+  fades.delete(snd);
+}
+
+/**
+ * Fade de volume feito com relógio próprio (não depende de nenhuma cena): a cena que pediu o fade
+ * pode ser reiniciada ou parada (entrar numa fase secreta, por exemplo) sem deixar o som pendurado
+ * nem mexer num som já destruído.
+ */
+function fade(snd: Snd, to: number, ms: number, done?: () => void) {
+  cancelFade(snd);
+  const from = (snd as Phaser.Sound.WebAudioSound).volume ?? 0;
+  const t0 = performance.now();
+  const id = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / Math.max(1, ms));
+    safeVolume(snd, from + (to - from) * k);
+    if (k >= 1) {
+      cancelFade(snd);
+      done?.();
+    }
+  }, 40);
+  fades.set(snd, id);
+}
+
 /** Troca a música com fade. `loop: false` para jingles (vitória). */
 export function playMusic(scene: Phaser.Scene, name: string, loop = true) {
   const key = `music_${name}`;
@@ -42,23 +82,22 @@ export function playMusic(scene: Phaser.Scene, name: string, loop = true) {
     const snd = scene.sound.add(key, { loop, volume: 0 });
     snd.play();
     current = snd;
-    scene.tweens.add({ targets: snd, volume: muted ? 0 : musicVol(), duration: 800 });
+    fade(snd, muted ? 0 : musicVol(), 800);
   });
 }
 
-export function stopMusic(scene: Phaser.Scene, fadeMs = 400) {
+export function stopMusic(_scene: Phaser.Scene, fadeMs = 400) {
   const old = current;
   current = undefined;
   currentKey = '';
   if (!old) return;
-  scene.tweens.add({
-    targets: old,
-    volume: 0,
-    duration: fadeMs,
-    onComplete: () => {
+  fade(old, 0, fadeMs, () => {
+    try {
       old.stop();
       old.destroy();
-    },
+    } catch {
+      // já destruído
+    }
   });
 }
 
@@ -73,7 +112,10 @@ export const isMuted = () => muted;
 
 /** Reaplica o volume de música (ao mexer no controle de Opções). */
 export function applyMusicVolume() {
-  if (current) (current as Phaser.Sound.WebAudioSound).setVolume(muted ? 0 : musicVol());
+  if (current) {
+    cancelFade(current);
+    safeVolume(current, muted ? 0 : musicVol());
+  }
 }
 
 export function toggleMute(scene: Phaser.Scene) {
@@ -83,7 +125,10 @@ export function toggleMute(scene: Phaser.Scene) {
   } catch {
     // sem armazenamento: vale só nesta sessão
   }
-  if (current) (current as Phaser.Sound.WebAudioSound).setVolume(muted ? 0 : musicVol());
+  if (current) {
+    cancelFade(current);
+    safeVolume(current, muted ? 0 : musicVol());
+  }
   scene.events.emit('toast', muted ? 'Som desligado (M)' : 'Som ligado (M)');
   return muted;
 }
