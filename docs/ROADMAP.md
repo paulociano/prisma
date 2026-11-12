@@ -38,7 +38,8 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 | V5 | Gerador por mundo: dois desafios de assinatura por mundo (14 no total) sempre presentes no trecho gerado, com encontros desenhados (dupla chão + ar) | Feito; `check-levels` passa nos mundos 1 a 4, 6 e 7. O mundo 5 (nado livre) não é coberto pelo verificador. **Sem playtest** |
 | V6 | Arte nova integrada nos 7 mundos: interior pintado sem repetição, variações de topo, paredes, parte de baixo dos blocos, decalques, primeiro plano, um marco por fase e os objetos de cor pintados | Feito; verificado por capturas nos mundos 1 a 7. **Sem playtest** e sem medição de FPS (sprites processados foram de 31 MB para 37 MB) |
 | V7 | Qualidade gráfica em Opções → Imagem (Baixa, Média, Alta); telas de toque começam em Baixa | Feito; verificado por capturas dos três níveis. **Ganho de FPS não medido** |
-| V8+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais, dinâmicas que dependem de código novo (tempestade, maré, gravidade invertida) | Não iniciado |
+| V8 | Maré no Recife: na fase 5-2 a água sobe e desce em ciclo, com aviso antes; na seca anda-se pelos corais e os baiacus ficam inofensivos, na cheia nada-se | Feito; `check-levels` confirma o caminho a pé na seca; ciclo conferido no navegador. **Sem playtest** |
+| V9+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais, dinâmicas que dependem de código novo (tempestade de areia, gravidade invertida) | Não iniciado |
 
 ## Regras de execução
 

@@ -53,6 +53,8 @@ export interface EnemyHost {
   enemyShoot(e: Enemy, dir: number): void;
   playerX(): number;
   playerY(): number;
+  /** Altura (y) da superfície da água agora; fases sem maré não precisam informar. */
+  waterLevel?(): number | undefined;
 }
 
 // Os Desbotados. Ao serem atingidos não morrem: recuperam a cor e ficam felizes.
@@ -370,8 +372,35 @@ export class Enemy {
     return this.kind === 'puffer' && this.puffState === 'puffed' && !this.restored;
   }
 
+  /** Baiacu fora d'água (maré baixa): murcho no chão, não machuca. */
+  beached = false;
+  private pufferFloor = -1;
+
   private puffer(dt: number) {
     this.body.setVelocity(0, 0);
+    // Maré: o baiacu desce junto com a água e, se ela some, fica murcho no fundo até a cheia voltar.
+    const surface = this.host.waterLevel?.();
+    if (surface !== undefined) {
+      if (this.pufferFloor < 0) {
+        let y = this.anchor.y;
+        while (y < this.anchor.y + 9 * 64 && !this.host.isSolidAt(this.anchor.x, y + 30)) y += 16;
+        this.pufferFloor = y;
+      }
+      const want = Math.min(this.pufferFloor, Math.max(this.anchor.y, surface + 40));
+      const dry = surface + 40 > this.pufferFloor + 4;
+      if (dry || Math.abs(this.hit.y - want) > 16 || this.beached) {
+        this.hit.y += (want - this.hit.y) * Math.min(1, dt * 5);
+        this.hit.x = this.anchor.x;
+        if (dry !== this.beached) {
+          this.beached = dry;
+          this.puffState = 'calm';
+          this.puffT = 0.6;
+          this.body.setSize(58, 54);
+          if (this.drawn) this.view.setFrame(String(dry ? 3 : 0));
+        }
+        if (dry || want > this.anchor.y + 2) return;
+      }
+    }
     this.hit.x = this.anchor.x + Math.sin(this.t * 0.8) * 20;
     this.hit.y = this.anchor.y + Math.sin(this.t * 1.7) * 12;
     this.dir = this.host.playerX() < this.hit.x ? -1 : 1;
