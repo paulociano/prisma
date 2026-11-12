@@ -34,6 +34,11 @@ export class Player {
   inWater = false;
   /** Multiplicador de gravidade da fase (Ilhas do Céu: 0.6). */
   gravityScale = 1;
+  /**
+   * Sentido da gravidade: 1 normal, -1 invertida (campos invertidos das Ilhas do Céu).
+   * Invertida, Íris cai para cima, anda no teto e o pulo empurra para baixo.
+   */
+  gdir = 1;
   pounding = false;
   private poundHang = 0;
   private poundLand = 0;
@@ -85,6 +90,7 @@ export class Player {
   /** true quando as animações desenhadas (Lote 2) estão disponíveis. */
   private drawn: boolean;
   private landTimer = 0;
+  private viewUp = false;
   /** Tempo restante da pirueta desenhada do pulo duplo. */
   flipTime = 0;
   private takeoffTimer = 0;
@@ -95,7 +101,24 @@ export class Player {
   }
 
   get onGround() {
-    return this.body.blocked.down || this.body.touching.down;
+    return this.gdir > 0 ? this.body.blocked.down || this.body.touching.down : this.body.blocked.up || this.body.touching.up;
+  }
+
+  /** Velocidade vertical no sentido da gravidade (positiva = caindo), valha ela para baixo ou para cima. */
+  private get fall() {
+    return this.body.velocity.y * this.gdir;
+  }
+
+  /** Troca o sentido da gravidade (ao entrar ou sair de um campo invertido). */
+  setGravityDir(dir: number) {
+    if (dir === this.gdir) return;
+    this.gdir = dir;
+    this.coyote = 0;
+    this.usedDouble = false; // a virada devolve o pulo duplo
+    this.pounding = false;
+    this.body.setAllowGravity(true);
+    this.squash = { x: 0.8, y: 1.22 };
+    this.scene.events.emit('player-flip', this);
   }
 
   update(dt: number, c: Controls) {
@@ -185,12 +208,12 @@ export class Player {
       if (this.poundHang > 0) {
         this.poundHang -= dt;
         b.setVelocity(0, 0);
-        if (this.poundHang <= 0) b.setAllowGravity(true).setVelocityY(PHYS.poundVel);
+        if (this.poundHang <= 0) b.setAllowGravity(true).setVelocityY(PHYS.poundVel * this.gdir);
       } else if (ground) {
         this.pounding = false;
         this.poundLand = 0.25;
         this.scene.events.emit('player-pound', this);
-      } else b.setVelocity(0, PHYS.poundVel);
+      } else b.setVelocity(0, PHYS.poundVel * this.gdir);
       this.syncView(dt);
       return;
     }
@@ -207,13 +230,13 @@ export class Player {
 
     // parede: caindo e empurrando contra ela, Íris desliza devagar e pode pular para longe
     const wallSide = b.blocked.right ? 1 : b.blocked.left ? -1 : 0;
-    this.wallSlide = this.canWallJump && !ground && wallSide !== 0 && dir === wallSide && b.velocity.y > -60;
+    this.wallSlide = this.canWallJump && !ground && wallSide !== 0 && dir === wallSide && this.fall > -60;
     if (this.wallSlide) {
       this.wallDir = wallSide;
       this.wallCoyote = PHYS.coyoteTime;
       this.usedDouble = false;
       this.airDashUsed = false;
-      if (b.velocity.y > PHYS.wallSlideSpeed) b.setVelocityY(PHYS.wallSlideSpeed);
+      if (this.fall > PHYS.wallSlideSpeed) b.setVelocityY(PHYS.wallSlideSpeed * this.gdir);
     } else this.wallCoyote -= dt;
 
     // pulo
@@ -234,22 +257,23 @@ export class Player {
       this.scene.events.emit('player-doublejump', this);
     }
     this.jumpHeldNow = c.jumpHeld;
-    if (!c.jumpHeld && this.jumping && b.velocity.y < 0) {
+    if (!c.jumpHeld && this.jumping && this.fall < 0) {
       b.setVelocityY(b.velocity.y * PHYS.jumpCut);
       this.jumping = false;
     }
-    if (b.velocity.y >= 0) this.jumping = false;
+    if (this.fall >= 0) this.jumping = false;
     // gravityScale < 1 (Ilhas do Céu): pulos mais altos e quedas mais lentas
     const g = this.gravityScale;
     // pairada no ápice: segurando pular, a gravidade cai pela metade perto do topo (mais controle para acertar a borda)
     const hang = !ground && this.jumpHeldNow && Math.abs(b.velocity.y) < 90 && !this.gliding;
     const gs = hang ? g * 0.55 : g;
-    b.setGravityY(PHYS.gravity * (gs - 1) + (b.velocity.y > 0 ? PHYS.fallExtraGravity * gs : 0));
-    if (b.velocity.y > PHYS.maxFall) b.setVelocityY(PHYS.maxFall);
+    // a gravidade do mundo é sempre para baixo; a do corpo compensa até dar o sentido e a força desejados
+    b.setGravityY(this.gdir * (PHYS.gravity * gs + (this.fall > 0 ? PHYS.fallExtraGravity * gs : 0)) - PHYS.gravity);
+    if (this.fall > PHYS.maxFall) b.setVelocityY(PHYS.maxFall * this.gdir);
 
     // planar: segurando pular durante a queda, a echarpe vira um paraquedas
-    this.gliding = this.canGlide && !ground && !this.wallSlide && c.jumpHeld && b.velocity.y > 0;
-    if (this.gliding && b.velocity.y > PHYS.glideFall) b.setVelocityY(PHYS.glideFall);
+    this.gliding = this.canGlide && !ground && !this.wallSlide && c.jumpHeld && this.fall > 0;
+    if (this.gliding && this.fall > PHYS.glideFall) b.setVelocityY(PHYS.glideFall * this.gdir);
 
     this.actions(c);
     this.syncView(dt);
@@ -270,7 +294,7 @@ export class Player {
   }
 
   jump(vel: number) {
-    this.body.setVelocityY(-vel);
+    this.body.setVelocityY(-vel * this.gdir);
     this.coyote = 0;
     this.jumpBuffer = 0;
     this.jumping = true;
@@ -281,7 +305,7 @@ export class Player {
 
   /** Impulso de pisão ou mola; segurar o pulo vai mais alto. */
   bounce(vel: number) {
-    this.body.setVelocityY(-vel);
+    this.body.setVelocityY(-vel * this.gdir);
     this.jumping = false; // impulso externo não é cortado ao soltar o botão
     this.usedDouble = false;
     this.squash = { x: 0.85, y: 1.18 };
@@ -307,7 +331,7 @@ export class Player {
     if (knock) {
       this.hurtTimer = 0.25;
       const dir = Math.sign(this.hit.x - fromX) || -this.facing;
-      this.body.setVelocity(dir * PHYS.hurtKnockX, -PHYS.hurtKnockY);
+      this.body.setVelocity(dir * PHYS.hurtKnockX, -PHYS.hurtKnockY * this.gdir);
     }
     this.scene.events.emit('player-hurt', this);
     return true;
@@ -315,6 +339,7 @@ export class Player {
 
   respawn(x: number, y: number) {
     this.hit.setPosition(x, y);
+    this.gdir = 1;
     this.body.setVelocity(0, 0).setAllowGravity(true);
     this.dashTime = 0;
     this.dead = false;
@@ -341,12 +366,16 @@ export class Player {
       // a pirueta gira em torno do centro do corpo; as demais poses apoiam nos pés
       // poses centradas no corpo (giram ou ficam na horizontal); as demais apoiam nos pés
       const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key);
-      this.view.setPosition(this.hit.x, spinning ? this.hit.y : b.bottom + 2);
+      const up = this.gdir < 0; // de cabeça para baixo: os pés apoiam no teto
+      this.view.setPosition(this.hit.x, spinning ? this.hit.y : up ? b.top - 2 : b.bottom + 2);
       this.view.setScale(this.baseScale * sx, this.baseScale * sy);
       this.view.setFlipX(this.facing < 0);
+      this.view.setFlipY(up);
       // ao espelhar, o pivô do frame também precisa espelhar
       const f = this.view.frame;
-      if (f.customPivot) this.view.setOrigin(this.facing < 0 ? 1 - f.pivotX : f.pivotX, f.pivotY);
+      if (f.customPivot) this.view.setOrigin(this.facing < 0 ? 1 - f.pivotX : f.pivotX, up ? 1 - f.pivotY : f.pivotY);
+      else if (up !== this.viewUp) this.view.setOrigin(this.view.originX, 1 - this.view.originY);
+      this.viewUp = up;
       this.view.setAlpha(this.invuln > 0 && !this.dead && Math.floor(this.t * 20) % 2 === 0 ? 0.35 : 1);
       return;
     }
@@ -403,7 +432,7 @@ export class Player {
     }
     if (!this.onGround) {
       if (this.takeoffTimer > 0) return this.still('iris_jump', J.takeoff);
-      const vy = b.velocity.y;
+      const vy = this.fall;
       return this.still('iris_jump', vy < -220 ? J.rise : vy < 220 ? J.peak : J.fall);
     }
     if (this.landTimer > 0) return this.still('iris_jump', J.land);

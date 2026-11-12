@@ -53,6 +53,7 @@ export type EntityType =
   | 'bloom'
   | 'fadeplat'
   | 'colorgate'
+  | 'gravzone'
   | 'guardian'
   | 'boss';
 
@@ -247,6 +248,15 @@ export class LevelBuilder {
   /** Porta de cor de `h` blocos (col, row = bloco do topo): abre depois de `need` Desbotados restaurados na fase. */
   colorgate(col: number, row: number, h = 2, need = 3) {
     this.entities.push({ type: 'colorgate', col, row, data: { h, need } });
+    return this;
+  }
+
+  /**
+   * Campo invertido (col, row = canto de cima à esquerda; w x h blocos): dentro dele a gravidade
+   * vira e Íris cai para cima. Precisa de um teto sólido por cima para ela andar.
+   */
+  gravzone(col: number, row: number, w: number, h: number) {
+    this.entities.push({ type: 'gravzone', col, row, data: { w, h } });
     return this;
   }
 
