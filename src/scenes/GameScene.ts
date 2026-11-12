@@ -131,6 +131,12 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private camOffsetX = 0;
   private colorMech!: ColorMechanics;
   private haze?: Phaser.GameObjects.Image;
+  /** Primeiro plano (na frente de tudo): folhagem pendurada no alto e plantas nos cantos de baixo. */
+  private fgContainer?: Phaser.GameObjects.Container;
+  private fgTop?: Phaser.GameObjects.TileSprite;
+  private fgBot?: Phaser.GameObjects.TileSprite;
+  /** Marco da fase: uma figura única na camada do meio do fundo. */
+  private landmark?: Phaser.GameObjects.Image;
   /** Sombras de contato de Íris e das criaturas (uma elipse macia no chão logo abaixo). */
   private contactShadows: { img: Phaser.GameObjects.Image; of: Phaser.Physics.Arcade.Sprite; w: number }[] = [];
 
@@ -243,7 +249,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.player.gravityScale = this.level.gravity ?? 1;
     this.buildWater();
 
-    this.color = new ColorRestore([this.bgContainer, this.world], Math.max(1, colorTotal));
+    this.color = new ColorRestore([this.bgContainer, this.world, ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
@@ -410,6 +416,13 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const top = (GAME_H * (1 - inv)) / 2; // borda de cima do quadro visível, em coordenadas de tela
     this.bgContainer.setScale(S).setPosition((GAME_W - GAME_W * S) / 2, top - (GAME_H * S - GAME_H * inv) * t);
     this.haze?.setDisplaySize(GAME_W * inv + 2, 300 * inv).setY(GAME_H - top);
+    // o marco anda junto com a camada do meio e aparece por volta da metade da fase
+    if (this.landmark) this.landmark.x = GAME_W / 2 + (this.level.cols * TILE * 0.45 - cam.scrollX) * 0.25;
+    if (this.fgContainer) {
+      this.fgContainer.setScale(inv).setPosition((GAME_W - GAME_W * inv) / 2, top);
+      this.fgTop!.tilePositionX = cam.scrollX * 1.3;
+      this.fgBot!.tilePositionX = cam.scrollX * 1.45 + 700;
+    }
   }
 
   private buildBackground() {
@@ -435,6 +448,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.bgFarFx = this.add.container(0, 0);
       this.bgMidFx = this.add.container(0, 0);
       this.bgContainer = this.add.container(0, 0, [this.bgFar, this.bgFarFx, this.bgMid, this.bgMidFx, this.bgNear]);
+      // marco da fase (um por fase de exploração): entra logo atrás da camada próxima
+      const lm = this.tex(`landmark_${(this.levelIndex % 4) + 1}`);
+      this.landmark = undefined;
+      if (!this.isSub && has(this, lm)) {
+        // fica recuado: menor que o plano de jogo, com um véu da névoa do fundo, para não parecer plataforma
+        this.landmark = this.add.image(0, GAME_H - 150, lm).setOrigin(0.5, 1).setTint(0xdcd2e2).setAlpha(0.94);
+        const tall = this.landmark.height >= this.landmark.width;
+        this.landmark.setScale(tall ? 430 / this.landmark.height : 600 / this.landmark.width);
+        this.bgContainer.addAt(this.landmark, 4);
+      }
     } else {
       const sky = this.add.image(0, 0, 'sky').setOrigin(0).setDisplaySize(GAME_W, GAME_H);
       this.bgFar = this.add.tileSprite(0, GAME_H - 420, GAME_W, 360, 'hills_far').setOrigin(0);
@@ -442,6 +465,15 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.bgContainer = this.add.container(0, 0, [sky, this.bgFar, this.bgMid]);
     }
     this.bgContainer.setScrollFactor(0).setDepth(-10);
+
+    // primeiro plano: fica acima do jogo; o meio da tela é vazio, então nada do percurso é coberto
+    this.fgContainer = this.fgTop = this.fgBot = undefined;
+    if (!this.level.arena && !this.isSub && !getSettings().reduceMotion && has(this, this.tex('fg_top'))) {
+      this.fgTop = this.add.tileSprite(0, -78, GAME_W, 216, this.tex('fg_top')).setOrigin(0);
+      // as plantas de baixo só espiam: a maior parte fica abaixo da borda da tela
+      this.fgBot = this.add.tileSprite(0, GAME_H - 96, GAME_W, 288, this.tex('fg_bot')).setOrigin(0);
+      this.fgContainer = this.add.container(0, 0, [this.fgTop, this.fgBot]).setScrollFactor(0).setDepth(14);
+    }
   }
 
   /** Nome da textura do mundo atual: tex('tiles') → 'w2_tiles'. */

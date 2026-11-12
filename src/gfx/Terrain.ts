@@ -14,6 +14,9 @@ import { F, has } from './art';
 //  - sombras de volume: sob a grama, nas paredes expostas, na parte de baixo e conforme a profundidade;
 //  - blocos suspensos projetam sombra no chão logo abaixo.
 
+/** Peças do kit de terreno parte 2 (`wN_tiles2`): paredes, parte de baixo e variações de topo. */
+const K2 = { wallL: 0, wallR: 1, cornerL: 2, cornerR: 3, under: 4, underL: 5, underR: 6, under2: 7, top2: 8, top3: 9, slopeUp: 10, slopeDown: 11 } as const;
+
 /** A arte do chão é 3D: os pés pisam DENTRO da face de cima do bloco, não na borda. */
 export const SINK = 14;
 
@@ -145,8 +148,44 @@ function ensureGroundVar(scene: Phaser.Scene, src: string, world: number): strin
   return key;
 }
 
+/**
+ * Interior do chão a partir da textura larga pintada (`wN_ground_wide`, 2048x1024). As bordas
+ * recebem uma faixa de transição com a borda oposta, para a emenda sumir mesmo quando a
+ * imagem não fecha perfeitamente ao repetir.
+ */
+function ensureGroundWide(scene: Phaser.Scene, src: string): string {
+  const key = `${src}_tile`;
+  if (scene.textures.exists(key)) return key;
+  const img = scene.textures.get(src).getSourceImage() as HTMLImageElement;
+  const W = img.width, H = img.height, band = 56;
+  const tex = scene.textures.createCanvas(key, W, H);
+  if (!tex) return src;
+  const g = tex.getContext();
+  g.drawImage(img, 0, 0);
+  const fade = (horizontal: boolean) => {
+    const { c, g: f } = scratch(horizontal ? band : W, horizontal ? H : band);
+    if (horizontal) f.drawImage(tex.getSourceImage() as CanvasImageSource, 0, 0, band, H, 0, 0, band, H);
+    else f.drawImage(tex.getSourceImage() as CanvasImageSource, 0, 0, W, band, 0, 0, W, band);
+    const m = horizontal ? f.createLinearGradient(0, 0, band, 0) : f.createLinearGradient(0, 0, 0, band);
+    m.addColorStop(0, 'rgba(0,0,0,1)');
+    m.addColorStop(1, 'rgba(0,0,0,0)');
+    f.globalCompositeOperation = 'destination-in';
+    f.fillStyle = m;
+    f.fillRect(0, 0, c.width, c.height);
+    // o começo da imagem, espelhado sobre o fim dela: na emenda os dois lados ficam idênticos
+    g.save();
+    if (horizontal) { g.translate(W, 0); g.scale(-1, 1); g.drawImage(c, 0, 0); }
+    else { g.translate(0, H); g.scale(1, -1); g.drawImage(c, 0, 0); }
+    g.restore();
+  };
+  fade(true);
+  fade(false);
+  tex.refresh();
+  return key;
+}
+
 /** Faixa longa do topo: peças espelhadas ao acaso, tom variando de leve e tufos fora de ritmo. */
-function ensureStripVar(scene: Phaser.Scene, src: string, world: number): string {
+function ensureStripVar(scene: Phaser.Scene, src: string, world: number, kit2 = ''): string {
   const key = `${src}_var`;
   if (scene.textures.exists(key)) return key;
   const img = scene.textures.get(src).getSourceImage() as HTMLImageElement;
@@ -156,10 +195,20 @@ function ensureStripVar(scene: Phaser.Scene, src: string, world: number): string
   if (!tex) return src;
   const g = tex.getContext();
   const r = seeded(world * 104729 + 5);
+  // variações pintadas do topo (kit parte 2), alinhadas pela linha da superfície da peça original
+  const base = scene.textures.getFrame(`w${world}_tiles`, String(F.w1Tiles.top));
+  const baseLine = (base.customPivot ? base.pivotY : 0) * base.height;
+  const variants = kit2 ? [K2.top2, K2.top3].map((n) => scene.textures.getFrame(kit2, String(n))) : [];
   for (let x = 0; x < W; x += S) {
+    const pickV = variants.length && r() < 0.6 ? variants[Math.floor(r() * variants.length)] : null;
     g.save();
-    if (r() < 0.5) { g.translate(x + S, 0); g.scale(-1, 1); g.drawImage(img, 0, 0); }
-    else g.drawImage(img, x, 0);
+    const flip = r() < 0.5;
+    if (flip) { g.translate(x + S, 0); g.scale(-1, 1); } else g.translate(x, 0);
+    if (pickV) {
+      const k = S / pickV.cutWidth;
+      const line = (pickV.customPivot ? pickV.pivotY : 0) * pickV.cutHeight * k;
+      g.drawImage(pickV.source.image as CanvasImageSource, pickV.cutX, pickV.cutY, pickV.cutWidth, pickV.cutHeight, 0, baseLine - line, S, pickV.cutHeight * k);
+    } else g.drawImage(img, 0, 0);
     g.restore();
   }
   // tufos: recortes da própria faixa em posições e alturas irregulares
@@ -198,6 +247,31 @@ function ensureStripVar(scene: Phaser.Scene, src: string, world: number): string
   return key;
 }
 
+/**
+ * Paredes expostas: as peças de parede do kit 2 viram texturas próprias que somem em direção
+ * ao interior do bloco, para se fundirem com a textura do chão em vez de formar uma coluna dura.
+ */
+function ensureWalls(scene: Phaser.Scene, kit2: string) {
+  for (const [name, frame, outerLeft] of [['wallL', K2.wallL, true], ['wallR', K2.wallR, false]] as const) {
+    const key = `${kit2}_${name}`;
+    if (scene.textures.exists(key)) continue;
+    const f = scene.textures.getFrame(kit2, String(frame));
+    const tex = scene.textures.createCanvas(key, 138, 132);
+    if (!tex) continue;
+    const g = tex.getContext();
+    g.drawImage(f.source.image as CanvasImageSource, f.cutX, f.cutY, f.cutWidth, f.cutHeight, 0, 0, 138, 132);
+    const m = g.createLinearGradient(outerLeft ? 0 : 138, 0, outerLeft ? 138 : 0, 0);
+    m.addColorStop(0, 'rgba(0,0,0,1)');
+    m.addColorStop(0.42, 'rgba(0,0,0,1)');
+    m.addColorStop(0.92, 'rgba(0,0,0,0)');
+    m.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalCompositeOperation = 'destination-in';
+    g.fillStyle = m;
+    g.fillRect(0, 0, 138, 132);
+    tex.refresh();
+  }
+}
+
 /** Sombra macia (elipse) usada no chão: blocos suspensos, Íris e criaturas. */
 export function ensureSoftShadow(scene: Phaser.Scene) {
   if (scene.textures.exists('soft_shadow')) return;
@@ -222,15 +296,17 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
   const shade = scene.add.graphics();
+  const walls = scene.add.container(0, 0);
+  const decals = scene.add.container(0, 0);
   const under = scene.add.container(0, 0);
   const decor = scene.add.container(0, 0);
   const tops = scene.add.container(0, 0);
   const shadows = scene.add.container(0, 0);
   // raízes atrás do interior; sombras de volume por cima dele; decoração atrás da grama do topo
-  world.add([under, fills, shade, decor, tops, shadows]);
+  world.add([under, fills, decals, walls, shade, decor, tops, shadows]);
   if (level.arena && has(scene, level.arena)) {
     // na arena o piso já está desenhado no fundo; só a colisão importa
-    for (const l of [under, fills, shade, tops, shadows]) l.setVisible(false);
+    for (const l of [under, fills, decals, walls, shade, tops, shadows]) l.setVisible(false);
     return { fills, decor, tops };
   }
 
@@ -253,8 +329,12 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
 
   const tilesKey = tx('tiles');
   const hasStrip = has(scene, tx('tiles_strip'));
-  const stripKey = hasStrip ? ensureStripVar(scene, tx('tiles_strip'), level.world) : '';
-  const groundKey = has(scene, tx('ground')) ? ensureGroundVar(scene, tx('ground'), level.world) : '';
+  const kit2 = has(scene, tx('tiles2')) ? tx('tiles2') : '';
+  const stripKey = hasStrip ? ensureStripVar(scene, tx('tiles_strip'), level.world, kit2) : '';
+  const groundKey = has(scene, tx('ground_wide')) ? ensureGroundWide(scene, tx('ground_wide'))
+    : has(scene, tx('ground')) ? ensureGroundVar(scene, tx('ground'), level.world) : '';
+  const decalsKey = has(scene, tx('decals')) ? tx('decals') : '';
+  if (kit2) ensureWalls(scene, kit2);
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
 
@@ -368,11 +448,13 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
 
       // paredes expostas: a lateral escurece em direção à borda (volume)
       if (b && c > 0 && !solid(c - 1, r)) {
-        shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0.4, 0, 0.4, 0);
+        if (kit2 && !top) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4, 0);
         shade.fillRect(c * TILE, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
       if (b && c < cols - 1 && !solid(c + 1, r)) {
-        shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, 0.4, 0, 0.4);
+        if (kit2 && !top) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4);
         shade.fillRect(c * TILE + TILE - 20, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
 
@@ -384,14 +466,41 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
         botStart = -1;
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, 0, 0.5, 0.5);
         shade.fillRect(c0 * TILE, y + TILE - 22, (c1 - c0 + 1) * TILE, 22);
-        // raízes: peças de ilha atrás do bloco, só a ponta de baixo aparece
-        const before = under.length;
-        islandRun(c0, c1, y, under, 30);
-        for (const o of under.list.slice(before) as Phaser.GameObjects.Image[]) o.setTint(0xb8a8b8);
+        if (kit2) {
+          // parte de baixo pintada: uma peça por bloco, com pontas onde o trecho termina no ar
+          for (let i = c0; i <= c1; i++) {
+            const endL = i === c0 && !solid(c0 - 1, r), endR = i === c1 && !solid(c1 + 1, r);
+            const frame = endL && !endR ? K2.underL : endR && !endL ? K2.underR : rnd() < 0.5 ? K2.under : K2.under2;
+            const img = scene.add.image(i * TILE + TILE / 2, y + TILE - 12, kit2, String(frame)).setOrigin(0.5, 0);
+            img.setScale((TILE + 8) / img.width);
+            under.add(img);
+          }
+        } else {
+          // raízes: peças de ilha atrás do bloco, só a ponta de baixo aparece
+          const before = under.length;
+          islandRun(c0, c1, y, under, 30);
+          for (const o of under.list.slice(before) as Phaser.GameObjects.Image[]) o.setTint(0xb8a8b8);
+        }
         castShadow(c0, c1, r);
       }
     }
   }
+  // decalques: pedras, raízes e relíquias espalhados pelo interior, longe das bordas, com a semente da fase
+  if (decalsKey) {
+    const inner = (c: number, r: number) => block(c, r) && depth[r][c] >= 1 && block(c - 1, r) && block(c + 1, r) && (r === rows - 1 || block(c, r + 1));
+    const taken = new Set<number>();
+    for (let r = 1; r < rows; r++) for (let c = 1; c < cols - 1; c++) {
+      if (!inner(c, r) || rnd() > 0.085) continue;
+      if ([-2, -1, 0, 1, 2].some((d) => taken.has(r * 1000 + c + d) || taken.has((r - 1) * 1000 + c + d))) continue;
+      taken.add(r * 1000 + c);
+      const img = scene.add.image(c * TILE + TILE / 2 + (rnd() - 0.5) * 20, r * TILE + TILE / 2 + (rnd() - 0.5) * 12, decalsKey, String(Math.floor(rnd() * 8)));
+      img.setScale(0.5 * (0.62 + rnd() * 0.3)).setFlipX(rnd() < 0.5).setAlpha(0.92);
+      // não deixa o decalque vazar para fora do chão em blocos estreitos
+      if (!block(c, r - 1) || !inner(c - 1, r) || !inner(c + 1, r)) img.setScale(img.scaleX * 0.72);
+      decals.add(img);
+    }
+  }
+
   // ilhas também projetam sombra
   for (let r = 0; r < rows; r++) {
     let start = -1;

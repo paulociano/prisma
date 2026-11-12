@@ -47,6 +47,21 @@ function bake(scene: Phaser.Scene, key: string, w: number, h: number, draw: (c: 
   tex.refresh();
 }
 
+/** Folha de arte `color_objects`: quando existe, substitui os desenhos feitos por código. */
+const ART = 'color_objects';
+const A = { bud: 0, half: 1, flower: 2, slabOff: 3, slabOn: 4, pillar: 5, pillarCrack: 6, pipOff: 7, pipOn: 8 } as const;
+
+/** Barra da porta de cor a partir do pilar pintado (textura própria, para ladrilhar na vertical). */
+function ensureArtGate(scene: Phaser.Scene) {
+  if (scene.textures.exists('cm_gate_art')) return;
+  const f = scene.textures.getFrame(ART, String(A.pillar));
+  const tex = scene.textures.createCanvas('cm_gate_art', 128, 256);
+  if (!tex) return;
+  // miolo do pilar (sem as pontas), esticado: emenda limpa ao repetir
+  tex.getContext().drawImage(f.source.image as CanvasImageSource, f.cutX, f.cutY + f.cutHeight * 0.2, f.cutWidth, f.cutHeight * 0.6, 20, 0, 88, 256);
+  tex.refresh();
+}
+
 /** Texturas em 2x (mostradas com escala 0,5), uma versão por cor de mundo. */
 function ensureTextures(scene: Phaser.Scene, color: number) {
   const id = color.toString(16);
@@ -126,7 +141,7 @@ function ensureTextures(scene: Phaser.Scene, color: number) {
 
 interface Bloom { x: number; y: number; w: number; zone: Zone; bud: Image; flower: Image; open: boolean }
 interface FadePlat { x: number; y: number; at: number; zone: Zone; off: Image; on: Image; lit: boolean }
-interface ColorGate { x: number; top: number; h: number; need: number; body: Phaser.GameObjects.TileSprite; pips: Image[]; open: boolean }
+interface ColorGate { x: number; top: number; h: number; need: number; body: Phaser.GameObjects.TileSprite; pips: Image[]; lit: number; open: boolean }
 
 export class ColorMechanics {
   private blooms: Bloom[] = [];
@@ -142,6 +157,8 @@ export class ColorMechanics {
     const { scene } = this.host;
     const id = this.host.worldColor.toString(16);
     ensureTextures(scene, this.host.worldColor);
+    const art = scene.textures.exists(ART);
+    const tint = lighten(this.host.worldColor, 0.18);
     const oneway = (x: number, y: number, w: number) => {
       const z = scene.add.zone(x, y + 10, w, 20);
       this.host.oneways.add(z);
@@ -153,30 +170,42 @@ export class ColorMechanics {
     if (e.type === 'bloom') {
       const w = (e.data?.w ?? 2) * TILE;
       const x = e.col * TILE + w / 2, y = e.row * TILE;
-      const bud = scene.add.image(x, y + 34, 'cm_bud').setScale(0.5).setDepth(4);
+      const bud = art ? scene.add.image(x, y + 34, ART, String(A.bud)).setDepth(4) : scene.add.image(x, y + 34, 'cm_bud').setScale(0.5).setDepth(4);
+      if (art) bud.setScale(84 / bud.height);
       scene.tweens.add({ targets: bud, y: y + 28, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-      const flower = scene.add.image(x, y + 26, `cm_flower_${id}`).setDepth(4).setVisible(false);
-      flower.setDisplaySize(w + 30, 64);
+      let flower: Image;
+      if (art) {
+        // a flor pintada é branca: recebe a cor do mundo; o topo das pétalas fica na linha do piso
+        flower = scene.add.image(x, y - 6, ART, String(A.flower)).setOrigin(0.5, 0.1).setDepth(4).setVisible(false).setTint(tint);
+        flower.setScale((w + 44) / flower.width);
+      } else {
+        flower = scene.add.image(x, y + 26, `cm_flower_${id}`).setDepth(4).setVisible(false);
+        flower.setDisplaySize(w + 30, 64);
+      }
       this.blooms.push({ x, y, w, zone: oneway(x, y, w), bud, flower, open: false });
     } else if (e.type === 'fadeplat') {
       const w = (e.data?.w ?? 2) * TILE;
       const x = e.col * TILE + w / 2, y = e.row * TILE;
-      const off = scene.add.image(x, y + 14, 'cm_slab_off').setDisplaySize(w + 8, 32).setDepth(4);
-      const on = scene.add.image(x, y + 14, `cm_slab_${id}`).setDisplaySize(w + 8, 32).setDepth(4).setVisible(false);
+      const off = (art ? scene.add.image(x, y + 15, ART, String(A.slabOff)) : scene.add.image(x, y + 14, 'cm_slab_off')).setDisplaySize(w + 12, 36).setDepth(4);
+      const on = (art ? scene.add.image(x, y + 15, ART, String(A.slabOn)).setTint(tint) : scene.add.image(x, y + 14, `cm_slab_${id}`)).setDisplaySize(w + 12, 36).setDepth(4).setVisible(false);
       this.plats.push({ x, y, at: e.data?.at ?? 0.5, zone: oneway(x, y, w), off, on, lit: false });
     } else {
       const h = e.data?.h ?? 2, need = Math.max(1, e.data?.need ?? 3);
       const x = e.col * TILE + TILE / 2, top = e.row * TILE;
-      const body = scene.add.tileSprite(x, top + (h * TILE) / 2, TILE, h * TILE, 'cm_gate').setTileScale(0.5).setDepth(5);
+      if (art) ensureArtGate(scene);
+      const body = scene.add.tileSprite(x, top + (h * TILE) / 2, TILE, h * TILE, art ? 'cm_gate_art' : 'cm_gate').setTileScale(0.5).setDepth(5);
       this.host.gates.add(body);
       (body.body as Phaser.Physics.Arcade.StaticBody).updateFromGameObject();
       const pips: Image[] = [];
       for (let i = 0; i < need; i++) {
         // luzes do contador ao longo da própria barra (visíveis mesmo com teto logo acima)
         const py = top + ((i + 0.5) * h * TILE) / need;
-        pips.push(scene.add.image(x, py, 'cm_pip').setScale(0.4).setDepth(6).setTint(0x8d889c));
+        if (art) {
+          const pip = scene.add.image(x, py, ART, String(A.pipOff)).setDepth(6);
+          pips.push(pip.setScale(26 / pip.height));
+        } else pips.push(scene.add.image(x, py, 'cm_pip').setScale(0.4).setDepth(6).setTint(0x8d889c));
       }
-      this.gates.push({ x, top, h, need, body, pips, open: false });
+      this.gates.push({ x, top, h, need, body, pips, lit: 0, open: false });
     }
     return true;
   }
@@ -188,10 +217,13 @@ export class ColorMechanics {
     for (const g of this.gates) {
       if (g.open) continue;
       const n = Math.min(this.restored, g.need);
-      const pip = g.pips[n - 1];
-      if (pip?.tintTopLeft === 0x8d889c) {
-        pip.setTint(RAINBOW[(n - 1) % RAINBOW.length]);
-        this.host.scene.tweens.add({ targets: pip, scale: 0.66, duration: 140, yoyo: true });
+      while (g.lit < n) {
+        const pip = g.pips[g.lit];
+        if (this.host.scene.textures.exists(ART)) pip.setFrame(String(A.pipOn));
+        pip.setTint(RAINBOW[g.lit % RAINBOW.length]);
+        const sc = pip.scale;
+        this.host.scene.tweens.add({ targets: pip, scale: sc * 1.6, duration: 140, yoyo: true });
+        g.lit++;
       }
       if (this.restored >= g.need) this.openGate(g);
     }

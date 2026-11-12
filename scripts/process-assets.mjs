@@ -225,6 +225,27 @@ const SHEETS = [
     [0.02, 0.73, 0.37, 0.97], [0.39, 0.72, 0.545, 0.98], [0.58, 0.72, 0.735, 0.98], [0.775, 0.72, 0.97, 0.98] ] },
 
   { key: 'w1_boss_projectiles', src: 'w1/boss_projectiles.png', expect: 6, height: 90, grid: [3, 2] },
+
+  // Trilha visual: terreno ampliado, primeiro plano e marcos de fase (iguais para os 7 mundos)
+  ...[1, 2, 3, 4, 5, 6, 7].flatMap((w) => [
+    // 0 parede esq., 1 parede dir., 2 canto interno esq., 3 canto interno dir. / 4 parte de baixo, 5 ponta esq., 6 ponta dir.,
+    // 7 parte de baixo (variação) / 8 e 9 topo (variações), 10 rampa subindo, 11 rampa descendo
+    { key: `w${w}_tiles2`, src: `w${w}/tiles_kit2.png`, expect: 12, grid: [4, 3], cut: true, largest: true, surface: true, ref: { frame: 8, width: 64 } },
+    // 8 decalques do interior do chão (pedras, raízes, musgo, veio, relíquia, toca, rachadura)
+    { key: `w${w}_decals`, src: `w${w}/ground_decals.png`, expect: 8, height: 96, grid: [4, 2], cut: true, align: 'center', anchor: 'cell' },
+    // interior do chão sem repetição: 2048x1024 (potência de 2, para ladrilhar na placa de vídeo)
+    { key: `w${w}_ground_wide`, src: `w${w}/ground_texture_wide.png`, type: 'image', size: [2048, 1024], opaque: true },
+    // primeiro plano: só a faixa de cima (folhagem pendurada) e a de baixo (plantas dos cantos); o meio é vazio
+    { key: `w${w}_fg_top`, src: `w${w}/fg_near.png`, type: 'image', crop: [0, 0, 1, 0.3], height: 216, mirror: true },
+    { key: `w${w}_fg_bot`, src: `w${w}/fg_near.png`, type: 'image', crop: [0, 0.6, 1, 1], height: 288, mirror: true },
+    ...[1, 2, 3].map((n) => ({ key: `w${w}_landmark_${n}`, src: `w${w}/landmark_${n}.png`, type: 'image', fit: 620 })),
+  ]),
+  // Cor como mecânica: 0 botão, 1 flor entreaberta, 2 flor aberta, 3 laje (contorno), 4 laje sólida, 5 pilar da porta,
+  // 6 pilar rachando, 7 luz apagada, 8 luz acesa
+  { key: 'color_objects', src: 'comum/color_objects.png', expect: 9, height: 150, align: 'center', anchor: 'cell', cells: [
+    [0, 0, 0.333, 0.385], [0.333, 0, 0.625, 0.385], [0.625, 0, 1, 0.385],
+    [0, 0.385, 0.333, 0.62], [0.333, 0.385, 0.667, 0.62],
+    [0, 0.62, 0.333, 1], [0.333, 0.62, 0.667, 1], [0.667, 0.62, 0.826, 1], [0.826, 0.62, 1, 1] ] },
 ];
 
 async function loadRaw(file) {
@@ -544,7 +565,16 @@ async function processImage(entry) {
   const file = path.join(RAW, entry.src);
   if (!fs.existsSync(file)) return null;
   let pipe = sharp(file).ensureAlpha();
-  if (entry.height) pipe = pipe.resize({ height: entry.height, kernel: 'lanczos3' });
+  if (entry.crop) {
+    // recorte em frações da imagem: [x0, y0, x1, y1]
+    const meta = await sharp(file).metadata();
+    const [x0, y0, x1, y1] = entry.crop;
+    const left = Math.round(x0 * meta.width), top = Math.round(y0 * meta.height);
+    pipe = sharp(await pipe.extract({ left, top, width: Math.round(x1 * meta.width) - left, height: Math.round(y1 * meta.height) - top }).png().toBuffer());
+  }
+  if (entry.size) pipe = pipe.resize({ width: entry.size[0], height: entry.size[1], fit: 'fill', kernel: 'lanczos3' });
+  else if (entry.fit) pipe = pipe.resize({ width: entry.fit, height: entry.fit, fit: 'inside', kernel: 'lanczos3' });
+  else if (entry.height) pipe = pipe.resize({ height: entry.height, kernel: 'lanczos3' });
   else if (entry.width) pipe = pipe.resize({ width: entry.width, height: entry.width, fit: 'fill', kernel: 'lanczos3' });
   if (entry.mirror) {
     // imagem + cópia espelhada lado a lado: as bordas sempre combinam ao repetir (parallax sem emenda)

@@ -4,7 +4,10 @@ Arte que falta para as próximas etapas do plano visual (kit ampliado, paredes, 
 primeiro plano). Mesmo fluxo de `docs/PROMPTS.md`: cole antes o **guia de estilo** (seção 0) e o
 **briefing do mundo** (seção 3), gere uma imagem por prompt e salve em `assets/raw/wN/` com o
 nome indicado. Nada aqui é obrigatório para o jogo rodar: enquanto um arquivo não existe, o
-jogo segue com o desenho atual.
+jogo segue com o desenho anterior.
+
+**Estado:** as 50 imagens foram geradas e estão integradas (ver `scripts/process-assets.mjs`,
+bloco "Trilha visual"). Do kit parte 2, os cantos internos e as rampas ainda não são usados.
 
 O que o jogo já faz sem arte nova (ver `src/gfx/Terrain.ts`): interior do chão sem repetição
 visível, grama fora de ritmo, ilhas com raízes, sombras de volume e sombras projetadas.
