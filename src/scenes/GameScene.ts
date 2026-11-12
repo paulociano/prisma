@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals, getSettings } from '../systems/Settings';
+import { applyColorblind, canFlashScreen, canShakeCamera, difficultyTuning, extraSignals, getSettings, gfx } from '../systems/Settings';
 import { COLOR_POINTS, GAME_H, GAME_W, PHYS, RAINBOW, TILE } from '../config';
 import { F, has } from '../gfx/art';
 import { texRes } from '../gfx/textures';
@@ -329,6 +329,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   /** Brilho suave atrás de um objeto importante (fragmentos, saída): segue o objeto e some com ele. */
   private halo(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, tint: number, size: number) {
+    if (!gfx().halos) return;
     const glow = this.add.image(target.x, target.y, 'dot').setBlendMode(Phaser.BlendModes.ADD).setTint(tint).setAlpha(0.22).setDepth(target.depth - 0.1);
     glow.setDisplaySize(64 * size, 64 * size);
     this.tweens.add({ targets: glow, alpha: 0.1, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
@@ -348,7 +349,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.contactShadows = [];
     this.haze = undefined;
     if (this.level.arena) return;
-    if (!this.textures.exists('haze_band')) {
+    if (gfx().haze && !this.textures.exists('haze_band')) {
       const t = this.textures.createCanvas('haze_band', 4, 256)!;
       const c = t.getContext();
       const g = c.createLinearGradient(0, 0, 0, 256);
@@ -362,14 +363,14 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // tom da névoa: branco puxado para a cor do mundo
     const wc = Phaser.Display.Color.IntegerToColor(worldInfo(this.level.world).color);
     const mix = (v: number) => Math.round(255 - (255 - v) * 0.3);
-    this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
+    if (gfx().haze) this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
       .setTint(Phaser.Display.Color.GetColor(mix(wc.red), mix(wc.green), mix(wc.blue)));
 
     ensureSoftShadow(this);
     const add = (of: Phaser.Physics.Arcade.Sprite, w: number) =>
       this.contactShadows.push({ img: this.add.image(of.x, of.y, 'soft_shadow').setDepth(1).setVisible(false), of, w });
     add(this.player.hit, 62);
-    for (const e of this.enemies) add(e.hit, Math.max(48, Math.min(96, e.hit.displayWidth * 1.1)));
+    if (gfx().enemyShadows) for (const e of this.enemies) add(e.hit, Math.max(48, Math.min(96, e.hit.displayWidth * 1.1)));
   }
 
   /** Primeira superfície (sólida ou atravessável) abaixo do ponto, até 6 blocos; -1 se não houver. */
@@ -468,7 +469,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
     // primeiro plano: fica acima do jogo; o meio da tela é vazio, então nada do percurso é coberto
     this.fgContainer = this.fgTop = this.fgBot = undefined;
-    if (!this.level.arena && !this.isSub && !getSettings().reduceMotion && has(this, this.tex('fg_top'))) {
+    if (!this.level.arena && !this.isSub && !getSettings().reduceMotion && gfx().foreground && has(this, this.tex('fg_top'))) {
       this.fgTop = this.add.tileSprite(0, -78, GAME_W, 216, this.tex('fg_top')).setOrigin(0);
       // as plantas de baixo só espiam: a maior parte fica abaixo da borda da tela
       this.fgBot = this.add.tileSprite(0, GAME_H - 96, GAME_W, 288, this.tex('fg_bot')).setOrigin(0);
@@ -2198,7 +2199,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       gravityY: 400,
       emitting: false,
     });
-    em.setDepth(13).explode(n);
+    em.setDepth(13).explode(Math.max(3, Math.round(n * gfx().particles)));
     this.time.delayedCall(900, () => em.destroy());
   }
 

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
+import { gfx } from '../systems/Settings';
 
 // Desenho do terreno (só a parte visual; a colisão continua em GameScene.buildTiles).
 //
@@ -333,7 +334,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const stripKey = hasStrip ? ensureStripVar(scene, tx('tiles_strip'), level.world, kit2) : '';
   const groundKey = has(scene, tx('ground_wide')) ? ensureGroundWide(scene, tx('ground_wide'))
     : has(scene, tx('ground')) ? ensureGroundVar(scene, tx('ground'), level.world) : '';
-  const decalsKey = has(scene, tx('decals')) ? tx('decals') : '';
+  const decalsKey = gfx().decals && has(scene, tx('decals')) ? tx('decals') : '';
   if (kit2) ensureWalls(scene, kit2);
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));

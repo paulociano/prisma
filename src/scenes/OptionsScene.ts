@@ -15,17 +15,18 @@ import {
   type ColorblindMode,
   type Difficulty,
   type Settings,
-} from '../systems/Settings';
+  QUALITY_LABEL, QUALITY_NOTE, type Quality } from '../systems/Settings';
 
 const MODES: ColorblindMode[] = ['off', 'protan', 'deutan', 'tritan'];
 const LEVELS: Difficulty[] = ['easy', 'normal', 'hard'];
 const SMALL = { fontFamily: '"Trebuchet MS", sans-serif', fontSize: '22px', color: '#3b2252', align: 'center' };
-const PAGES = ['Jogo', 'Acessibilidade', 'Som e controles'];
+const PAGES = ['Jogo', 'Acessibilidade', 'Som e controles', 'Imagem'];
+const QUALITIES: Quality[] = ['low', 'medium', 'high'];
 
 type ToggleKey = 'reduceFlashes' | 'reduceCameraShake' | 'reduceMotion' | 'extraVisualSignals' | 'largeText' | 'autoDialogue';
 
-// Opções em três páginas: Jogo (dificuldade e daltonismo), Acessibilidade (sinais e textos) e
-// Som e controles (volumes e lista de teclas). Abre por cima do título ou da pausa e volta para quem chamou.
+// Opções em quatro páginas: Jogo (dificuldade e daltonismo), Acessibilidade (sinais e textos),
+// Som e controles (volumes e lista de teclas) e Imagem (qualidade gráfica). Abre por cima do título ou da pausa e volta para quem chamou.
 // ↑ ↓ escolhe a linha, ← → (ou ENTER) troca o valor.
 export class OptionsScene extends Phaser.Scene {
   private from = 'Title';
@@ -119,7 +120,7 @@ export class OptionsScene extends Phaser.Scene {
       toggle(cy + 48, 'largeText', 'Texto grande');
       toggle(cy + 110, 'autoDialogue', 'Diálogo automático');
       this.add.text(cx, cy + 156, 'Texto grande aumenta falas e legendas.\nDiálogo automático avança sozinho depois de um tempo de leitura.', SMALL).setOrigin(0.5, 0);
-    } else {
+    } else if (this.page === 2) {
       volume(cy - 200, 'musicVol', 'Música');
       volume(cy - 138, 'sfxVol', 'Efeitos');
       const touch = isTouchDevice();
@@ -129,6 +130,21 @@ export class OptionsScene extends Phaser.Scene {
       this.add.text(cx, cy - 86, lines.join('\n'), { ...SMALL, fontSize: '21px', lineSpacing: 6 }).setOrigin(0.5, 0);
 
       add(button(this, cx, cy + 152, 440, 'Enviar feedback', () => window.open(feedbackUrl(), '_blank', 'noopener')));
+    } else {
+      this.add.text(cx, cy - 226, 'Qualidade gráfica', textStyle(24, '#3b2252')).setOrigin(0.5).setStroke('#ffffff', 4);
+      const note = this.add.text(cx, cy - 130, '', SMALL).setOrigin(0.5, 0);
+      const label = () => `◀  ${QUALITY_LABEL[getSettings().quality]}  ▶`;
+      const showNote = () => note.setText(QUALITY_NOTE[getSettings().quality] + (this.from === 'Title' ? '' : '\n(vale a partir da próxima fase)'));
+      const cycle = (d: number) => {
+        const i = QUALITIES.indexOf(getSettings().quality);
+        setSettings({ quality: QUALITIES[(i + d + QUALITIES.length) % QUALITIES.length] });
+        setLabel(q, label());
+        showNote();
+        playSfx(this, 'menu_move');
+      };
+      const q = add(button(this, cx, cy - 176, 520, label(), () => cycle(1)), cycle);
+      showNote();
+      this.add.text(cx, cy + 20, 'A qualidade só muda enfeites visuais:\nfases, inimigos e controles ficam iguais.\nSe o jogo travar, experimente Média ou Baixa.', SMALL).setOrigin(0.5, 0);
     }
 
     const next = add(button(this, cx, cy + 232, 440, `Próxima página ▶`, () => this.goPage((this.page + 1) % PAGES.length)), (d) => this.goPage((this.page + d + PAGES.length) % PAGES.length));

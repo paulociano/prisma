@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_H, GAME_W } from '../config';
 import { ensureFxTextures } from '../gfx/fx';
-import { canFlashScreen, getSettings } from './Settings';
+import { canFlashScreen, getSettings, gfx } from './Settings';
 
 // Efeitos ambientes em movimento: água, cachoeiras, névoa, fumaça, brilhos, folhas, bolhas…
 // Tudo é desenhado em espaço de tela, por cima da arte (mapas) ou entre o fundo e a fase (jogo),
@@ -61,7 +61,7 @@ export class Ambient {
 
   /** `baseDepth`: profundidade usada quando o efeito não pede uma (mapas: logo acima da arte). */
   constructor(readonly scene: Phaser.Scene, private baseDepth = 1) {
-    this.on = !getSettings().reduceMotion;
+    this.on = !getSettings().reduceMotion && gfx().ambient;
     if (this.on) ensureFxTextures(scene);
   }
 
