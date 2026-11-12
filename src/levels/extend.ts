@@ -347,37 +347,237 @@ function ambush(s: Seg, w: number, i: number) {
   s.x += 16;
 }
 
-const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush, crumbleBridge };
+// ---------- desafios de assinatura: dois por mundo, construídos em volta da mecânica dele ----------
+// Sempre entram no trecho da fase (os demais desafios continuam sorteados da biblioteca comum).
+
+/** Encontros desenhados: quem anda no chão e quem voa juntos em cada mundo, por ordem de aparição. */
+const DUOS: Record<number, [EntityType, EntityType][]> = {
+  1: [['blot', 'moth'], ['beetle', 'rumor'], ['padlock', 'moth']],
+  2: [['scorpion', 'moth'], ['megaphone', 'rumor'], ['joke', 'moth']],
+  3: [['padlock', 'drone'], ['megaphone', 'drone'], ['label', 'rumor']],
+  4: [['snapper', 'moth'], ['silence', 'stare'], ['joke', 'moth']],
+  5: [['padlock', 'puffer'], ['blot', 'puffer']],
+  6: [['silence', 'comet'], ['megaphone', 'stare'], ['label', 'comet']],
+  7: [['sentinel', 'drone'], ['snapper', 'stare'], ['scorpion', 'rumor']],
+};
+const duo = (w: number, i: number) => DUOS[w][i % DUOS[w].length];
+
+/** Mundo 1 — Jardim de flores-ponte: restaurar os Desbotados abre a escada de flores até o coração. */
+function bloomGarden(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 14, s.h);
+  s.b.add(g, x + 4, t - 1).add(duo(w, i + 1)[0], x + 11, t - 1);
+  s.b.bloom(x + 5, t - 2, 2).bloom(x + 8, t - 4, 2);
+  s.b.coins(x + 5, x + 6, t - 3).coins(x + 8, x + 9, t - 5).add('heart', x + 9, t - 6);
+  s.b.add(a, x + 12, t - 5);
+  s.x += 15;
+}
+
+/** Mundo 1 — Pomar das molas: a mola leva a uma ilha alta; do alto se vê (e se evita) o que vem a seguir. */
+function springOrchard(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 15, s.h);
+  s.b.add('spring', x + 3, t - 1);
+  s.b.block(x + 5, t - 5, x + 9, t - 5).coins(x + 5, x + 9, t - 6);
+  s.b.fadeplat(x + 11, t - 6, 2, 0.4).add('heart', x + 12, t - 7);
+  s.b.add(g, x + 8, t - 1).add(g, x + 13, t - 1).add(a, x + 12, t - 3);
+  s.x += 16;
+}
+
+/** Mundo 2 — Corrente de gêiseres: pilares sobre um fosso de espinhos; cada gêiser lança até o próximo. */
+function geyserChain(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.ground(x, x + 19, 1).spikes(x, x + 19, s.rows - 2);
+  for (const c of [x, x + 6, x + 12, x + 18]) s.b.block(c, t, c + 1, s.rows - 1);
+  s.b.vent(x + 1, t - 1, 2.4, 0).vent(x + 7, t - 1, 2.4, 0.33).vent(x + 13, t - 1, 2.4, 0.66);
+  s.b.coinArc(x + 2, t - 5, 4).coinArc(x + 8, t - 5, 4).coinArc(x + 14, t - 5, 4);
+  s.b.add(duo(w, i)[1], x + 10, t - 7);
+  s.x += 20;
+  flat(s, 2);
+}
+
+/** Mundo 2 — Mesas do cânion: degraus altos de rocha com vigias; um gêiser no pé leva direto ao topo. */
+function mesaSteps(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 19, s.h);
+  s.b.block(x + 4, t - 2, x + 7, t - 1).block(x + 8, t - 4, x + 12, t - 1).block(x + 13, t - 2, x + 15, t - 1);
+  s.b.vent(x + 2, t - 1);
+  s.b.add(g, x + 6, t - 3).add(duo(w, i + 1)[0], x + 10, t - 5).add(a, x + 14, t - 6);
+  s.b.coins(x + 9, x + 11, t - 6).add('heart', x + 10, t - 8);
+  s.x += 20;
+}
+
+/** Mundo 3 — Telhados: prédios de alturas diferentes com becos entre eles; drones vigiam por cima. */
+function rooftops(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 21, s.h);
+  const roofs: [number, number, number][] = [[x + 2, x + 4, 2], [x + 7, x + 10, 4], [x + 13, x + 15, 3], [x + 18, x + 19, 1]];
+  for (const [c0, c1, hgt] of roofs) {
+    s.b.block(c0, t - hgt, c1, t - 1);
+    s.b.coins(c0, c1, t - hgt - 1);
+  }
+  s.b.add(g, x + 5, t - 1).add(duo(w, i + 1)[0], x + 11, t - 1).add(g, x + 16, t - 1);
+  s.b.add(a, x + 9, t - 8).add(a, x + 16, t - 6);
+  s.x += 22;
+}
+
+/** Mundo 3 — Beco dos holofotes: dois fachos fora de fase; atravessar é questão de ritmo. */
+function lightAlley(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.ground(x, x + 21, s.h);
+  s.b.searchlight(x + 6, 1, t, 3, 3.2, 0).searchlight(x + 15, 1, t, 3, 3.2, 0.5);
+  s.b.oneway(x + 10, x + 11, t - 3).coins(x + 10, x + 11, t - 4);
+  s.b.add(duo(w, i)[0], x + 11, t - 1).add(duo(w, i + 1)[0], x + 20, t - 1);
+  s.x += 22;
+}
+
+/** Mundo 4 — Copas: três andares de galhos; no chão as plantas-armadilha, no alto as faíscas e o coração. */
+function canopyLayers(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 17, s.h);
+  s.b.oneway(x + 2, x + 5, t - 2).oneway(x + 6, x + 10, t - 4).oneway(x + 11, x + 14, t - 6);
+  s.b.coins(x + 3, x + 5, t - 3).coins(x + 7, x + 9, t - 5).coins(x + 11, x + 13, t - 7);
+  s.b.bloom(x + 15, t - 7, 2).add('heart', x + 16, t - 8);
+  s.b.add(g, x + 7, t - 1).add(g, x + 12, t - 1).add(duo(w, i + 1)[0], x + 16, t - 1);
+  s.b.add(a, x + 9, t - 7);
+  s.x += 18;
+}
+
+/** Mundo 4 — Raízes gigantes: dois arcos de raiz; por cima é mais longo, por baixo há quem morda. */
+function giantRoots(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 21, s.h);
+  for (const c of [x + 3, x + 12]) {
+    s.b.block(c, t - 2, c, t - 1).block(c + 1, t - 4, c + 5, t - 4).block(c + 6, t - 2, c + 6, t - 1);
+    s.b.coins(c + 1, c + 5, t - 5);
+    s.b.add(g, c + 3, t - 1);
+  }
+  s.b.add(a, x + 10, t - 6);
+  s.x += 22;
+}
+
+/** Mundo 5 — Portões de coral: paredes com passagem ora embaixo, ora em cima; os baiacus guardam as frestas. */
+function coralGates(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.ground(x, x + 19, s.h);
+  s.b.block(x + 4, 3, x + 4, t - 4).block(x + 10, 6, x + 10, t - 1).block(x + 16, 3, x + 16, t - 4);
+  s.b.add('puffer', x + 7, t - 3).add('puffer', x + 13, 4);
+  s.b.coins(x + 3, x + 5, t - 2).coins(x + 9, x + 11, 4).coins(x + 15, x + 17, t - 2);
+  s.b.add(duo(w, i)[0], x + 18, t - 1);
+  s.x += 20;
+}
+
+/** Mundo 5 — Corrente marinha: um trecho em que a água empurra para a frente por entre recifes baixos. */
+function seaCurrent(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.ground(x, x + 21, s.h);
+  s.b.wind(x + 2, 4, 18, t - 5, 1, 170);
+  s.b.block(x + 6, t - 2, x + 7, t - 1).block(x + 13, t - 3, x + 14, t - 1);
+  s.b.coinArc(x + 4, 6, 6).coinArc(x + 11, 5, 6);
+  s.b.add('puffer', x + 10, 4).add('puffer', x + 17, 7).add(duo(w, i)[0], x + 19, t - 1);
+  s.x += 22;
+}
+
+/** Mundo 6 — Escada de estrelas: duas plataformas que sobem e descem ligam a ilha do meio, sobre o vazio. */
+function starLadder(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.mover(x + 1, t, 0, -3, 2, 4, 0);
+  s.b.block(x + 5, t - 3, x + 7, t - 3).coins(x + 5, x + 7, t - 4);
+  s.b.mover(x + 10, t - 3, 0, 3, 2, 4, 0);
+  s.b.add(duo(w, i)[1], x + 6, t - 7);
+  s.x += 13;
+  flat(s, 3);
+}
+
+/** Mundo 6 — Chuva de cometas: terraços leves de nuvem e três vigias do céu; quem sobe encontra o coração. */
+function cometTerraces(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 19, s.h);
+  s.b.oneway(x + 2, x + 4, t - 2).oneway(x + 7, x + 9, t - 4).oneway(x + 12, x + 14, t - 4).oneway(x + 16, x + 18, t - 2);
+  s.b.crumble(x + 10, t - 6, 2).add('heart', x + 10, t - 7);
+  s.b.coins(x + 7, x + 9, t - 5).coins(x + 12, x + 14, t - 5);
+  s.b.add(g, x + 6, t - 1).add(g, x + 14, t - 1).add(a, x + 5, t - 6).add(a, x + 15, t - 7);
+  s.x += 20;
+}
+
+/** Mundo 7 — Passarela desbotada: embaixo, espinhos e sentinelas; em cima, um caminho que só existe com cor. */
+function fadedWalk(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  const [g, a] = duo(w, i);
+  s.b.ground(x, x + 21, s.h);
+  s.b.spikes(x + 6, x + 7, t - 1).spikes(x + 13, x + 14, t - 1);
+  s.b.add(g, x + 4, t - 1).add(duo(w, i + 1)[0], x + 10, t - 1).add(g, x + 17, t - 1);
+  s.b.oneway(x + 1, x + 2, t - 2);
+  for (const c of [x + 4, x + 8, x + 12, x + 16]) s.b.fadeplat(c, t - 4, 2, 0.35).coins(c, c + 1, t - 5);
+  s.b.add('heart', x + 13, t - 6).add(a, x + 10, t - 7);
+  s.x += 22;
+}
+
+/** Mundo 7 — Cofre de cor: um cofre suspenso que só abre depois de quatro restaurações na fase. */
+function colorVault(s: Seg, w: number, i: number) {
+  const t = top(s), x = s.x;
+  s.b.ground(x, x + 13, s.h);
+  s.b.block(x + 2, t - 4, x + 6, t - 4).block(x + 2, t - 7, x + 5, t - 7).block(x + 2, t - 6, x + 2, t - 5);
+  s.b.colorgate(x + 5, t - 6, 2, 4).chest(x + 3, t - 5).coins(x + 4, x + 4, t - 5);
+  s.b.oneway(x + 8, x + 9, t - 2);
+  s.b.add(duo(w, i)[0], x + 4, t - 1).add(duo(w, i + 1)[0], x + 11, t - 1);
+  s.x += 14;
+}
+
+/** Os dois desafios de assinatura de cada mundo. */
+export const SIGNATURE: Record<number, [string, string]> = {
+  1: ['bloomGarden', 'springOrchard'],
+  2: ['geyserChain', 'mesaSteps'],
+  3: ['rooftops', 'lightAlley'],
+  4: ['canopyLayers', 'giantRoots'],
+  5: ['coralGates', 'seaCurrent'],
+  6: ['starLadder', 'cometTerraces'],
+  7: ['fadedWalk', 'colorVault'],
+};
+
+const BEATS: Record<string, (s: Seg, w: number, i: number) => void> = { mountain, islands, tower, crates, twoRoutes, pit, mover, vent, searchlight, chimney, bumps, vault, tower2, gauntlet, zigzag, ambush, crumbleBridge, bloomGarden, springOrchard, geyserChain, mesaSteps, rooftops, lightAlley, canopyLayers, giantRoots, coralGates, seaCurrent, starLadder, cometTerraces, fadedWalk, colorVault };
 
 // Dificuldade de cada desafio (1 = calmo, 3 = exigente). Os mundos iniciais só sorteiam os mais leves.
 const RATING: Record<string, number> = {
   mountain: 1, tower: 1, crates: 1, vent: 1, islands: 2, twoRoutes: 2, pit: 2, mover: 2, searchlight: 2, ambush: 2,
   chimney: 3, gauntlet: 3, zigzag: 3, crumbleBridge: 3,
+  bloomGarden: 1, springOrchard: 1, mesaSteps: 1, geyserChain: 2, rooftops: 2, lightAlley: 2, canopyLayers: 1, giantRoots: 2,
+  coralGates: 2, seaCurrent: 1, cometTerraces: 2, starLadder: 3, fadedWalk: 2, colorVault: 1,
 };
 /** Quanto de dificuldade a fase aguenta: sobe com o mundo (1 a 7) e com o número da fase (0 a 2). */
 export const allowedRating = (w: number, v: number) => 1.75 + (w - 1) * 0.25 + v * 0.2;
 
 /** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
 export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false) {
-  const b = new LevelBuilder('seg', 'seg', w, 170, rows);
+  const b = new LevelBuilder('seg', 'seg', w, 220, rows);
   const s: Seg = { b, x: 0, h, rows, r: rng(w * 1009 + v * 7919 + 17) };
   flat(s, 3);
   b.add('checkpoint', 1, top(s) - 1); // inserção condicionada à distância dos checkpoints originais
-  // 4 desafios embaralhados (com a semente da fase) entre os do mundo e os novos, mais difíceis
+  // Os dois desafios de assinatura do mundo sempre entram; o resto vem embaralhado (com a semente
+  // da fase) da biblioteca comum, limitado pela dificuldade que a fase aguenta.
+  const sig = SIGNATURE[w];
   const all = [...WORLD[w].beats, 'gauntlet', 'zigzag', 'ambush', 'crumbleBridge'];
   const lim = allowedRating(w, v);
   let pool = all.filter((n) => RATING[n] <= lim);
+  // mundo 1 tem 3 desafios (ensina); do 2 em diante, 4. Nas fases com torre, ela ocupa a última vaga.
   const count = w === 1 ? 3 : 4;
-  if (pool.length < count) pool = all.sort((a, b) => RATING[a] - RATING[b]).slice(0, count);
+  const extra = Math.max(0, count - sig.length - (tall && top(s) - 19 >= 0 ? 1 : 0));
+  if (pool.length < extra) pool = all.sort((a, b) => RATING[a] - RATING[b]).slice(0, extra);
   for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(s.r() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
-  // mundo 1 tem 3 desafios (ensina); do 2 em diante, 4. Ordem crescente de dificuldade dentro da fase.
-  const chosen = pool.slice(0, count).sort((a, b) => RATING[a] - RATING[b]);
-  for (let k = 0; k < count; k++) {
-    // fases com a torre (terceira fase de cada mundo): o último desafio é a subida vertical
-    if (tall && k === count - 1 && top(s) - 19 >= 0) tower2(s, w, v);
-    else BEATS[chosen[k]](s, w, v + k);
+  // ordem crescente de dificuldade dentro da fase
+  const chosen = [...sig, ...pool.slice(0, extra)].sort((a, b) => RATING[a] - RATING[b]);
+  chosen.forEach((name, k) => {
+    BEATS[name](s, w, v + k);
     flat(s, rint(s, 1, 3));
-  }
+  });
+  if (tall && top(s) - 19 >= 0) { tower2(s, w, v); flat(s, rint(s, 1, 3)); }
   (v % 2 ? vault : bumps)(s, w, v);
   flat(s, 2);
   const order = [1, 2, 3, 4, 6, 7].indexOf(w);

@@ -35,7 +35,8 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 | V2 | Profundidade: névoa entre fundo e jogo, sombras de contato, brilho nos fragmentos, parallax vertical, zonas de câmera com zoom | Feito, menos o primeiro plano (depende de arte) |
 | V3 | Portão: aprovação visual do padrão na fase 1-1 | Pendente |
 | V4 | Cor como mecânica: flor-ponte, plataforma desbotada e porta de cor (`src/systems/ColorMechanics.ts`), em rotas opcionais das fases 1-1, 1-2 e 1-3 | Feito; verificado por simulação no navegador. **Sem playtest** |
-| V5+ | Kit ampliado, gerador por mundo, dinâmicas de assinatura dos mundos 2 a 7 | Não iniciado. Prompts em `docs/PROMPTS-TERRENO-E-PROFUNDIDADE.md` |
+| V5 | Gerador por mundo: dois desafios de assinatura por mundo (14 no total) sempre presentes no trecho gerado, com encontros desenhados (dupla chão + ar) | Feito; `check-levels` passa nos mundos 1 a 4, 6 e 7. O mundo 5 (nado livre) não é coberto pelo verificador. **Sem playtest** |
+| V6+ | Trechos gerados curtos entre as partes autorais (hoje ainda é um bloco único), kit ampliado, dinâmicas novas dos mundos 2 a 7 que dependem de código novo (tempestade, maré, gravidade invertida) | Não iniciado. Prompts em `docs/PROMPTS-TERRENO-E-PROFUNDIDADE.md` |
 
 ## Regras de execução
 
