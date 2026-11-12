@@ -11,6 +11,9 @@ export function level1_1() {
   // Primeiro buraco (3 blocos) e primeiro inimigo
   b.ground(20, 34, 2).coins(21, 23, 9).add('blot', 29, 9);
   b.hint(25, 5, 'X  golpe de echarpe  ·  ou pule em cima');
+  // primeira flor-ponte: restaurar o Desbotado ao lado faz a flor abrir e dá acesso às faíscas do alto
+  b.bloom(31, 8, 2).coins(31, 32, 6).coins(31, 32, 5);
+  b.hint(33, 3, 'Devolva a cor a um Desbotado: a flor desabrocha');
 
   // Escada de plataformas atravessáveis com o 1º fragmento no alto
   b.ground(35, 52, 2);
@@ -40,6 +43,9 @@ export function level1_1() {
   b.oneway(105, 106, 8).oneway(108, 109, 6).oneway(111, 112, 4).add('shard', 112, 3);
   b.coinArc(99, 7, 5);
   b.add('beetle', 116, 9);
+  // plataformas desbotadas: só voltam se a fase recuperou cor; levam a um coração antes da saída
+  b.fadeplat(114, 8, 2, 0.5).fadeplat(117, 6, 2, 0.5).add('heart', 117, 5).coins(118, 118, 5);
+  b.hint(116, 3, 'Com mais cor na fase, mais caminhos voltam');
   b.add('exit', 122, 9);
 
   return b.build();
@@ -51,6 +57,7 @@ export function level1_2() {
 
   b.ground(0, 12, 2).add('player', 2, 9).coins(5, 9, 9);
   b.ground(16, 27, 2).coinArc(13, 8, 3).add('beetle', 22, 9);
+  b.bloom(24, 8, 2).coins(24, 25, 6).coins(24, 25, 5);
 
   // primeiro poço com plataforma móvel
   b.mover(29, 8, 5, 0, 3, 4).coins(31, 35, 6).hint(30, 4, 'Plataformas se movem: espere o momento certo');
@@ -70,6 +77,7 @@ export function level1_2() {
   b.ground(87, 104, 3).add('checkpoint', 88, 8).add('spring', 93, 8);
   b.block(95, 3, 99, 3).coins(96, 98, 2).add('shard', 99, 2);
   b.add('padlock', 97, 8).add('megaphone', 102, 8);
+  b.fadeplat(101, 7, 2, 0.45).add('heart', 101, 6).coins(102, 102, 6);
 
   // reta final com escadinha e o 3º fragmento
   b.ground(105, 139, 2).add('beetle', 112, 9).add('blot', 120, 9);
@@ -102,6 +110,10 @@ export function level1_3() {
   b.coins(59, 60, 6).coins(67, 68, 6).add('shard', 64, 4).add('moth', 65, 2);
 
   b.ground(71, 86, 2).add('padlock', 76, 9).add('blot', 80, 9).add('beetle', 84, 9);
+  // cofre de cor suspenso: a porta abre depois de 3 Desbotados restaurados na fase
+  b.block(76, 6, 80, 6).block(76, 3, 79, 3).block(76, 4, 76, 5);
+  b.colorgate(79, 4, 2, 3).chest(77, 5).coins(78, 78, 5);
+  b.oneway(82, 83, 8);
 
   // espinhos com plataforma móvel; 2º fragmento flutua acima dela
   b.ground(87, 96, 1).spikes(87, 96, 10).mover(88, 8, 6, 0, 2, 4).add('shard', 91, 5);

@@ -267,6 +267,7 @@ function tower2(s: Seg, w: number, i: number) {
   s.b.add('heart', x + 8, t - 19);
   s.b.coins(x + 5, x + 15, t - 19);
   s.b.add(pick(WORLD[w].ground, i), x + 16, t - 1);
+  s.b.camera(x + 2, x + 15, 0.88); // a torre inteira cabe melhor com a câmera afastada
   s.x += 18;
 }
 
@@ -474,5 +475,10 @@ export function extendLevel(base: LevelData, variant: number): LevelData {
   const MIN_CHECKPOINT_GAP = 12;
   const checkpoints = existing.filter((e) => e.type === 'checkpoint');
   const entities = [...existing, ...inserted.filter((e) => e.type !== 'checkpoint' || checkpoints.every((old) => Math.abs(old.col - e.col) >= MIN_CHECKPOINT_GAP))];
-  return { ...l, cols: l.cols + width, tiles, entities, hints: l.hints.map(shift) };
+  // zonas de câmera: as autorais deslocam junto; as do trecho novo entram na posição dele
+  const cameras = [
+    ...(l.cameras ?? []).map((z) => (z.c0 >= at ? { ...z, c0: z.c0 + width, c1: z.c1 + width } : z)),
+    ...(seg.cameras ?? []).map((z) => ({ ...z, c0: z.c0 + at, c1: z.c1 + at })),
+  ];
+  return { ...l, cols: l.cols + width, tiles, entities, hints: l.hints.map(shift), cameras };
 }

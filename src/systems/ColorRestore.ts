@@ -28,6 +28,11 @@ export class ColorRestore {
     this.target = Math.max(this.target, this.base + (0.85 - this.base) * Math.min(1, this.gained / this.total));
   }
 
+  /** 0 a 1: fração dos pontos de cor da fase já conquistados. */
+  get progress() {
+    return Math.min(1, this.gained / this.total);
+  }
+
   complete() {
     this.target = 1;
   }

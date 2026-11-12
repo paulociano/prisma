@@ -18,12 +18,14 @@ import { StoneJudge } from '../objects/StoneJudge';
 import { worldInfo } from '../levels/worlds';
 import { STORY } from '../story';
 import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../systems/Audio';
+import { ColorMechanics } from '../systems/ColorMechanics';
 import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
+import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -127,6 +129,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private finished = false;
   private swingHits = new Set<object>();
   private camOffsetX = 0;
+  private colorMech!: ColorMechanics;
+  private haze?: Phaser.GameObjects.Image;
+  /** Sombras de contato de Íris e das criaturas (uma elipse macia no chão logo abaixo). */
+  private contactShadows: { img: Phaser.GameObjects.Image; of: Phaser.Physics.Arcade.Sprite; w: number }[] = [];
 
   private levelIndex = 0;
   private save!: SaveData;
@@ -238,6 +244,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.buildWater();
 
     this.color = new ColorRestore([this.bgContainer, this.world], Math.max(1, colorTotal));
+    this.buildDepth();
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
     else if (this.bgFarFx && this.bgMidFx) levelFx(this.ambient, this.level.world, { far: this.bgFar, mid: this.bgMid, farInto: this.bgFarFx, midInto: this.bgMidFx });
@@ -314,6 +321,97 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private waves: { ts: Phaser.GameObjects.TileSprite; speed: number; sc: number }[] = [];
   private arenaRect?: Rect;
 
+  /** Brilho suave atrás de um objeto importante (fragmentos, saída): segue o objeto e some com ele. */
+  private halo(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, tint: number, size: number) {
+    const glow = this.add.image(target.x, target.y, 'dot').setBlendMode(Phaser.BlendModes.ADD).setTint(tint).setAlpha(0.22).setDepth(target.depth - 0.1);
+    glow.setDisplaySize(64 * size, 64 * size);
+    this.tweens.add({ targets: glow, alpha: 0.1, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    const follow = () => {
+      if (!target.active || !target.visible) { glow.destroy(); this.events.off('postupdate', follow); return; }
+      glow.setPosition(target.x, target.y);
+    };
+    this.events.on('postupdate', follow);
+    this.events.once('shutdown', () => this.events.off('postupdate', follow));
+  }
+
+  /**
+   * Profundidade: névoa leve entre o fundo e o plano de jogo (separa o chão do cenário pintado)
+   * e sombras de contato sob Íris e as criaturas.
+   */
+  private buildDepth() {
+    this.contactShadows = [];
+    this.haze = undefined;
+    if (this.level.arena) return;
+    if (!this.textures.exists('haze_band')) {
+      const t = this.textures.createCanvas('haze_band', 4, 256)!;
+      const c = t.getContext();
+      const g = c.createLinearGradient(0, 0, 0, 256);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.6, 'rgba(255,255,255,0.22)');
+      g.addColorStop(1, 'rgba(255,255,255,0.4)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, 4, 256);
+      t.refresh();
+    }
+    // tom da névoa: branco puxado para a cor do mundo
+    const wc = Phaser.Display.Color.IntegerToColor(worldInfo(this.level.world).color);
+    const mix = (v: number) => Math.round(255 - (255 - v) * 0.3);
+    this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
+      .setTint(Phaser.Display.Color.GetColor(mix(wc.red), mix(wc.green), mix(wc.blue)));
+
+    ensureSoftShadow(this);
+    const add = (of: Phaser.Physics.Arcade.Sprite, w: number) =>
+      this.contactShadows.push({ img: this.add.image(of.x, of.y, 'soft_shadow').setDepth(1).setVisible(false), of, w });
+    add(this.player.hit, 62);
+    for (const e of this.enemies) add(e.hit, Math.max(48, Math.min(96, e.hit.displayWidth * 1.1)));
+  }
+
+  /** Primeira superfície (sólida ou atravessável) abaixo do ponto, até 6 blocos; -1 se não houver. */
+  private surfaceBelow(x: number, y: number) {
+    const c = Math.floor(x / TILE);
+    if (c < 0 || c >= this.level.cols) return -1;
+    const r0 = Math.max(0, Math.floor((y + 2) / TILE));
+    for (let r = r0; r <= Math.min(this.level.rows - 1, r0 + 6); r++) {
+      const t = this.level.tiles[r][c];
+      if (t === T.Solid || t === T.OneWay) return r * TILE;
+    }
+    return -1;
+  }
+
+  private updateDepth(cam: Phaser.Cameras.Scene2D.Camera, dt: number) {
+    for (const s of this.contactShadows) {
+      const body = s.of.body as Phaser.Physics.Arcade.Body | null;
+      if (!body || !s.of.active || !body.enable) { s.img.setVisible(false); continue; }
+      const feet = body.bottom;
+      const ground = this.surfaceBelow(body.center.x, feet - 6);
+      if (ground < 0 || feet > this.waterY) { s.img.setVisible(false); continue; }
+      const k = Phaser.Math.Clamp(1 - (ground - feet) / 380, 0.3, 1);
+      s.img.setVisible(true).setPosition(body.center.x, ground + 3).setDisplaySize(s.w * k, 14 * k).setAlpha(0.55 * k);
+    }
+    if (this.level.arena) return;
+
+    // zonas de câmera da fase: afasta em vistas e torres, aproxima em salas
+    let want = 1;
+    if (!getSettings().reduceMotion && !this.isSub) {
+      const col = this.player.hit.x / TILE;
+      for (const z of this.level.cameras ?? []) if (col >= z.c0 && col <= z.c1) want = z.zoom;
+    }
+    if (Math.abs(cam.zoom - want) > 0.0005) cam.setZoom(cam.zoom + (want - cam.zoom) * Math.min(1, dt * 1.6));
+    else if (cam.zoom !== want) cam.setZoom(want);
+
+    // O fundo é preso à tela e o zoom da câmera o encolheria junto: compensa a escala
+    // para ele sempre cobrir o quadro. Nas fases altas ele ainda fica um pouco maior e
+    // desliza devagar na vertical (parallax).
+    const inv = 1 / cam.zoom;
+    const worldH = this.level.rows * TILE;
+    const tall = !!this.bgFar && worldH > GAME_H + 1;
+    const S = inv * (tall ? 1.07 : 1);
+    const t = tall ? Phaser.Math.Clamp(cam.scrollY / Math.max(1, worldH - GAME_H * inv), 0, 1) : 0.5;
+    const top = (GAME_H * (1 - inv)) / 2; // borda de cima do quadro visível, em coordenadas de tela
+    this.bgContainer.setScale(S).setPosition((GAME_W - GAME_W * S) / 2, top - (GAME_H * S - GAME_H * inv) * t);
+    this.haze?.setDisplaySize(GAME_W * inv + 2, 300 * inv).setY(GAME_H - top);
+  }
+
   private buildBackground() {
     if (this.level.arena && has(this, this.level.arena)) {
       // posiciona a arte para o piso desenhado ficar na altura do chão do jogo (y = 640)
@@ -368,65 +466,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.hazards = this.physics.add.staticGroup();
     const { rows, cols, tiles } = this.level;
     const art = has(this, this.tex('tiles'));
-    const fills = this.add.container(0, 0);
-    this.decor = this.add.container(0, 0);
-    const tops = this.add.container(0, 0);
-    this.world.add([fills, this.decor, tops]); // decoração fica atrás da grama do topo
-    if (this.level.arena && has(this, this.level.arena)) {
-      // na arena o piso já está desenhado no fundo; só a colisão importa
-      fills.setVisible(false);
-      tops.setVisible(false);
-    }
-
-    // A arte do chão é 3D: os pés pisam DENTRO da face de cima do bloco, não na borda.
-    // Por isso a linha de superfície da peça é desenhada SINK px acima da linha física.
-    const SINK = 14;
-    const strip = art && has(this, this.tex('tiles_strip'));
-    const surface = (frame: number) => {
-      const f = this.textures.getFrame(this.tex('tiles'), String(frame));
-      return { pivotY: f.customPivot ? f.pivotY : 0, h: f.height / 2 };
-    };
-    const capAt = (c: number, y: number, frame: number) => {
-      const s = surface(frame);
-      tops.add(this.add.image(c * TILE + TILE / 2, y - SINK, this.tex('tiles'), String(frame)).setOrigin(0.5, s.pivotY).setScale(0.5));
-    };
-    /** Desenha um trecho contínuo de topo de chão (colunas c0..c1). */
-    const drawTopRun = (c0: number, c1: number, y: number) => {
-      const openL = this.tileAt(c0 - 1, Math.floor(y / TILE)) !== T.Solid;
-      const openR = this.tileAt(c1 + 1, Math.floor(y / TILE)) !== T.Solid;
-      if (strip) {
-        // faixa contínua (sem emendas) e, nas pontas abertas, as peças de canto por cima
-        const s = surface(F.w1Tiles.top);
-        const ts = this.add.tileSprite(c0 * TILE, y - SINK - s.pivotY * s.h, (c1 - c0 + 1) * TILE, s.h, this.tex('tiles_strip'));
-        tops.add(ts.setOrigin(0).setTileScale(0.5).setTilePosition(c0 * TILE * 2, 0));
-        if (openL && c1 > c0) capAt(c0, y, F.w1Tiles.topLeft);
-        if (openR && c1 > c0) capAt(c1, y, F.w1Tiles.topRight);
-        return;
-      }
-      for (let c = c0; c <= c1; c++) {
-        const l = c === c0 && openL, rr = c === c1 && openR;
-        capAt(c, y, l && !rr ? F.w1Tiles.topLeft : rr && !l ? F.w1Tiles.topRight : F.w1Tiles.top);
-      }
-    };
+    // o desenho do chão (interior, topo, ilhas, sombras de volume) fica em gfx/Terrain.ts
+    const { decor, tops } = buildTerrain(this, this.level, this.world);
+    this.decor = decor;
 
     for (let r = 0; r < rows; r++) {
       let runStart = -1;
-      let fillStart = -1;
-      let fillTop = false;
-      let topStart = -1;
       for (let c = 0; c <= cols; c++) {
         const t = c < cols ? tiles[r][c] : T.Empty;
         const x = c * TILE, y = r * TILE;
         const solid = t === T.Solid;
-        const top = solid && this.tileAt(c, r - 1) !== T.Solid;
-
-        // trechos de topo: desenhados de uma vez quando o trecho termina
-        if (top && topStart < 0) topStart = c;
-        if (!top && topStart >= 0) {
-          if (art) drawTopRun(topStart, c - 1, y);
-          else for (let i = topStart; i < c; i++) tops.add(this.add.image(i * TILE, y, 'tile_top').setOrigin(0));
-          topStart = -1;
-        }
 
         if (t === T.OneWay) {
           if (art) tops.add(this.add.image(x + TILE / 2, y - 2, this.tex('tiles'), String(F.w1Tiles.plank)).setOrigin(0.5, 0).setDisplaySize(TILE + 4, 18));
@@ -446,22 +495,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
             img.setScale((TILE + 8) / img.width).setDepth(2);
           } else this.add.image(x, y, 'spike').setOrigin(0).setDepth(2);
           this.hazards.add(this.add.zone(x + TILE / 2, y + 44, TILE - 8, 36));
-        }
-
-        // interior do chão: textura contínua em faixas. Nas linhas de topo ela começa
-        // um pouco abaixo, escondida atrás da peça de topo (sem buraco entre as duas).
-        const fill = solid && (art || !top);
-        if (fillStart >= 0 && (!fill || top !== fillTop)) {
-          const fx = fillStart * TILE, w = (c - fillStart) * TILE;
-          const fy = fillTop ? y + 24 : y;
-          if (art && has(this, this.tex('ground'))) {
-            fills.add(this.add.tileSprite(fx, fy, w, y + TILE - fy, this.tex('ground')).setOrigin(0).setTileScale(0.5).setTilePosition(fx * 2, fy * 2));
-          } else for (let i = fillStart; i < c; i++) fills.add(this.add.image(i * TILE, y, 'tile_fill').setOrigin(0));
-          fillStart = -1;
-        }
-        if (fill && fillStart < 0) {
-          fillStart = c;
-          fillTop = top;
         }
 
         // colisão sólida em faixas horizontais contínuas (evita "tropeçar" nas emendas)
@@ -519,6 +552,15 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bumps = this.physics.add.staticGroup();
     this.gatesGroup = this.physics.add.staticGroup();
     this.pushboxes = this.physics.add.group();
+    this.colorMech = new ColorMechanics({
+      scene: this,
+      oneways: this.oneways,
+      gates: this.gatesGroup,
+      worldColor: worldInfo(this.level.world).color,
+      progress: () => this.color?.progress ?? 0,
+      burst: (x, y, n, colors) => this.burst(x, y, n, colors),
+      sfx: (name) => this.sfx(name),
+    });
 
     let total = 0;
     let shardIndex = 0;
@@ -535,6 +577,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         total += COLOR_POINTS.enemy;
         continue;
       }
+
+      if (this.colorMech.add(e)) continue;
 
       switch (e.type) {
         case 'player':
@@ -553,6 +597,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         case 'shard': {
           const s = this.pickup(cx, cy, 'shard', F.collectibles.shard, 0.42);
           s.setData('index', shardIndex++);
+          this.halo(s, 0xfff2c4, 1.5);
           this.tweens.add({ targets: s, y: cy - 10, angle: 8, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
           total += COLOR_POINTS.shard;
           break;
@@ -1812,6 +1857,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.fx('fx-burst', e.hit.x, e.hit.y, 0.6);
     this.burst(e.hit.x, e.hit.y, 26);
     this.color.add(COLOR_POINTS.enemy);
+    this.colorMech.onRestore(e.hit.x, e.hit.y);
     this.shakeCamera(90, 0.004);
     this.hitStop(60);
   }
@@ -1976,6 +2022,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       else view.setTexture('checkpoint_on');
       this.respawnPoint.set(s.x, s.y + 64 - 46);
       this.color.add(COLOR_POINTS.checkpoint);
+      this.colorMech.onCheckpoint(s.x, s.y);
       this.burst(s.x, s.y - 40, 24);
       if (this.tuning.checkpointHeals) this.player.hp = Math.max(this.player.hp, this.player.maxHp);
       this.pushHud();
@@ -2216,6 +2263,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (this.bgFar) this.bgFar.tilePositionX = cam.scrollX * 0.08;
     if (this.bgMid) this.bgMid.tilePositionX = cam.scrollX * 0.25;
     if (this.bgNear) this.bgNear.tilePositionX = cam.scrollX * 0.5;
+    this.updateDepth(cam, dt);
+    this.colorMech.update();
     this.ambient.update(dt, cam.scrollX, this.color.value);
     for (const w of this.waves) {
       w.ts.x = cam.scrollX - 32;

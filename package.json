@@ -11,12 +11,14 @@
     "check-levels": "esbuild scripts/reach-check.ts --bundle --platform=node --format=esm --outfile=.debug/reach.mjs --log-level=error && node .debug/reach.mjs",
     "test:save": "esbuild src/systems/Save.ts --bundle --platform=node --format=esm --outfile=.debug/save.mjs --log-level=error && node --test tests/save.test.mjs",
     "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs",
-    "test:levels": "esbuild src/levels/extend.ts --bundle --platform=node --format=esm --outfile=.debug/extend.mjs --log-level=error && esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs"
+    "test:levels": "esbuild src/levels/extend.ts --bundle --platform=node --format=esm --outfile=.debug/extend.mjs --log-level=error && esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs",
+    "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"
   },
   "devDependencies": {
+    "playwright-core": "^1.56.1",
     "sharp": "0.34.2",
     "typescript": "5.8.3",
     "vite": "6.3.5"

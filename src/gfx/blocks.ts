@@ -18,7 +18,7 @@ const rr = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: num
 };
 
 /** Copia um quadro de um atlas de arte para uma textura própria (ajustada ao retângulo w x h, encostada embaixo). */
-function fromAtlas(scene: Phaser.Scene, key: string, atlas: string, frame: number, w: number, h: number) {
+function fromAtlas(scene: Phaser.Scene, key: string, atlas: string, frame: number, w: number, h: number, stretch = false) {
   if (scene.textures.exists(key) || !scene.textures.exists(atlas)) return false;
   const f = scene.textures.get(atlas).get(String(frame));
   if (!f) return false;
@@ -26,6 +26,12 @@ function fromAtlas(scene: Phaser.Scene, key: string, atlas: string, frame: numbe
   const dw = Math.round(f.cutWidth * k), dh = Math.round(f.cutHeight * k);
   const tex = scene.textures.createCanvas(key, w, h);
   if (!tex) return false;
+  // peças ladrilhadas precisam ocupar a textura inteira (senão sobra uma fresta entre as cópias)
+  if (stretch) {
+    tex.getContext().drawImage(f.source.image as CanvasImageSource, f.cutX + 2, f.cutY + 2, f.cutWidth - 4, f.cutHeight - 4, 0, 0, w, h);
+    tex.refresh();
+    return true;
+  }
   tex.getContext().drawImage(f.source.image as CanvasImageSource, f.cutX, f.cutY, f.cutWidth, f.cutHeight, Math.round((w - dw) / 2), h - dh, dw, dh);
   tex.refresh();
   return true;
@@ -49,7 +55,7 @@ function useArt(scene: Phaser.Scene) {
   fromAtlas(scene, 'blk_portal', 'secret_portals', 4, 80, 128);
   fromAtlas(scene, 'blk_door', 'doors', 0, 100, 118);
   fromAtlas(scene, 'blk_door_on', 'doors', 1, 100, 118);
-  fromAtlas(scene, 'blk_alcove', 'secret_chamber', 1, 64, 64);
+  fromAtlas(scene, 'blk_alcove', 'secret_chamber', 1, 64, 64, true);
   fromAtlas(scene, 'blk_crystal', 'secret_chamber', 5, 72, 72);
 }
 
