@@ -6,7 +6,11 @@ export type ColorblindMode = 'off' | 'protan' | 'deutan' | 'tritan';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
 
+/** Qualidade gráfica: quanto de enfeite visual o jogo desenha (não muda a jogabilidade). */
+export type Quality = 'low' | 'medium' | 'high';
+
 export interface Settings {
+  quality: Quality;
   colorblind: ColorblindMode;
   difficulty: Difficulty;
   reduceFlashes: boolean;
@@ -43,16 +47,34 @@ export function difficultyTuning(world: number) {
   };
 }
 
+export const QUALITY_LABEL: Record<Quality, string> = { low: 'Baixa', medium: 'Média', high: 'Alta' };
+
+export const QUALITY_NOTE: Record<Quality, string> = {
+  low: 'Sem primeiro plano, névoa, efeitos de ambiente,\ndecalques do chão e brilhos. Para aparelhos mais fracos.',
+  medium: 'Tudo ligado, com menos partículas\ne sem sombra sob as criaturas.',
+  high: 'Todos os efeitos visuais.',
+};
+
+/** Sem escolha salva: telas de toque (celular, tablet) começam em Baixa; o resto, em Alta. */
+function defaultQuality(): Quality {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'low' : 'high';
+  } catch {
+    return 'high';
+  }
+}
+
 const KEY = 'prisma-settings-v1';
 let cache: Settings | undefined;
-const DEFAULTS: Settings = { colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, reduceMotion: false, extraVisualSignals: false, largeText: false, autoDialogue: false, musicVol: 100, sfxVol: 100 };
+const DEFAULTS: Settings = { quality: 'high', colorblind: 'off', difficulty: 'normal', reduceFlashes: false, reduceCameraShake: false, reduceMotion: false, extraVisualSignals: false, largeText: false, autoDialogue: false, musicVol: 100, sfxVol: 100 };
 
 const vol = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(0, Math.round(v / 10) * 10)) : 100);
 
 function normalizeSettings(value: unknown): Settings {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULTS, quality: defaultQuality() };
   const data = value as Partial<Settings>;
   return {
+    quality: data.quality === 'low' || data.quality === 'medium' || data.quality === 'high' ? data.quality : defaultQuality(),
     difficulty: data.difficulty === 'easy' || data.difficulty === 'hard' ? data.difficulty : 'normal',
     colorblind: data.colorblind === 'protan' || data.colorblind === 'deutan' || data.colorblind === 'tritan' ? data.colorblind : 'off',
     reduceFlashes: data.reduceFlashes === true,
@@ -71,7 +93,7 @@ export function getSettings(): Settings {
   try {
     cache = normalizeSettings(JSON.parse(localStorage.getItem(KEY) ?? '{}') as unknown);
   } catch {
-    cache = { ...DEFAULTS };
+    cache = { ...DEFAULTS, quality: defaultQuality() };
   }
   return cache;
 }
@@ -150,3 +172,18 @@ export const canFlashScreen = () => !getSettings().reduceFlashes;
 
 /** Fator de tamanho para diálogos e legendas (opção "Texto grande"). */
 export const textBoost = () => (getSettings().largeText ? 1.2 : 1);
+
+/** O que cada nível de qualidade liga. Lido na criação da fase: mudar a opção vale a partir da próxima. */
+export function gfx() {
+  const q = getSettings().quality;
+  return {
+    foreground: q !== 'low',
+    haze: q !== 'low',
+    decals: q !== 'low',
+    halos: q !== 'low',
+    ambient: q !== 'low',
+    enemyShadows: q === 'high',
+    /** multiplicador da quantidade de partículas das explosões de cor */
+    particles: q === 'high' ? 1 : q === 'medium' ? 0.65 : 0.4,
+  };
+}
