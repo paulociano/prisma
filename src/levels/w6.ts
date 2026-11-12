@@ -1,7 +1,7 @@
 import { LevelBuilder } from './LevelBuilder';
 
 // Mundo 6 · Ilhas do Céu Anil. Gravidade leve (0.6): pulos bem mais altos e longos.
-// Novidades: cometas de sombra e ilhas flutuantes. O mergulho estelar vem de Bix, no fim da 6-3.
+// Novidades: cometas de sombra, ilhas flutuantes e campos invertidos (a gravidade vira e Íris anda no teto). O mergulho estelar vem de Bix, no fim da 6-3.
 
 const SKY = 0.6;
 
@@ -46,6 +46,9 @@ export function level6_2() {
 
   // abismo de 8 blocos com uma ilha no meio
   b.block(56, 6, 57, 6).coinArc(53, 6, 8);
+  // campo invertido: outro jeito de cruzar. Dentro dele Íris cai para cima e atravessa pelo teto.
+  b.block(51, 1, 62, 1).gravzone(52, 2, 10, 4).coins(53, 60, 2).add('heart', 57, 3);
+  b.hint(49, 4, 'Campo invertido: pule para dentro e ande pelo teto');
 
   b.ground(61, 80, 2).add('checkpoint', 62, 9).add('comet', 68, 5).add('comet', 74, 7).add('blot', 77, 9);
 
@@ -70,6 +73,8 @@ export function level6_3() {
   b.ground(31, 48, 2).add('checkpoint', 32, 9).add('padlock', 38, 9).add('megaphone', 44, 9).add('comet', 40, 5);
 
   b.ground(49, 60, 1).spikes(49, 60, 10).mover(50, 8, 8, 0, 2, 3.5).add('comet', 55, 4);
+  // teto invertido sobre os espinhos: longe do cometa, mas é preciso pular para sair no fim
+  b.block(48, 0, 61, 0).gravzone(49, 1, 12, 4).coins(51, 58, 1);
 
   b.ground(61, 78, 2).add('checkpoint', 62, 9).add('blot', 66, 9).block(70, 3, 73, 3).add('shard', 72, 2).add('moth', 75, 5);
 

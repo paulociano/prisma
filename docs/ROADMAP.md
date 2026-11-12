@@ -39,7 +39,8 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 | V6 | Arte nova integrada nos 7 mundos: interior pintado sem repetição, variações de topo, paredes, parte de baixo dos blocos, decalques, primeiro plano, um marco por fase e os objetos de cor pintados | Feito; verificado por capturas nos mundos 1 a 7. **Sem playtest** e sem medição de FPS (sprites processados foram de 31 MB para 37 MB) |
 | V7 | Qualidade gráfica em Opções → Imagem (Baixa, Média, Alta); telas de toque começam em Baixa | Feito; verificado por capturas dos três níveis. **Ganho de FPS não medido** |
 | V8 | Maré no Recife: na fase 5-2 a água sobe e desce em ciclo, com aviso antes; na seca anda-se pelos corais e os baiacus ficam inofensivos, na cheia nada-se | Feito; `check-levels` confirma o caminho a pé na seca; ciclo conferido no navegador. **Sem playtest** |
-| V9+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais, dinâmicas que dependem de código novo (tempestade de areia, gravidade invertida) | Não iniciado |
+| V9 | Gravidade invertida nas Ilhas do Céu: campos em que Íris cai para cima e anda no teto, nas fases 6-2 e 6-3 (rota alternativa sobre o abismo e sobre os espinhos) | Feito; travessia simulada quadro a quadro no navegador com teclas reais nas duas fases. **Sem playtest**; pisão invertido não testado |
+| V10+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais, tempestade de areia no Cânion | Não iniciado |
 
 ## Regras de execução
 

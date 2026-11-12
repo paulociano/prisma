@@ -615,11 +615,11 @@ function findInsertion(l: LevelData) {
 function findInsertionAt(l: LevelData, radius: number) {
   // só o que ocupa várias colunas não pode ser cortado ao meio; o resto apenas se desloca.
   // Inimigos e objetos de chão logo em cima do ponto também ficam de fora (o trecho começa no chão).
-  const SPAN = new Set(['wind', 'mover', 'searchlight', 'vent', 'spring', 'checkpoint', 'guardian', 'exit']);
+  const SPAN = new Set(['wind', 'gravzone', 'mover', 'searchlight', 'vent', 'spring', 'checkpoint', 'guardian', 'exit']);
   const busy = (c: number) =>
     l.entities.some((e) => {
       if (!SPAN.has(e.type)) return e.type !== 'coin' && Math.abs(e.col - c) <= 1;
-      const reach = e.type === 'wind' ? (e.data?.w ?? 0) : e.type === 'mover' ? (e.data?.dx ?? 0) + (e.data?.width ?? 2) : e.type === 'searchlight' ? (e.data?.swing ?? 3) + 1 : 0;
+      const reach = e.type === 'wind' || e.type === 'gravzone' ? (e.data?.w ?? 0) : e.type === 'mover' ? (e.data?.dx ?? 0) + (e.data?.width ?? 2) : e.type === 'searchlight' ? (e.data?.swing ?? 3) + 1 : 0;
       const from = e.type === 'searchlight' ? e.col - reach : e.col;
       return c >= from - 2 && c <= e.col + reach + 2;
     }) || l.hints.some((h) => Math.abs(h.col - c) < 4);

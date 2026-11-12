@@ -130,6 +130,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private swingHits = new Set<object>();
   private camOffsetX = 0;
   private colorMech!: ColorMechanics;
+  /** Campos invertidos (Ilhas do Céu): retângulos em que a gravidade vira. */
+  private gravZones: Phaser.Geom.Rectangle[] = [];
   private haze?: Phaser.GameObjects.Image;
   /** Primeiro plano (na frente de tudo): folhagem pendurada no alto e plantas nos cantos de baixo. */
   private fgContainer?: Phaser.GameObjects.Container;
@@ -327,6 +329,31 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private waves: { ts: Phaser.GameObjects.TileSprite; speed: number; sc: number; dy: number }[] = [];
   private arenaRect?: Rect;
 
+  /** Campo invertido: um véu violeta com faíscas subindo, para se ler de longe para onde a gravidade puxa. */
+  private addGravZone(x: number, y: number, w: number, h: number) {
+    this.gravZones.push(new Phaser.Geom.Rectangle(x, y, w, h));
+    const color = 0xa77bff;
+    this.add.rectangle(x, y, w, h, color, 0.13).setOrigin(0).setDepth(3);
+    const edge = this.add.graphics().setDepth(3);
+    edge.lineStyle(3, 0xe6d8ff, 0.7).strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+    // setas apontando para cima, em colunas
+    edge.fillStyle(0xe6d8ff, 0.3);
+    for (let cx = x + TILE / 2; cx < x + w; cx += TILE) for (let cy = y + h - 34; cy > y + 20; cy -= 96) edge.fillTriangle(cx - 12, cy + 10, cx + 12, cy + 10, cx, cy - 10);
+    if (!getSettings().reduceMotion) {
+      this.add.particles(0, 0, 'dot', {
+        x: { min: x + 8, max: x + w - 8 },
+        y: y + h - 6,
+        speedY: { min: -150, max: -80 },
+        lifespan: (h / 110) * 1000,
+        scale: { start: 0.5, end: 0.1 },
+        alpha: { start: 0.8, end: 0 },
+        tint: [color, 0xffffff],
+        frequency: Math.max(40, 9000 / w),
+        blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(3);
+    }
+  }
+
   /** Brilho suave atrás de um objeto importante (fragmentos, saída): segue o objeto e some com ele. */
   private halo(target: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image, tint: number, size: number) {
     if (!gfx().halos) return;
@@ -388,7 +415,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private updateDepth(cam: Phaser.Cameras.Scene2D.Camera, dt: number) {
     for (const s of this.contactShadows) {
       const body = s.of.body as Phaser.Physics.Arcade.Body | null;
-      if (!body || !s.of.active || !body.enable) { s.img.setVisible(false); continue; }
+      if (!body || !s.of.active || !body.enable || (s.of === this.player.hit && this.player.gdir < 0)) { s.img.setVisible(false); continue; }
       const feet = body.bottom;
       const ground = this.surfaceBelow(body.center.x, feet - 6);
       if (ground < 0 || feet > this.waterY) { s.img.setVisible(false); continue; }
@@ -595,6 +622,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       sfx: (name) => this.sfx(name),
     });
 
+    this.gravZones = [];
     let total = 0;
     let shardIndex = 0;
     let coinIndex = 0;
@@ -612,6 +640,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       }
 
       if (this.colorMech.add(e)) continue;
+      if (e.type === 'gravzone') {
+        this.addGravZone(e.col * TILE, e.row * TILE, (e.data?.w ?? 4) * TILE, (e.data?.h ?? 4) * TILE);
+        continue;
+      }
 
       switch (e.type) {
         case 'player':
@@ -1912,7 +1944,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private touchEnemy(e: Enemy) {
     if (e.restored || !e.exposed || this.player.dead) return;
     const pb = this.player.body;
-    const stomp = pb.velocity.y > 0 && pb.bottom - e.body.top < 28 && !e.spiky;
+    // pisão: de cima para baixo ou, com a gravidade invertida, de baixo para cima
+    const stomp = (this.player.gdir > 0 ? pb.velocity.y > 0 && pb.bottom - e.body.top < 28 : pb.velocity.y < 0 && e.body.bottom - pb.top < 28) && !e.spiky;
     if (stomp) {
       this.restoreEnemy(e);
       this.player.bounce(this.controls.jumpHeld ? PHYS.stompBounceHeld : PHYS.stompBounce);
@@ -2317,6 +2350,15 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.updateVents(dt);
     this.updateSearchlights(dt);
     this.updateTide(dt);
+    if (this.gravZones.length) {
+      const { x, y } = this.player.hit;
+      const inside = !this.player.dead && this.gravZones.some((z) => z.contains(x, y));
+      if ((inside ? -1 : 1) !== this.player.gdir) {
+        this.player.setGravityDir(inside ? -1 : 1);
+        this.sfx('double_jump', inside ? 500 : -500);
+        this.burst(x, y, 10, [0xa77bff, 0xffffff]);
+      }
+    }
     this.player.inWater = this.player.hit.y > this.waterY;
     this.player.update(dt, this.controls);
     this.updateGlideSound();
