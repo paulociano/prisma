@@ -12,7 +12,7 @@ import { chromium } from 'playwright-core';
 
 const [label = 'atual', only] = process.argv.slice(2);
 // índice da fase -> colunas onde a câmera para
-const PLAN = { 0: [8, 31, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 4: [40, 110], 8: [40, 110], 13: [40, 110], 16: [40, 110], 21: [40, 110], 24: [40, 110] };
+const PLAN = { 0: [8, 31, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 4: [40, 112], 8: [40, 110], 12: [40, 96], 13: [40, 110], 16: [40, 110], 20: [40, 116], 24: [40, 80, 114] };
 const wanted = only ? only.split(',').map(Number) : Object.keys(PLAN).map(Number);
 const out = path.resolve('.debug/shots', label);
 fs.mkdirSync(out, { recursive: true });
