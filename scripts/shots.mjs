@@ -12,7 +12,7 @@ import { chromium } from 'playwright-core';
 
 const [label = 'atual', only] = process.argv.slice(2);
 // índice da fase -> colunas onde a câmera para
-const PLAN = { 0: [8, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 4: [40, 110], 8: [40, 110], 13: [40, 110], 16: [40, 110], 21: [40, 110], 24: [40, 110] };
+const PLAN = { 0: [8, 31, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 4: [40, 110], 8: [40, 110], 13: [40, 110], 16: [40, 110], 21: [40, 110], 24: [40, 110] };
 const wanted = only ? only.split(',').map(Number) : Object.keys(PLAN).map(Number);
 const out = path.resolve('.debug/shots', label);
 fs.mkdirSync(out, { recursive: true });
@@ -57,6 +57,7 @@ for (const index of wanted) {
       s.player.frozen = true;
       h.body.allowGravity = false;
       h.body.reset(col * 64 + 32, row * 64 - 46);
+      s.cameras.main.centerOn(col * 64 + 32, row * 64 - 46); // sem esperar a câmera suavizada chegar
     }, col);
     await page.waitForTimeout(1600);
     await page.screenshot({ path: path.join(out, `${info.id}_c${String(col).padStart(3, '0')}.png`) });

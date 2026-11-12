@@ -18,6 +18,7 @@ import { StoneJudge } from '../objects/StoneJudge';
 import { worldInfo } from '../levels/worlds';
 import { STORY } from '../story';
 import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../systems/Audio';
+import { ColorMechanics } from '../systems/ColorMechanics';
 import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
@@ -128,6 +129,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private finished = false;
   private swingHits = new Set<object>();
   private camOffsetX = 0;
+  private colorMech!: ColorMechanics;
+  private haze?: Phaser.GameObjects.Image;
   /** Sombras de contato de Íris e das criaturas (uma elipse macia no chão logo abaixo). */
   private contactShadows: { img: Phaser.GameObjects.Image; of: Phaser.Physics.Arcade.Sprite; w: number }[] = [];
 
@@ -337,6 +340,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
    */
   private buildDepth() {
     this.contactShadows = [];
+    this.haze = undefined;
     if (this.level.arena) return;
     if (!this.textures.exists('haze_band')) {
       const t = this.textures.createCanvas('haze_band', 4, 256)!;
@@ -352,7 +356,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // tom da névoa: branco puxado para a cor do mundo
     const wc = Phaser.Display.Color.IntegerToColor(worldInfo(this.level.world).color);
     const mix = (v: number) => Math.round(255 - (255 - v) * 0.3);
-    this.add.image(0, GAME_H, 'haze_band').setOrigin(0, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
+    this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
       .setTint(Phaser.Display.Color.GetColor(mix(wc.red), mix(wc.green), mix(wc.blue)));
 
     ensureSoftShadow(this);
@@ -374,7 +378,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     return -1;
   }
 
-  private updateDepth(cam: Phaser.Cameras.Scene2D.Camera) {
+  private updateDepth(cam: Phaser.Cameras.Scene2D.Camera, dt: number) {
     for (const s of this.contactShadows) {
       const body = s.of.body as Phaser.Physics.Arcade.Body | null;
       if (!body || !s.of.active || !body.enable) { s.img.setVisible(false); continue; }
@@ -384,13 +388,28 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const k = Phaser.Math.Clamp(1 - (ground - feet) / 380, 0.3, 1);
       s.img.setVisible(true).setPosition(body.center.x, ground + 3).setDisplaySize(s.w * k, 14 * k).setAlpha(0.55 * k);
     }
-    // parallax vertical nas fases altas: o fundo fica um pouco maior que a tela e desliza devagar
-    const worldH = this.level.rows * TILE;
-    if (!this.level.arena && this.bgFar && worldH > GAME_H + 1) {
-      const S = 1.07;
-      const t = Phaser.Math.Clamp(cam.scrollY / (worldH - GAME_H), 0, 1);
-      this.bgContainer.setScale(S).setPosition(-(S - 1) * GAME_W / 2, -(S - 1) * GAME_H * t);
+    if (this.level.arena) return;
+
+    // zonas de câmera da fase: afasta em vistas e torres, aproxima em salas
+    let want = 1;
+    if (!getSettings().reduceMotion && !this.isSub) {
+      const col = this.player.hit.x / TILE;
+      for (const z of this.level.cameras ?? []) if (col >= z.c0 && col <= z.c1) want = z.zoom;
     }
+    if (Math.abs(cam.zoom - want) > 0.0005) cam.setZoom(cam.zoom + (want - cam.zoom) * Math.min(1, dt * 1.6));
+    else if (cam.zoom !== want) cam.setZoom(want);
+
+    // O fundo é preso à tela e o zoom da câmera o encolheria junto: compensa a escala
+    // para ele sempre cobrir o quadro. Nas fases altas ele ainda fica um pouco maior e
+    // desliza devagar na vertical (parallax).
+    const inv = 1 / cam.zoom;
+    const worldH = this.level.rows * TILE;
+    const tall = !!this.bgFar && worldH > GAME_H + 1;
+    const S = inv * (tall ? 1.07 : 1);
+    const t = tall ? Phaser.Math.Clamp(cam.scrollY / Math.max(1, worldH - GAME_H * inv), 0, 1) : 0.5;
+    const top = (GAME_H * (1 - inv)) / 2; // borda de cima do quadro visível, em coordenadas de tela
+    this.bgContainer.setScale(S).setPosition((GAME_W - GAME_W * S) / 2, top - (GAME_H * S - GAME_H * inv) * t);
+    this.haze?.setDisplaySize(GAME_W * inv + 2, 300 * inv).setY(GAME_H - top);
   }
 
   private buildBackground() {
@@ -533,6 +552,15 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bumps = this.physics.add.staticGroup();
     this.gatesGroup = this.physics.add.staticGroup();
     this.pushboxes = this.physics.add.group();
+    this.colorMech = new ColorMechanics({
+      scene: this,
+      oneways: this.oneways,
+      gates: this.gatesGroup,
+      worldColor: worldInfo(this.level.world).color,
+      progress: () => this.color?.progress ?? 0,
+      burst: (x, y, n, colors) => this.burst(x, y, n, colors),
+      sfx: (name) => this.sfx(name),
+    });
 
     let total = 0;
     let shardIndex = 0;
@@ -549,6 +577,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         total += COLOR_POINTS.enemy;
         continue;
       }
+
+      if (this.colorMech.add(e)) continue;
 
       switch (e.type) {
         case 'player':
@@ -1827,6 +1857,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.fx('fx-burst', e.hit.x, e.hit.y, 0.6);
     this.burst(e.hit.x, e.hit.y, 26);
     this.color.add(COLOR_POINTS.enemy);
+    this.colorMech.onRestore(e.hit.x, e.hit.y);
     this.shakeCamera(90, 0.004);
     this.hitStop(60);
   }
@@ -1991,6 +2022,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       else view.setTexture('checkpoint_on');
       this.respawnPoint.set(s.x, s.y + 64 - 46);
       this.color.add(COLOR_POINTS.checkpoint);
+      this.colorMech.onCheckpoint(s.x, s.y);
       this.burst(s.x, s.y - 40, 24);
       if (this.tuning.checkpointHeals) this.player.hp = Math.max(this.player.hp, this.player.maxHp);
       this.pushHud();
@@ -2231,7 +2263,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (this.bgFar) this.bgFar.tilePositionX = cam.scrollX * 0.08;
     if (this.bgMid) this.bgMid.tilePositionX = cam.scrollX * 0.25;
     if (this.bgNear) this.bgNear.tilePositionX = cam.scrollX * 0.5;
-    this.updateDepth(cam);
+    this.updateDepth(cam, dt);
+    this.colorMech.update();
     this.ambient.update(dt, cam.scrollX, this.color.value);
     for (const w of this.waves) {
       w.ts.x = cam.scrollX - 32;

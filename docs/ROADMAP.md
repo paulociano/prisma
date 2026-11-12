@@ -32,9 +32,10 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 |---|---|---|
 | V0 | `npm run shots` (capturas automáticas) e desenho do terreno separado em `src/gfx/Terrain.ts` | Feito; verificado por capturas antes/depois |
 | V1 | Terreno sem repetição: interior e grama variados, ilhas com raízes, sombras de volume e projetadas | Feito; verificado por capturas nos mundos 1, 4 e 5. **Sem playtest** |
-| V2 | Profundidade: névoa entre fundo e jogo, sombras de contato, brilho nos fragmentos, parallax vertical | Feito em parte; faltam primeiro plano (depende de arte) e zonas de câmera |
+| V2 | Profundidade: névoa entre fundo e jogo, sombras de contato, brilho nos fragmentos, parallax vertical, zonas de câmera com zoom | Feito, menos o primeiro plano (depende de arte) |
 | V3 | Portão: aprovação visual do padrão na fase 1-1 | Pendente |
-| V4+ | Kit ampliado, cor como mecânica, gerador por mundo, dinâmicas de assinatura | Não iniciado. Prompts em `docs/PROMPTS-TERRENO-E-PROFUNDIDADE.md` |
+| V4 | Cor como mecânica: flor-ponte, plataforma desbotada e porta de cor (`src/systems/ColorMechanics.ts`), em rotas opcionais das fases 1-1, 1-2 e 1-3 | Feito; verificado por simulação no navegador. **Sem playtest** |
+| V5+ | Kit ampliado, gerador por mundo, dinâmicas de assinatura dos mundos 2 a 7 | Não iniciado. Prompts em `docs/PROMPTS-TERRENO-E-PROFUNDIDADE.md` |
 
 ## Regras de execução
 

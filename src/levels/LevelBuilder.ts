@@ -50,6 +50,9 @@ export type EntityType =
   | 'stare'
   | 'silence'
   | 'crumble'
+  | 'bloom'
+  | 'fadeplat'
+  | 'colorgate'
   | 'guardian'
   | 'boss';
 
@@ -76,6 +79,8 @@ export interface LevelData {
   water?: number;
   /** Multiplicador de gravidade (Ilhas do Céu: 0.6). */
   gravity?: number;
+  /** Zonas de câmera: entre as colunas c0 e c1 a câmera usa esse zoom (1 = normal). */
+  cameras?: { c0: number; c1: number; zoom: number }[];
 }
 
 export class LevelBuilder {
@@ -85,6 +90,7 @@ export class LevelBuilder {
   arena?: string;
   water?: number;
   gravity?: number;
+  readonly cameras: { c0: number; c1: number; zoom: number }[] = [];
 
   constructor(
     readonly id: string,
@@ -219,6 +225,33 @@ export class LevelBuilder {
     return this;
   }
 
+  /**
+   * Flor-ponte: botão cinza que desabrocha em plataforma de `w` blocos (atravessável por baixo)
+   * quando um Desbotado é restaurado, ou um checkpoint é aceso, a até 9 blocos dali.
+   */
+  bloom(col: number, row: number, w = 2) {
+    this.entities.push({ type: 'bloom', col, row, data: { w } });
+    return this;
+  }
+
+  /** Plataforma desbotada de `w` blocos: só fica sólida quando a fase recupera a fração `at` (0 a 1) da cor. */
+  fadeplat(col: number, row: number, w = 2, at = 0.5) {
+    this.entities.push({ type: 'fadeplat', col, row, data: { w, at } });
+    return this;
+  }
+
+  /** Porta de cor de `h` blocos (col, row = bloco do topo): abre depois de `need` Desbotados restaurados na fase. */
+  colorgate(col: number, row: number, h = 2, need = 3) {
+    this.entities.push({ type: 'colorgate', col, row, data: { h, need } });
+    return this;
+  }
+
+  /** Zona de câmera: entre as colunas c0 e c1 a câmera usa `zoom` (menor que 1 afasta, maior aproxima). */
+  camera(c0: number, c1: number, zoom: number) {
+    this.cameras.push({ c0, c1, zoom });
+    return this;
+  }
+
   /** Bandeirola educativa nº n (ver story/pennants.ts). */
   pennant(col: number, row: number, n: number) {
     this.entities.push({ type: 'pennant', col, row, data: { n } });
@@ -252,6 +285,6 @@ export class LevelBuilder {
   }
 
   build(): LevelData {
-    return { id: this.id, name: this.name, world: this.world, cols: this.cols, rows: this.rows, tiles: this.tiles, entities: this.entities, hints: this.hints, arena: this.arena, water: this.water, gravity: this.gravity };
+    return { id: this.id, name: this.name, world: this.world, cols: this.cols, rows: this.rows, tiles: this.tiles, entities: this.entities, hints: this.hints, arena: this.arena, water: this.water, gravity: this.gravity, cameras: this.cameras };
   }
 }

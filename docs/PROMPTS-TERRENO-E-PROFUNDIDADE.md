@@ -84,3 +84,24 @@ Same painting style and lighting as the middle background layer. No characters, 
 ```
 
 Um marco diferente por fase de exploração (3 por mundo): é o que faz a 1-1 não se parecer com a 1-3.
+
+## T.6 Objetos da cor como mecânica
+
+Paisagem · 💾 `comum/color_objects.png`
+
+Hoje a flor-ponte, a plataforma desbotada e a porta de cor são desenhadas por código
+(`src/systems/ColorMechanics.ts`). Esta folha substitui o desenho provisório.
+
+```
+Landscape 1536x1024 + SPRITE RULES. Sheet of magical level objects, isolated on a
+transparent background, wide gaps, never touching, side view:
+row 1: a closed gray FLOWER BUD floating on a short curled stem; the same flower half
+open; the same flower fully OPEN, seen from the side, with wide flat petals forming a
+platform two blocks wide (neutral white petals, to be tinted in game) and a golden center;
+row 2: a flat CRYSTAL SLAB platform two blocks wide drawn only as a faint dashed
+outline of light; the same slab solid, faceted and glowing (neutral white crystal, to be
+tinted in game);
+row 3: a tall gray CRYSTAL PILLAR gate segment (seamless top/bottom, tileable), the same
+pillar cracking, and a small diamond-shaped LIGHT in two states: off (gray) and on (white).
+No text.
+```
