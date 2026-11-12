@@ -4,7 +4,7 @@ import { COLOR_POINTS, GAME_H, GAME_W, PHYS, RAINBOW, TILE } from '../config';
 import { F, has } from '../gfx/art';
 import { texRes } from '../gfx/textures';
 import { LEVELS } from '../levels';
-import { T, type LevelData } from '../levels/LevelBuilder';
+import { T, type LevelData, isRamp, rampHeights } from '../levels/LevelBuilder';
 import { Enemy, type EnemyHost, type EnemyKind } from '../objects/Enemy';
 import { Player } from '../objects/Player';
 import type { Boss, BossHost } from '../objects/Boss';
@@ -403,6 +403,48 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (gfx().enemyShadows) for (const e of this.enemies) add(e.hit, Math.max(48, Math.min(96, e.hit.displayWidth * 1.1)));
   }
 
+  /** Altura (y) da superfície da rampa do bloco (c = coluna de x, linha r) no ponto x. */
+  private rampSurface(x: number, r: number, t: T) {
+    const [hl, hr] = rampHeights(t);
+    const fx = Phaser.Math.Clamp(x / TILE - Math.floor(x / TILE), 0, 1);
+    return (r + 1) * TILE - (hl + (hr - hl) * fx) * TILE;
+  }
+
+  /**
+   * Rampas: o Arcade só conhece caixas, então os blocos de rampa não têm colisão própria.
+   * Aqui o corpo é apoiado na superfície inclinada: procura o ponto mais alto da rampa sob os
+   * pés e, se o corpo chegou nela (ou vinha andando no chão e a rampa desce), encosta.
+   * Devolve true quando o corpo ficou apoiado.
+   */
+  private resolveRamp(body: Phaser.Physics.Arcade.Body, wasGrounded: boolean) {
+    if (body.velocity.y < 0) return false;
+    const bottom = body.bottom;
+    let best = Infinity;
+    for (const x of [body.left + 1, body.center.x, body.right - 1]) {
+      const c = Math.floor(x / TILE);
+      for (let r = Math.floor((bottom - 24) / TILE); r <= Math.floor((bottom + 16) / TILE); r++) {
+        const t = this.tileAt(c, r);
+        if (isRamp(t)) best = Math.min(best, this.rampSurface(x, r, t));
+        // o chão plano ao lado também conta: no alto da rampa quem manda é o bloco vizinho
+        else if (t === T.Solid && this.tileAt(c, r - 1) !== T.Solid && !isRamp(this.tileAt(c, r - 1))) best = Math.min(best, r * TILE);
+      }
+    }
+    if (best === Infinity) return false;
+    const gap = best - bottom; // > 0: pés acima da superfície; < 0: afundados nela
+    // afundado: sobe (até o tanto de uma queda rápida); pouco acima e vinha no chão: gruda na descida
+    if (gap < -44 || gap > (wasGrounded ? 14 : 0.5)) return false;
+    // só interessa quando há rampa de fato sob o corpo (chão plano o Arcade já resolve)
+    let onRamp = false;
+    for (const x of [body.left + 1, body.center.x, body.right - 1]) for (let r = Math.floor((best - 8) / TILE); r <= Math.floor((best + 8) / TILE); r++) if (isRamp(this.tileAt(Math.floor(x / TILE), r))) onRamp = true;
+    if (!onRamp) return false;
+    body.y += gap;
+    body.velocity.y = 0;
+    body.blocked.down = true;
+    return true;
+  }
+  private onRampLast = false;
+  private hasRamps = false;
+
   /** Primeira superfície (sólida ou atravessável) abaixo do ponto, até 6 blocos; -1 se não houver. */
   private surfaceBelow(x: number, y: number) {
     const c = Math.floor(x / TILE);
@@ -411,6 +453,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     for (let r = r0; r <= Math.min(this.level.rows - 1, r0 + 6); r++) {
       const t = this.level.tiles[r][c];
       if (t === T.Solid || t === T.OneWay) return r * TILE;
+      if (isRamp(t)) return this.rampSurface(x, r, t);
     }
     return -1;
   }
@@ -520,7 +563,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   isSolidAt(x: number, y: number) {
     const t = this.tileAt(Math.floor(x / TILE), Math.floor(y / TILE));
-    return t === T.Solid || t === T.OneWay;
+    return t === T.Solid || t === T.OneWay || isRamp(t); // rampa conta como parede para as criaturas: elas dão meia-volta
   }
 
   private buildTiles() {
@@ -531,6 +574,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const art = has(this, this.tex('tiles'));
     // o desenho do chão (interior, topo, ilhas, sombras de volume) fica em gfx/Terrain.ts
     const { decor, tops } = buildTerrain(this, this.level, this.world);
+    this.hasRamps = this.level.tiles.some((row) => row.some(isRamp));
+    this.onRampLast = false;
     this.decor = decor;
 
     for (let r = 0; r < rows; r++) {
@@ -2380,6 +2425,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       }
     }
     this.player.inWater = this.player.hit.y > this.waterY;
+    // rampas: apoia Íris na superfície inclinada antes de a lógica dela ler se está no chão
+    if (this.hasRamps && this.player.gdir > 0 && !this.player.inWater && !this.player.dead) {
+      this.onRampLast = this.resolveRamp(this.player.body, this.onRampLast || this.player.onGround);
+    }
     this.player.update(dt, this.controls);
     this.updateGlideSound();
     this.updateHints(dt);

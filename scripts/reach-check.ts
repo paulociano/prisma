@@ -22,7 +22,12 @@ export function checkLevel(level: LevelData, opts: Opts) {
   const { rows, cols, tiles } = level;
   // grade: 0 vazio, 1 sólido, 2 atravessável (inclui percurso das plataformas móveis), 3 espinho
   const grid = new Uint8Array(rows * cols);
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) grid[r * cols + c] = tiles[r][c];
+  // rampas, de forma conservadora: a metade alta conta como bloco e a baixa como vazio
+  // (vira um degrau de 1 bloco, que o pulo simples vence; a rampa real só é mais fácil)
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const t = tiles[r][c];
+    grid[r * cols + c] = t === 5 || t === 6 ? 1 : t === 4 || t === 7 ? 0 : t;
+  }
   for (const e of level.entities) {
     if (e.type === 'crumble') for (let c = e.col; c < e.col + (e.data?.w ?? 2) && c < cols; c++) if (grid[e.row * cols + c] === 0) grid[e.row * cols + c] = 2;
   }
