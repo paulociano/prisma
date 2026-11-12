@@ -77,6 +77,8 @@ export interface LevelData {
   arena?: string;
   /** Linha a partir da qual tudo fica debaixo d'água (Recife Turquesa). */
   water?: number;
+  /** Maré: a água desce de `water` até a linha `low`, fica `lowFor` s, e volta; `move` s cada travessia. */
+  tide?: { low: number; highFor: number; lowFor: number; move: number };
   /** Multiplicador de gravidade (Ilhas do Céu: 0.6). */
   gravity?: number;
   /** Zonas de câmera: entre as colunas c0 e c1 a câmera usa esse zoom (1 = normal). */
@@ -89,6 +91,8 @@ export class LevelBuilder {
   readonly hints: { col: number; row: number; text: string }[] = [];
   arena?: string;
   water?: number;
+  /** Maré: a água desce de `water` até a linha `low`, fica `lowFor` s, e volta; `move` s cada travessia. */
+  tide?: { low: number; highFor: number; lowFor: number; move: number };
   gravity?: number;
   readonly cameras: { c0: number; c1: number; zoom: number }[] = [];
 
@@ -285,6 +289,6 @@ export class LevelBuilder {
   }
 
   build(): LevelData {
-    return { id: this.id, name: this.name, world: this.world, cols: this.cols, rows: this.rows, tiles: this.tiles, entities: this.entities, hints: this.hints, arena: this.arena, water: this.water, gravity: this.gravity, cameras: this.cameras };
+    return { id: this.id, name: this.name, world: this.world, cols: this.cols, rows: this.rows, tiles: this.tiles, entities: this.entities, hints: this.hints, arena: this.arena, water: this.water, tide: this.tide, gravity: this.gravity, cameras: this.cameras };
   }
 }

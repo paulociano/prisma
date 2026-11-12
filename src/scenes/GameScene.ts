@@ -324,7 +324,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private ambient!: Ambient;
   private bgFarFx?: Phaser.GameObjects.Container;
   private bgMidFx?: Phaser.GameObjects.Container;
-  private waves: { ts: Phaser.GameObjects.TileSprite; speed: number; sc: number }[] = [];
+  private waves: { ts: Phaser.GameObjects.TileSprite; speed: number; sc: number; dy: number }[] = [];
   private arenaRect?: Rect;
 
   /** Brilho suave atrás de um objeto importante (fragmentos, saída): segue o objeto e some com ele. */
@@ -1777,25 +1777,39 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private waterY = Infinity;
 
+  private waterVeil?: Phaser.GameObjects.Rectangle;
+  private waterLine?: Phaser.GameObjects.Rectangle;
+  private bubbles?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private tideClock = 0;
+  private tideMoving = 0; // -1 baixando, 1 subindo, 0 parada
+  private tideWarned = false;
+  private tideToasts = 0;
+
   /** Água da linha `level.water` para baixo: véu azul por cima de tudo e bolhas subindo. */
   private buildWater() {
+    this.waterVeil = this.waterLine = this.bubbles = undefined;
+    this.tideClock = this.tideMoving = this.tideToasts = 0;
+    this.tideWarned = false;
     if (this.level.water === undefined) return;
     this.waterY = this.level.water * TILE;
-    const w = this.level.cols * TILE, h = this.level.rows * TILE + 600 - this.waterY;
-    this.add.rectangle(0, this.waterY, w, h, 0x2bb6d6, 0.16).setOrigin(0).setDepth(14);
-    if (this.level.water > 0) this.add.rectangle(0, this.waterY, w, 4, 0xe8fbff, 0.6).setOrigin(0).setDepth(14);
+    const w = this.level.cols * TILE, bottom = this.level.rows * TILE + 600;
+    // com maré o véu é mais forte: precisa ficar claro, de relance, o que está dentro e fora d'água
+    this.waterVeil = this.add.rectangle(0, this.waterY, w, bottom - this.waterY, this.level.tide ? 0x1f8fc4 : 0x2bb6d6, this.level.tide ? 0.3 : 0.16).setOrigin(0).setDepth(14);
+    if (this.level.water > 0) this.waterLine = this.add.rectangle(0, this.waterY, w, 4, 0xe8fbff, 0.6).setOrigin(0).setDepth(14);
     this.waves = [];
     if (this.ambient.on && this.level.water > 0) {
       // ondas que correm na superfície: uma faixa do tamanho da tela que acompanha a câmera
       for (const [dy, a, speed, sc] of [[-8, 0.5, 36, 1], [-2, 0.3, -24, 0.7]] as const) {
         const ts = this.add.tileSprite(0, this.waterY + dy, GAME_W + 64, 16 * sc, 'fx_wave').setOrigin(0).setTileScale(sc).setAlpha(a).setTint(0xe8fbff).setBlendMode(Phaser.BlendModes.ADD).setDepth(14);
-        this.waves.push({ ts, speed, sc });
+        this.waves.push({ ts, speed, sc, dy });
       }
     }
-    this.add
+    const floor = this.level.rows * TILE;
+    this.bubbles = this.add
       .particles(0, 0, 'dot', {
         x: { min: 0, max: w },
-        y: { min: this.waterY + 100, max: this.level.rows * TILE },
+        // com maré, as bolhas nascem sempre abaixo da superfície do momento
+        y: { onEmit: () => Phaser.Math.Between(Math.min(this.waterY + 100, floor - 20), floor) },
         speedY: { min: -60, max: -25 },
         lifespan: 4000,
         scale: { start: 0.35, end: 0.1 },
@@ -1804,6 +1818,46 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         frequency: 70,
       })
       .setDepth(13);
+  }
+
+  /** Altura da água agora (para os baiacus acompanharem a maré). */
+  waterLevel() {
+    return this.level.tide ? this.waterY : undefined;
+  }
+
+  /**
+   * Maré: cheia → baixa → cheia, em ciclo. A superfície pisca e toca um aviso pouco antes de
+   * se mexer, para ninguém ser pego de surpresa em cima dos ouriços.
+   */
+  private updateTide(dt: number) {
+    const tide = this.level.tide;
+    if (!tide || this.level.water === undefined) return;
+    const high = this.level.water * TILE, low = tide.low * TILE;
+    const cycle = tide.highFor + tide.move + tide.lowFor + tide.move;
+    this.tideClock = (this.tideClock + dt) % cycle;
+    const t = this.tideClock;
+    const ease = (k: number) => k * k * (3 - 2 * k);
+    let y = high, moving = 0, until = tide.highFor - t; // tempo até a próxima mudança
+    if (t >= tide.highFor && t < tide.highFor + tide.move) { y = high + (low - high) * ease((t - tide.highFor) / tide.move); moving = -1; until = 99; }
+    else if (t >= tide.highFor + tide.move && t < cycle - tide.move) { y = low; until = cycle - tide.move - t; }
+    else if (t >= cycle - tide.move) { y = low + (high - low) * ease((t - (cycle - tide.move)) / tide.move); moving = 1; until = 99; }
+    this.waterY = y;
+    const bottom = this.level.rows * TILE + 600;
+    this.waterVeil?.setPosition(0, y).setSize(this.waterVeil.width, bottom - y);
+    this.waterLine?.setY(y);
+    for (const w of this.waves) w.ts.y = y + w.dy;
+    if (this.bubbles) this.bubbles.emitting = y < this.level.rows * TILE - 200;
+
+    // aviso: 1,6 s antes de a água se mexer
+    const warn = until < 1.6;
+    if (warn && !this.tideWarned) {
+      this.sfx('dash', -700);
+      // o texto só nas primeiras vezes; depois bastam o som e a superfície piscando
+      if (this.tideToasts++ < 4) this.events.emit('toast', y === high ? 'A maré vai baixar!' : 'A maré vai subir!');
+    }
+    this.tideWarned = warn;
+    if (this.waterLine) this.waterLine.setAlpha(warn && canFlashScreen() ? 0.6 + 0.4 * Math.sin(this.time.now / 70) : 0.6).setScale(1, warn || moving ? 2 : 1);
+    this.tideMoving = moving;
   }
 
   // ---------- disparo de prisma e mergulho estelar ----------
@@ -1862,6 +1916,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (stomp) {
       this.restoreEnemy(e);
       this.player.bounce(this.controls.jumpHeld ? PHYS.stompBounceHeld : PHYS.stompBounce);
+    } else if (e.beached) {
+      return; // baiacu murcho na maré baixa não machuca
     } else if (this.player.hurt(e.hit.x)) {
       this.feedbackHurt();
       if (e.kind === 'label') {
@@ -2260,6 +2316,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.updateWind();
     this.updateVents(dt);
     this.updateSearchlights(dt);
+    this.updateTide(dt);
     this.player.inWater = this.player.hit.y > this.waterY;
     this.player.update(dt, this.controls);
     this.updateGlideSound();

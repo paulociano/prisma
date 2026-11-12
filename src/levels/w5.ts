@@ -1,7 +1,7 @@
 import { LevelBuilder } from './LevelBuilder';
 
 // Mundo 5 · Recife Turquesa. Tudo abaixo da linha 2 é água: Íris nada (cada pulo é uma braçada).
-// Novidades: baiacus que incham, campos de ouriços, túneis de coral e correntezas.
+// Novidades: baiacus que incham, campos de ouriços, túneis de coral, correntezas e, na 5-2, a maré.
 // O disparo de prisma vem da Marina, no fim da 5-3.
 
 // Fase 5-1: jardim de corais; apresenta o nado, os baiacus e as correntezas.
@@ -34,25 +34,36 @@ export function level5_1() {
   return b.build();
 }
 
-// Fase 5-2: galeria submersa; mais túneis e uma correnteza a favor.
+// Fase 5-2: galeria submersa; a maré sobe e desce e muda o caminho.
+// Na cheia, Íris nada por cima dos ouriços e alcança o que está no alto; na seca, anda pelos
+// corais (as plataformas sobre os campos de ouriços) e os baiacus ficam murchos e inofensivos.
 export function level5_2() {
   const b = new LevelBuilder('5-2', 'Galeria Submersa', 5, 136);
   b.water = 2;
+  b.tide = { low: 10.5, highFor: 9, lowFor: 8, move: 3 };
 
   b.ground(0, 12, 2).add('player', 2, 9);
+  b.hint(5, 4, 'A maré sobe e desce: na cheia, nade; na seca, ande pelos corais');
   b.ground(13, 32, 1).spikes(13, 32, 10).block(22, 0, 23, 4).add('puffer', 18, 6).add('puffer', 27, 5).coins(15, 20, 8);
+  // corais: o caminho a pé por cima dos ouriços
+  b.oneway(15, 16, 8).oneway(19, 20, 7).oneway(23, 24, 8).oneway(27, 28, 7).oneway(31, 32, 8);
 
   b.ground(33, 50, 2).add('checkpoint', 34, 9).wind(38, 2, 12, 8, 1, 180).add('blot', 44, 9);
-  b.block(46, 4, 48, 4).add('shard', 47, 3);
+  b.hint(37, 3, 'Fora d\'água os baiacus murcham e não machucam');
+  b.block(46, 4, 48, 4).add('shard', 47, 3); // só na cheia: alto demais para um pulo
 
   b.ground(51, 70, 1).spikes(51, 70, 10).block(51, 0, 70, 4);
-  b.add('puffer', 56, 7).add('puffer', 62, 6).add('puffer', 67, 8).add('shard', 62, 9).coins(53, 55, 8);
+  b.add('puffer', 56, 7).add('puffer', 62, 6).add('puffer', 67, 8).add('shard', 63, 9).coins(53, 55, 6);
+  b.oneway(53, 54, 8).oneway(57, 58, 8).oneway(61, 62, 8).oneway(65, 66, 8).oneway(69, 70, 8);
 
   b.ground(71, 90, 2).add('checkpoint', 72, 9).add('padlock', 78, 9).wind(82, 2, 8, 8, -1, 170).coins(83, 88, 6);
 
-  b.ground(91, 110, 1).spikes(91, 110, 10).add('puffer', 97, 5).add('puffer', 104, 7).coinArc(93, 7, 8);
+  b.ground(91, 110, 1).spikes(91, 110, 10).add('puffer', 97, 5).add('puffer', 104, 7).coinArc(93, 5, 8);
+  b.oneway(93, 94, 8).oneway(97, 98, 7).oneway(101, 102, 8).oneway(105, 106, 7).oneway(109, 110, 8);
 
-  b.ground(111, 135, 2).block(117, 5, 119, 5).add('shard', 118, 4).add('blot', 125, 9).add('exit', 131, 9);
+  // ninho de baiacus: apertado demais na cheia; na seca dá para entrar e abrir o baú
+  b.ground(111, 135, 2).block(112, 7, 116, 7).add('puffer', 113, 9).add('puffer', 115, 9).chest(114, 9);
+  b.block(118, 5, 120, 5).add('shard', 119, 4).add('blot', 125, 9).add('exit', 131, 9);
 
   return b.build();
 }

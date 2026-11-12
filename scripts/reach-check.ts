@@ -155,7 +155,12 @@ for (const build of base ? BASE : LEVELS) {
   const l = build();
   if (l.arena || (only && l.id !== only)) continue;
   if (l.water !== undefined) {
-    console.log(`${l.id}  água (nado livre)`);
+    if (l.tide) {
+      // maré: na seca a fase vira chão firme; confere se dá para atravessar a pé (na cheia, é nado livre)
+      const r = checkLevel({ ...l, water: undefined }, { dj: true, dash: true, wj: true });
+      if (!r.ok) fails++;
+      console.log(`${l.id}  água com maré: a pé na seca ${r.ok ? 'ok' : `NÃO CHEGA: parou na coluna ${r.furthest}`}  (${l.cols} colunas)`);
+    } else console.log(`${l.id}  água (nado livre)`);
     continue;
   }
   const w = l.world, n = Number(l.id.split('-')[1]);
