@@ -40,7 +40,8 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 | V7 | Qualidade gráfica em Opções → Imagem (Baixa, Média, Alta); telas de toque começam em Baixa | Feito; verificado por capturas dos três níveis. **Ganho de FPS não medido** |
 | V8 | Maré no Recife: na fase 5-2 a água sobe e desce em ciclo, com aviso antes; na seca anda-se pelos corais e os baiacus ficam inofensivos, na cheia nada-se | Feito; `check-levels` confirma o caminho a pé na seca; ciclo conferido no navegador. **Sem playtest** |
 | V9 | Gravidade invertida nas Ilhas do Céu: campos em que Íris cai para cima e anda no teto, nas fases 6-2 e 6-3 (rota alternativa sobre o abismo e sobre os espinhos) | Feito; travessia simulada quadro a quadro no navegador com teclas reais nas duas fases. **Sem playtest**; pisão invertido não testado |
-| V10+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais, tempestade de areia no Cânion | Não iniciado |
+| V10 | Tempestade de areia no Cânion: no fim da fase 2-2, um paredão de areia persegue Íris do checkpoint até a saída | Feito; um corredor automático atravessa o trecho sem ser alcançado e sobrevive a uma parada de 4 s. **Sem playtest** |
+| V11+ | Cantos internos e rampas do kit parte 2 (ainda sem uso), trechos gerados curtos entre as partes autorais | Não iniciado |
 
 ## Regras de execução
 

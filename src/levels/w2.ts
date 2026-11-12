@@ -1,7 +1,7 @@
 import { LevelBuilder } from './LevelBuilder';
 
 // Mundo 2 · Cânion do Entardecer. Novidades: escorpiões que se enterram,
-// gêiseres de vapor e rajadas de areia. Íris já tem o pulo duplo.
+// gêiseres de vapor, rajadas de areia e, no fim da 2-2, a fuga da tempestade. Íris já tem o pulo duplo.
 
 // Fase 2-1: apresenta escorpiões e gêiseres.
 export function level2_1() {
@@ -37,7 +37,7 @@ export function level2_1() {
 
 // Fase 2-2: fontes termais, rajadas de areia e plataformas móveis.
 export function level2_2() {
-  const b = new LevelBuilder('2-2', 'Fontes Termais', 2, 136);
+  const b = new LevelBuilder('2-2', 'Fontes Termais', 2, 186);
 
   b.ground(0, 12, 2).add('player', 2, 9);
   b.mover(14, 8, 5, 0, 2, 3.5).coins(15, 19, 6);
@@ -60,7 +60,15 @@ export function level2_2() {
 
   b.ground(106, 135, 2).add('moth', 110, 5).add('scorpion', 115, 9).add('padlock', 120, 9);
   b.vent(124, 9, 2.4).oneway(125, 127, 3).add('shard', 126, 2);
-  b.add('exit', 131, 9);
+
+  // fuga da tempestade: do checkpoint até a saída, um paredão de areia vem atrás.
+  // Trecho de corrida: vãos curtos e um degrau, nada que peça parar.
+  b.ground(136, 146, 2).add('checkpoint', 137, 9).hint(139, 4, 'A tempestade vem aí. Não pare!');
+  b.storm(141, 34);
+  b.ground(149, 156, 2).block(153, 9, 154, 9).coins(147, 148, 7).coins(153, 154, 7);
+  b.ground(160, 168, 2).coinArc(157, 7, 3).oneway(164, 165, 8).coins(164, 165, 6);
+  b.ground(171, 185, 2).coins(169, 170, 7);
+  b.add('exit', 181, 9);
 
   return b.build();
 }

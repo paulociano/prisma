@@ -19,6 +19,7 @@ import { worldInfo } from '../levels/worlds';
 import { STORY } from '../story';
 import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../systems/Audio';
 import { ColorMechanics } from '../systems/ColorMechanics';
+import { Storm } from '../systems/Storm';
 import { ColorRestore } from '../systems/ColorRestore';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
@@ -132,6 +133,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private colorMech!: ColorMechanics;
   /** Campos invertidos (Ilhas do Céu): retângulos em que a gravidade vira. */
   private gravZones: Phaser.Geom.Rectangle[] = [];
+  /** Tempestades de areia da fase (Cânion). */
+  private storms: Storm[] = [];
   private haze?: Phaser.GameObjects.Image;
   /** Primeiro plano (na frente de tudo): folhagem pendurada no alto e plantas nos cantos de baixo. */
   private fgContainer?: Phaser.GameObjects.Container;
@@ -623,6 +626,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     });
 
     this.gravZones = [];
+    this.storms = [];
     let total = 0;
     let shardIndex = 0;
     let coinIndex = 0;
@@ -640,6 +644,21 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       }
 
       if (this.colorMech.add(e)) continue;
+      if (e.type === 'storm') {
+        this.storms.push(new Storm({
+          scene: this,
+          playerX: () => this.player.hit.x,
+          playerDead: () => this.player.dead,
+          hurt: (fromX) => {
+            if (!this.player.hurt(fromX)) return false;
+            this.feedbackHurt();
+            return true;
+          },
+          shake: (ms, k) => this.shakeCamera(ms, k),
+          toast: (text) => this.events.emit('toast', text),
+        }, e.col * TILE, (e.col + (e.data?.w ?? 30)) * TILE, e.data?.speed ?? 245, this.level.rows * TILE));
+        continue;
+      }
       if (e.type === 'gravzone') {
         this.addGravZone(e.col * TILE, e.row * TILE, (e.data?.w ?? 4) * TILE, (e.data?.h ?? 4) * TILE);
         continue;
@@ -2350,6 +2369,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.updateVents(dt);
     this.updateSearchlights(dt);
     this.updateTide(dt);
+    for (const st of this.storms) st.update(dt);
     if (this.gravZones.length) {
       const { x, y } = this.player.hit;
       const inside = !this.player.dead && this.gravZones.some((z) => z.contains(x, y));

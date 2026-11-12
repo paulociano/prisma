@@ -54,6 +54,7 @@ export type EntityType =
   | 'fadeplat'
   | 'colorgate'
   | 'gravzone'
+  | 'storm'
   | 'guardian'
   | 'boss';
 
@@ -257,6 +258,15 @@ export class LevelBuilder {
    */
   gravzone(col: number, row: number, w: number, h: number) {
     this.entities.push({ type: 'gravzone', col, row, data: { w, h } });
+    return this;
+  }
+
+  /**
+   * Tempestade de areia: quando Íris passa da coluna `col`, um paredão de areia nasce atrás
+   * dela e avança `w` colunas a `speed` px/s (Íris corre a 340). Ponha um checkpoint logo antes.
+   */
+  storm(col: number, w: number, speed = 245) {
+    this.entities.push({ type: 'storm', col, row: 0, data: { w, speed } });
     return this;
   }
 
