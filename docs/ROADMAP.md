@@ -24,6 +24,18 @@ Atualizado em **02/11/2026** após a integração dos PRs **#1 a #18**.
 | **27** | P2 | **Polimento narrativo e audiovisual**: ritmo de diálogos/cutscenes, feedback de restauração de cores, mix de áudio e consistência dos guardiões | Revisão de cenas com evidências de teste e sem regressões de acessibilidade |
 | **28** | P2 | **Preparação de demonstração pública**: instruções, feedback de jogadores, checklist de lançamento e comunicação | Build público avaliado com fluxo completo de introdução, primeira fase, mapa e salvamento |
 
+## Trilha visual (terreno, profundidade e dinâmicas)
+
+Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
+
+| Etapa | Trabalho | Estado |
+|---|---|---|
+| V0 | `npm run shots` (capturas automáticas) e desenho do terreno separado em `src/gfx/Terrain.ts` | Feito; verificado por capturas antes/depois |
+| V1 | Terreno sem repetição: interior e grama variados, ilhas com raízes, sombras de volume e projetadas | Feito; verificado por capturas nos mundos 1, 4 e 5. **Sem playtest** |
+| V2 | Profundidade: névoa entre fundo e jogo, sombras de contato, brilho nos fragmentos, parallax vertical | Feito em parte; faltam primeiro plano (depende de arte) e zonas de câmera |
+| V3 | Portão: aprovação visual do padrão na fase 1-1 | Pendente |
+| V4+ | Kit ampliado, cor como mecânica, gerador por mundo, dinâmicas de assinatura | Não iniciado. Prompts em `docs/PROMPTS-TERRENO-E-PROFUNDIDADE.md` |
+
 ## Regras de execução
 
 1. **Priorizar defeitos reais:** bugs bloqueadores de jogo, save ou navegação vêm antes de conteúdo novo.

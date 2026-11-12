@@ -136,6 +136,7 @@ O servidor de desenvolvimento abre em `http://localhost:5173`.
 | `npm run check-levels` | Verifica, por simulação, a alcançabilidade das fases |
 | `npm run test:save` | Testa a persistência de progresso |
 | `npm run test:input` | Testa o tratamento do analógico |
+| `npm run shots` | Salva capturas das fases em `.debug/shots/` (precisa do Google Chrome) |
 
 ### Controles
 
