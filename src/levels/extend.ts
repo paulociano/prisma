@@ -682,3 +682,38 @@ export function extendLevel(base: LevelData, variant: number): LevelData {
   ];
   return { ...l, cols: l.cols + width, tiles, entities, hints: l.hints.map(shift), cameras };
 }
+
+/**
+ * Troca degraus de 1 bloco por rampas, onde cabe com folga: chão plano antes do degrau, nada
+ * em cima e nenhum objeto ou criatura por perto. Vale para o trecho autoral e para o gerado.
+ */
+export function autoRamps(l: LevelData): LevelData {
+  if (l.arena || l.water !== undefined) return l;
+  const { cols, rows } = l;
+  const tiles = l.tiles.map((row) => [...row]);
+  const at = (c: number, r: number) => (c < 0 || c >= cols || r < 0 || r >= rows ? T.Solid : tiles[r][c]);
+  const free = (c: number, r0: number, r1: number) => { for (let r = r0; r <= r1; r++) if (r >= 0 && at(c, r) !== T.Empty) return false; return true; };
+  // chão plano com 4 linhas livres em cima
+  const flatTop = (c: number, r: number) => at(c, r) === T.Solid && free(c, r - 4, r - 1);
+  const busy = (c0: number, c1: number, r0: number, r1: number) =>
+    l.entities.some((e) => {
+      const w = e.type === 'wind' || e.type === 'gravzone' ? (e.data?.w ?? 1) : e.type === 'mover' ? (e.data?.dx ?? 0) + (e.data?.width ?? 2) : e.type === 'bloom' || e.type === 'fadeplat' || e.type === 'crumble' ? (e.data?.w ?? 2) : 1;
+      const pad = e.type === 'coin' ? 0 : 1; // criaturas e objetos pedem uma coluna de folga; faíscas, não
+      return e.col + w - 1 >= c0 - pad && e.col <= c1 + pad && e.row >= r0 && e.row <= r1;
+    });
+  for (let r = 3; r < rows - 1; r++) {
+    for (let c = 4; c < cols - 4; c++) {
+      // degrau subindo para a direita: chão baixo em c-3..c-1 (linha r+1) e bloco alto em c (linha r)
+      if (flatTop(c, r) && at(c + 1, r) === T.Solid && flatTop(c - 1, r + 1) && flatTop(c - 2, r + 1) && flatTop(c - 3, r + 1) && !busy(c - 3, c, r - 4, r + 1)) {
+        tiles[r][c - 2] = T.RampR1;
+        tiles[r][c - 1] = T.RampR2;
+      }
+      // degrau descendo para a direita: bloco alto em c (linha r) e chão baixo em c+1..c+3 (linha r+1)
+      if (flatTop(c, r) && at(c - 1, r) === T.Solid && flatTop(c + 1, r + 1) && flatTop(c + 2, r + 1) && flatTop(c + 3, r + 1) && !busy(c, c + 3, r - 4, r + 1)) {
+        tiles[r][c + 1] = T.RampL2;
+        tiles[r][c + 2] = T.RampL1;
+      }
+    }
+  }
+  return { ...l, tiles };
+}

@@ -1,4 +1,4 @@
-import { extendLevel } from './extend';
+import { autoRamps, extendLevel } from './extend';
 import type { LevelData } from './LevelBuilder';
 import { level1_1, level1_2, level1_3, level1_4 } from './w1';
 import { level2_1, level2_2, level2_3, level2_4 } from './w2';
@@ -20,7 +20,8 @@ export const BASE: (() => LevelData)[] = [
   level7_1, level7_2, level7_3, level7_4,
 ];
 
-export const LEVELS: (() => LevelData)[] = BASE.map((build, i) => () => extendLevel(build(), i % 4));
+// Por último, os degraus de 1 bloco com espaço livre viram rampas.
+export const LEVELS: (() => LevelData)[] = BASE.map((build, i) => () => autoRamps(extendLevel(build(), i % 4)));
 
 /** Metadados leves (sem montar a grade) para o mapa. */
 export const LEVEL_META = LEVELS.map((build, index) => {

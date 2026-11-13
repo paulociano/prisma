@@ -7,6 +7,20 @@ export enum T {
   Solid = 1,
   OneWay = 2,
   Spike = 3,
+  // Rampa: sobe 1 bloco em 2 colunas. "R" sobe para a direita, "L" para a esquerda;
+  // 1 é a metade baixa (do chão até meio bloco), 2 a metade alta (de meio bloco até o topo).
+  RampR1 = 4,
+  RampR2 = 5,
+  RampL2 = 6,
+  RampL1 = 7,
+}
+
+/** É um pedaço de rampa? */
+export const isRamp = (t: T) => t >= T.RampR1 && t <= T.RampL1;
+
+/** Altura da superfície da rampa nas bordas esquerda e direita do bloco, em fração de bloco a partir da base. */
+export function rampHeights(t: T): [number, number] {
+  return t === T.RampR1 ? [0, 0.5] : t === T.RampR2 ? [0.5, 1] : t === T.RampL2 ? [1, 0.5] : [0.5, 0];
 }
 
 export type EntityType =
@@ -267,6 +281,17 @@ export class LevelBuilder {
    */
   storm(col: number, w: number, speed = 245) {
     this.entities.push({ type: 'storm', col, row: 0, data: { w, speed } });
+    return this;
+  }
+
+  /**
+   * Rampa de 2 colunas na linha `row` (a linha logo acima do chão mais baixo), começando em `col`.
+   * `dir` 1 sobe para a direita, -1 para a esquerda. O lado alto precisa encostar num bloco sólido
+   * da mesma linha (a rampa liga dois níveis de chão que diferem em 1 bloco).
+   */
+  ramp(col: number, row: number, dir: 1 | -1 = 1) {
+    this.set(col, row, dir > 0 ? T.RampR1 : T.RampL2);
+    this.set(col + 1, row, dir > 0 ? T.RampR2 : T.RampL1);
     return this;
   }
 

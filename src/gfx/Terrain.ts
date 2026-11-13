@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TILE } from '../config';
-import { T, type LevelData } from '../levels/LevelBuilder';
+import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
 
@@ -273,6 +273,32 @@ function ensureWalls(scene: Phaser.Scene, kit2: string) {
   }
 }
 
+/** Borda de cima do desenho de uma peça (em px do frame) a 10% e a 90% da largura: a inclinação pintada. */
+const profiles = new Map<string, [number, number]>();
+function rampProfile(scene: Phaser.Scene, key: string, frame: number): [number, number] {
+  const id = `${key}:${frame}`;
+  const hit = profiles.get(id);
+  if (hit) return hit;
+  const f = scene.textures.getFrame(key, String(frame));
+  const { c, g } = scratch(f.cutWidth, f.cutHeight);
+  g.drawImage(f.source.image as CanvasImageSource, f.cutX, f.cutY, f.cutWidth, f.cutHeight, 0, 0, f.cutWidth, f.cutHeight);
+  const topAt = (u: number) => {
+    // média de algumas colunas vizinhas: uma folha solta não decide a inclinação
+    let sum = 0, n = 0;
+    for (let dx = -4; dx <= 4; dx += 2) {
+      const x = Math.round(Phaser.Math.Clamp(u * c.width + dx, 0, c.width - 1));
+      const col = g.getImageData(x, 0, 1, c.height).data;
+      let y = 0;
+      while (y < c.height && col[y * 4 + 3] < 128) y++;
+      sum += y; n++;
+    }
+    return sum / n;
+  };
+  const out: [number, number] = [topAt(0.1), topAt(0.9)];
+  profiles.set(id, out);
+  return out;
+}
+
 /** Sombra macia (elipse) usada no chão: blocos suspensos, Íris e criaturas. */
 export function ensureSoftShadow(scene: Phaser.Scene) {
   if (scene.textures.exists('soft_shadow')) return;
@@ -298,16 +324,17 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const fills = scene.add.container(0, 0);
   const shade = scene.add.graphics();
   const walls = scene.add.container(0, 0);
+  const ramps = scene.add.container(0, 0);
   const decals = scene.add.container(0, 0);
   const under = scene.add.container(0, 0);
   const decor = scene.add.container(0, 0);
   const tops = scene.add.container(0, 0);
   const shadows = scene.add.container(0, 0);
   // raízes atrás do interior; sombras de volume por cima dele; decoração atrás da grama do topo
-  world.add([under, fills, decals, walls, shade, decor, tops, shadows]);
+  world.add([under, fills, decals, walls, ramps, shade, decor, tops, shadows]);
   if (level.arena && has(scene, level.arena)) {
     // na arena o piso já está desenhado no fundo; só a colisão importa
-    for (const l of [under, fills, decals, walls, shade, tops, shadows]) l.setVisible(false);
+    for (const l of [under, fills, decals, walls, ramps, shade, tops, shadows]) l.setVisible(false);
     return { fills, decor, tops };
   }
 
@@ -317,6 +344,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     return tiles[r][c];
   };
   const solid = (c: number, r: number) => tileAt(c, r) === T.Solid;
+  /** Bloco ou rampa: para decidir se uma borda está exposta (uma rampa encostada fecha a borda). */
+  const filled = (c: number, r: number) => solid(c, r) || isRamp(tileAt(c, r));
 
   // ---------- sem arte: blocos provisórios, como antes ----------
   if (!art) {
@@ -390,7 +419,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */
   const drawTopRun = (c0: number, c1: number, y: number) => {
     const row = Math.floor(y / TILE);
-    const openL = !solid(c0 - 1, row), openR = !solid(c1 + 1, row);
+    const openL = !filled(c0 - 1, row), openR = !filled(c1 + 1, row);
     if (hasStrip) {
       const s = surface(F.w1Tiles.top);
       const ts = scene.add.tileSprite(c0 * TILE, y - SINK - s.pivotY * s.h, (c1 - c0 + 1) * TILE, s.h, stripKey);
@@ -448,12 +477,12 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       if (b && depStart < 0) { depStart = c; depVal = d; }
 
       // paredes expostas: a lateral escurece em direção à borda (volume)
-      if (b && c > 0 && !solid(c - 1, r)) {
+      if (b && c > 0 && !filled(c - 1, r)) {
         if (kit2 && !top) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4, 0);
         shade.fillRect(c * TILE, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
-      if (b && c < cols - 1 && !solid(c + 1, r)) {
+      if (b && c < cols - 1 && !filled(c + 1, r)) {
         if (kit2 && !top) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4);
         shade.fillRect(c * TILE + TILE - 20, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
@@ -486,6 +515,31 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       }
     }
   }
+  // rampas: a peça pintada do kit 2, esticada em 2 colunas e encaixada na linha da colisão
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols - 1; c++) {
+    const t = tiles[r][c];
+    if (t !== T.RampR1 && t !== T.RampL2) continue;
+    const up = t === T.RampR1; // sobe para a direita
+    const x0 = c * TILE, yb = (r + 1) * TILE, W2 = TILE * 2, wd = W2 + 8;
+    const line = (x: number) => (up ? yb - ((x - x0) / W2) * TILE : yb - TILE + ((x - x0) / W2) * TILE);
+    if (kit2) {
+      const frame = up ? K2.slopeUp : K2.slopeDown;
+      const [y1, y2] = rampProfile(scene, kit2, frame);
+      const f = scene.textures.getFrame(kit2, String(frame));
+      const xa = x0 - 4 + 0.1 * wd, xb = x0 - 4 + 0.9 * wd;
+      let sy = (line(xa) - line(xb)) / (y1 - y2);
+      if (!Number.isFinite(sy) || sy < 0.2 || sy > 1.6) sy = wd / f.cutWidth;
+      // a grama pintada fica um pouco acima da linha em que Íris pisa, como no resto do chão
+      const img = scene.add.image(x0 - 4, line(xa) - SINK - 8 - y1 * sy, kit2, String(frame)).setOrigin(0);
+      img.setDisplaySize(wd, f.cutHeight * sy);
+      ramps.add(img);
+    } else {
+      const g = scene.add.graphics();
+      g.fillStyle(0x6b4a3a, 1).fillTriangle(x0, yb, x0 + W2, yb, up ? x0 + W2 : x0, yb - TILE);
+      ramps.add(g);
+    }
+  }
+
   // decalques: pedras, raízes e relíquias espalhados pelo interior, longe das bordas, com a semente da fase
   if (decalsKey) {
     const inner = (c: number, r: number) => block(c, r) && depth[r][c] >= 1 && block(c - 1, r) && block(c + 1, r) && (r === rows - 1 || block(c, r + 1));
