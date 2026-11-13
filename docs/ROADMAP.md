@@ -43,7 +43,7 @@ Plano separado, em paralelo às etapas acima. Estado em 12/11/2026:
 | V10 | Tempestade de areia no Cânion: no fim da fase 2-2, um paredão de areia persegue Íris do checkpoint até a saída | Feito; um corredor automático atravessa o trecho sem ser alcançado e sobrevive a uma parada de 4 s. **Sem playtest** |
 | V11 | Rampas de verdade: blocos de rampa (sobem 1 bloco em 2 colunas) com física própria para Íris e a peça pintada do kit 2; um passe automático troca por rampa os degraus de 1 bloco com espaço livre (10 rampas em 6 fases) | Feito; subir, descer, parar e pular na rampa simulados quadro a quadro. **Sem playtest** |
 | V12 | Conteúdo gerado em dois trechos por fase (antes e depois do meio) em vez de um bloco único | Feito em 16 das 21 fases de exploração; as outras 5 (1-1, 3-1, 4-2, 5-2, 5-3) não têm dois bons pontos de emenda e seguem com bloco único. `check-levels` passa. **Sem playtest** |
-| V13+ | Cantos internos do kit parte 2 (ainda sem uso), mais rampas desenhadas à mão nas fases | Não iniciado |
+| V13 | Mais rampas (26, em 8 fases; escadas de degraus de 2 colunas viram uma rampa contínua), cantos internos do kit 2 onde o chão encontra uma parede, e criaturas que dão meia-volta ao chegar numa rampa | Feito; descer e subir uma escada de rampas simulado quadro a quadro. **Sem playtest** |
 
 ## Regras de execução
 

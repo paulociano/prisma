@@ -540,6 +540,21 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     }
   }
 
+  // cantos internos: onde o chão encontra uma parede que sobe, a peça em "L" do kit 2 leva a
+  // grama do chão para cima da parede (a parte da parede fica por cima do bloco, não no ar)
+  if (kit2) {
+    for (let r = 1; r < rows - 1; r++) for (let c = 1; c < cols - 1; c++) {
+      if (tiles[r][c] !== T.Empty || !block(c, r + 1) || islet[r + 1][c]) continue;
+      for (const [frame, wallC, left] of [[K2.cornerL, c - 1, c * TILE - 18], [K2.cornerR, c + 1, c * TILE + 2]] as const) {
+        if (!block(wallC, r) || !block(wallC, r + 1)) continue;
+        const f = scene.textures.getFrame(kit2, String(frame));
+        const img = scene.add.image(left, (r + 1) * TILE - SINK, kit2, String(frame)).setOrigin(0, f.customPivot ? f.pivotY : 0.6);
+        img.setScale(80 / f.width);
+        tops.add(img);
+      }
+    }
+  }
+
   // decalques: pedras, raízes e relíquias espalhados pelo interior, longe das bordas, com a semente da fase
   if (decalsKey) {
     const inner = (c: number, r: number) => block(c, r) && depth[r][c] >= 1 && block(c - 1, r) && block(c + 1, r) && (r === rows - 1 || block(c, r + 1));

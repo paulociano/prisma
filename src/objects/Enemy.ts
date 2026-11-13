@@ -50,6 +50,8 @@ const FLOATERS = new Set<EnemyKind>(['moth', 'drone', 'puffer', 'comet', 'rumor'
 
 export interface EnemyHost {
   isSolidAt(x: number, y: number): boolean;
+  /** Há um bloco de rampa nesse ponto? (As criaturas não sobem rampas: dão meia-volta.) */
+  isRampAt?(x: number, y: number): boolean;
   enemyShoot(e: Enemy, dir: number): void;
   playerX(): number;
   playerY(): number;
@@ -451,7 +453,7 @@ export class Enemy {
     else if (b.blocked.down) {
       // vira na beira da plataforma
       const aheadX = this.hit.x + this.dir * (b.width / 2 + 6);
-      if (!this.host.isSolidAt(aheadX, b.bottom + 8)) this.dir *= -1;
+      if (!this.host.isSolidAt(aheadX, b.bottom + 8) || this.host.isRampAt?.(aheadX, b.bottom - 8)) this.dir *= -1;
     }
     b.setVelocityX(this.dir * speed * Enemy.speedScale);
   }
