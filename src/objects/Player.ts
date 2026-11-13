@@ -373,7 +373,10 @@ export class Player {
       this.view.setFlipY(up);
       // ao espelhar, o pivô do frame também precisa espelhar
       const f = this.view.frame;
-      if (f.customPivot) this.view.setOrigin(this.facing < 0 ? 1 - f.pivotX : f.pivotX, up ? 1 - f.pivotY : f.pivotY);
+      // com pivô próprio o Phaser espelha em torno da origem: os pés já ficam
+      // no ponto de apoio, então a origem vertical não inverte (invertida, o
+      // desenho subia atravessando o teto)
+      if (f.customPivot) this.view.setOrigin(this.facing < 0 ? 1 - f.pivotX : f.pivotX, f.pivotY);
       else if (up !== this.viewUp) this.view.setOrigin(this.view.originX, 1 - this.view.originY);
       this.viewUp = up;
       this.view.setAlpha(this.invuln > 0 && !this.dead && Math.floor(this.t * 20) % 2 === 0 ? 0.35 : 1);
