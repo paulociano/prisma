@@ -11,26 +11,18 @@ test('28 levels preserve IDs and world progression', () => {
   });
 });
 
-test('extension does not introduce a checkpoint near an authored checkpoint', () => {
+test('extension does not introduce a checkpoint near another checkpoint', () => {
+  // O conteúdo gerado entra em até dois pontos da fase, cada um com no máximo um checkpoint.
   LEVELS.forEach((build, i) => {
     const original = BASE[i]();
     const extended = build();
     if (original.arena || extended.cols === original.cols) return;
-    const addedColumns = extended.cols - original.cols;
-    const originalCols = original.entities.filter(e => e.type === 'checkpoint').map(e => e.col);
-    const finalCols = extended.entities.filter(e => e.type === 'checkpoint').map(e => e.col);
-    const authored = originalCols.map(c => {
-      // Find which side of the inserted span contains this checkpoint.
-      return finalCols.includes(c) ? c : c + addedColumns;
-    });
-    const generated = finalCols.filter(c => !authored.includes(c));
-    assert.ok(generated.length <= 1, `${extended.id}: unexpected inserted checkpoints`);
-    for (const c of generated) {
-      for (const originalCol of authored) {
-        assert.ok(Math.abs(c - originalCol) >= 12,
-          `${extended.id}: inserted checkpoint ${c} is too close to authored checkpoint ${originalCol}`);
-      }
-    }
+    const cols = (l) => l.entities.filter(e => e.type === 'checkpoint').map(e => e.col).sort((a, b) => a - b);
+    const minGap = (list) => list.slice(1).reduce((m, c, k) => Math.min(m, c - list[k]), Infinity);
+    const before = cols(original), after = cols(extended);
+    assert.ok(after.length - before.length <= 2, `${extended.id}: unexpected inserted checkpoints`);
+    // nenhum par de checkpoints fica mais perto do que 12 colunas (a não ser que o autoral já fosse assim)
+    assert.ok(minGap(after) >= Math.min(12, minGap(before)), `${extended.id}: checkpoints too close after extension (${after.join(', ')})`);
   });
 });
 

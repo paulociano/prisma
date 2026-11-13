@@ -555,7 +555,13 @@ const RATING: Record<string, number> = {
 export const allowedRating = (w: number, v: number) => 1.75 + (w - 1) * 0.25 + v * 0.2;
 
 /** Monta o trecho do mundo `w` (variação `v` = número da fase - 1). */
-export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false) {
+/**
+ * Monta o conteúdo gerado de uma fase.
+ * Sem `part`, sai tudo num bloco só (como era). Com `part`, sai uma das duas metades, que
+ * entram em pontos diferentes da fase: 0 = dois desafios e um cofre/blocos-surpresa (antes do
+ * meio); 1 = os desafios restantes, a torre, a bandeirola, a sala anexa e o portal (depois do meio).
+ */
+export function buildSegment(w: number, v: number, h: number, rows: number, tall = false, room = false, part?: 0 | 1) {
   const b = new LevelBuilder('seg', 'seg', w, 220, rows);
   const s: Seg = { b, x: 0, h, rows, r: rng(w * 1009 + v * 7919 + 17) };
   flat(s, 3);
@@ -568,23 +574,30 @@ export function buildSegment(w: number, v: number, h: number, rows: number, tall
   let pool = all.filter((n) => RATING[n] <= lim);
   // mundo 1 tem 3 desafios (ensina); do 2 em diante, 4. Nas fases com torre, ela ocupa a última vaga.
   const count = w === 1 ? 3 : 4;
-  const extra = Math.max(0, count - sig.length - (tall && top(s) - 19 >= 0 ? 1 : 0));
+  const tower = tall && top(s) - 19 >= 0;
+  const extra = Math.max(0, count - sig.length - (tower ? 1 : 0));
   if (pool.length < extra) pool = all.sort((a, b) => RATING[a] - RATING[b]).slice(0, extra);
   for (let k = pool.length - 1; k > 0; k--) { const j = Math.floor(s.r() * (k + 1)); [pool[k], pool[j]] = [pool[j], pool[k]]; }
   // ordem crescente de dificuldade dentro da fase
   const chosen = [...sig, ...pool.slice(0, extra)].sort((a, b) => RATING[a] - RATING[b]);
+  // a segunda metade tem a própria sequência de sorteios, para não depender do tamanho da primeira
+  if (part === 1) s.r = rng(w * 1009 + v * 7919 + 4099);
+  const half = Math.ceil(chosen.length / 2);
+  const first = part !== 1, second = part !== 0;
   chosen.forEach((name, k) => {
+    if (k < half ? !first : !second) return;
     BEATS[name](s, w, v + k);
     flat(s, rint(s, 1, 3));
   });
-  if (tall && top(s) - 19 >= 0) { tower2(s, w, v); flat(s, rint(s, 1, 3)); }
-  (v % 2 ? vault : bumps)(s, w, v);
-  flat(s, 2);
-  const order = [1, 2, 3, 4, 6, 7].indexOf(w);
-  if (order >= 0 && v !== 1) { pennantNook(s, order * 2 + (v === 2 ? 1 : 0)); flat(s, 2); }
-  if (room) { annex(s, w, v); flat(s, 2); }
-  secret(s, w, v);
-  flat(s, 2);
+  if (tower && second) { tower2(s, w, v); flat(s, rint(s, 1, 3)); }
+  if (first) { (v % 2 ? vault : bumps)(s, w, v); flat(s, 2); }
+  if (second) {
+    const order = [1, 2, 3, 4, 6, 7].indexOf(w);
+    if (order >= 0 && v !== 1) { pennantNook(s, order * 2 + (v === 2 ? 1 : 0)); flat(s, 2); }
+    if (room) { annex(s, w, v); flat(s, 2); }
+    secret(s, w, v);
+    flat(s, 2);
+  }
   return { b, width: s.x };
 }
 
@@ -604,15 +617,16 @@ const surfaceRow = (l: LevelData, c: number) => {
 };
 
 /** Coluna no meio da fase com chão liso e nada por perto (entidades, vento, plataformas). */
-function findInsertion(l: LevelData) {
+/** Melhor ponto de emenda entre as frações `lo` e `hi` da fase, o mais perto possível de `aim`. */
+function findInsertion(l: LevelData, lo = 0.3, hi = 0.8, aim = (lo + hi) / 2) {
   for (const radius of [4, 2]) {
-    const c = findInsertionAt(l, radius);
+    const c = findInsertionAt(l, radius, lo, hi, aim);
     if (c !== undefined) return c;
   }
   return undefined;
 }
 
-function findInsertionAt(l: LevelData, radius: number) {
+function findInsertionAt(l: LevelData, radius: number, lo: number, hi: number, aim: number) {
   // só o que ocupa várias colunas não pode ser cortado ao meio; o resto apenas se desloca.
   // Inimigos e objetos de chão logo em cima do ponto também ficam de fora (o trecho começa no chão).
   const SPAN = new Set(['wind', 'gravzone', 'storm', 'mover', 'searchlight', 'vent', 'spring', 'checkpoint', 'guardian', 'exit']);
@@ -623,8 +637,8 @@ function findInsertionAt(l: LevelData, radius: number) {
       const from = e.type === 'searchlight' ? e.col - reach : e.col;
       return c >= from - 2 && c <= e.col + reach + 2;
     }) || l.hints.some((h) => Math.abs(h.col - c) < 4);
-  const from = Math.floor(l.cols * 0.3), to = Math.floor(l.cols * 0.8);
-  const mid = (from + to) / 2;
+  const from = Math.floor(l.cols * lo), to = Math.floor(l.cols * hi);
+  const mid = l.cols * aim;
   const candidates: number[] = [];
   for (let c = from; c <= to; c++) {
     const r = surfaceRow(l, c);
@@ -660,10 +674,22 @@ export function extendLevel(base: LevelData, variant: number): LevelData {
   // segunda fase de cada mundo (sem água): ganha uma sala conectada por portas, no alto
   const room = variant === 1 && base.water === undefined;
   const l = tall ? padTop(base, TOWER_PAD) : room ? padTop(base, ROOM_PAD) : base;
+  // Duas emendas: metade do conteúdo gerado entra antes do meio da fase e metade depois, com o
+  // trecho autoral no meio (melhor ritmo do que um bloco único). Sem dois bons pontos, volta ao bloco único.
+  const early = findInsertion(l, 0.2, 0.48, 0.36), late = findInsertion(l, 0.56, 0.86, 0.7);
+  if (early !== undefined && late !== undefined && late - early >= 24) {
+    // a emenda mais adiante entra primeiro, para não deslocar a de trás
+    return insertSegment(insertSegment(l, late, variant, tall, room, 1), early, variant, tall, room, 0);
+  }
   const at = findInsertion(l);
   if (at === undefined) return base;
+  return insertSegment(l, at, variant, tall, room);
+}
+
+/** Encaixa o conteúdo gerado (inteiro ou uma das metades) na coluna `at` da fase. */
+function insertSegment(l: LevelData, at: number, variant: number, tall: boolean, room: boolean, part?: 0 | 1): LevelData {
   const h = l.rows - surfaceRow(l, at);
-  const { b, width } = buildSegment(l.world, variant, h, l.rows, tall, room);
+  const { b, width } = buildSegment(l.world, variant, h, l.rows, tall, room, part);
   const seg = b.build();
 
   const tiles = l.tiles.map((row, r) => [...row.slice(0, at), ...seg.tiles[r].slice(0, width), ...row.slice(at)]);
