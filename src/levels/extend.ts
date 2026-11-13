@@ -719,23 +719,26 @@ export function autoRamps(l: LevelData): LevelData {
   const tiles = l.tiles.map((row) => [...row]);
   const at = (c: number, r: number) => (c < 0 || c >= cols || r < 0 || r >= rows ? T.Solid : tiles[r][c]);
   const free = (c: number, r0: number, r1: number) => { for (let r = r0; r <= r1; r++) if (r >= 0 && at(c, r) !== T.Empty) return false; return true; };
-  // chão plano com 4 linhas livres em cima
-  const flatTop = (c: number, r: number) => at(c, r) === T.Solid && free(c, r - 4, r - 1);
+  /** Há criatura ou objeto por perto? Faíscas só atrapalham se estiverem dentro da própria rampa (linha `rampRow`). */
   const busy = (c0: number, c1: number, r0: number, r1: number) =>
     l.entities.some((e) => {
+      if (e.type === 'coin') return e.row === r1 - 1 && e.col >= c0 && e.col <= c1;
       const w = e.type === 'wind' || e.type === 'gravzone' ? (e.data?.w ?? 1) : e.type === 'mover' ? (e.data?.dx ?? 0) + (e.data?.width ?? 2) : e.type === 'bloom' || e.type === 'fadeplat' || e.type === 'crumble' ? (e.data?.w ?? 2) : 1;
-      const pad = e.type === 'coin' ? 0 : 1; // criaturas e objetos pedem uma coluna de folga; faíscas, não
-      return e.col + w - 1 >= c0 - pad && e.col <= c1 + pad && e.row >= r0 && e.row <= r1;
+      return e.col + w - 1 >= c0 - 1 && e.col <= c1 + 1 && e.row >= r0 && e.row <= r1;
     });
-  for (let r = 3; r < rows - 1; r++) {
+  // chão plano com 3 linhas livres em cima
+  const tread = (c: number, r: number) => at(c, r) === T.Solid && free(c, r - 3, r - 1);
+  // Cada degrau vira rampa por conta própria; numa escada de degraus de 2 colunas elas se emendam
+  // numa rampa só. (De baixo para cima, para o degrau de cima enxergar a rampa de baixo.)
+  for (let r = rows - 2; r >= 3; r--) {
     for (let c = 4; c < cols - 4; c++) {
-      // degrau subindo para a direita: chão baixo em c-3..c-1 (linha r+1) e bloco alto em c (linha r)
-      if (flatTop(c, r) && at(c + 1, r) === T.Solid && flatTop(c - 1, r + 1) && flatTop(c - 2, r + 1) && flatTop(c - 3, r + 1) && !busy(c - 3, c, r - 4, r + 1)) {
+      // degrau subindo para a direita: chão baixo em c-2..c-1 (linha r+1) e bloco alto em c (linha r)
+      if (tread(c, r) && tread(c - 1, r + 1) && tread(c - 2, r + 1) && at(c - 1, r) === T.Empty && at(c - 2, r) === T.Empty && !busy(c - 2, c - 1, r - 3, r + 1)) {
         tiles[r][c - 2] = T.RampR1;
         tiles[r][c - 1] = T.RampR2;
       }
-      // degrau descendo para a direita: bloco alto em c (linha r) e chão baixo em c+1..c+3 (linha r+1)
-      if (flatTop(c, r) && at(c - 1, r) === T.Solid && flatTop(c + 1, r + 1) && flatTop(c + 2, r + 1) && flatTop(c + 3, r + 1) && !busy(c, c + 3, r - 4, r + 1)) {
+      // degrau descendo para a direita: bloco alto em c (linha r) e chão baixo em c+1..c+2 (linha r+1)
+      if (tread(c, r) && tread(c + 1, r + 1) && tread(c + 2, r + 1) && at(c + 1, r) === T.Empty && at(c + 2, r) === T.Empty && !busy(c + 1, c + 2, r - 3, r + 1)) {
         tiles[r][c + 1] = T.RampL2;
         tiles[r][c + 2] = T.RampL1;
       }

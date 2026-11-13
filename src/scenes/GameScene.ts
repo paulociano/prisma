@@ -563,7 +563,12 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   isSolidAt(x: number, y: number) {
     const t = this.tileAt(Math.floor(x / TILE), Math.floor(y / TILE));
-    return t === T.Solid || t === T.OneWay || isRamp(t); // rampa conta como parede para as criaturas: elas dão meia-volta
+    return t === T.Solid || t === T.OneWay;
+  }
+
+  /** As criaturas não sobem rampas: ao encontrar uma à frente (ou a beira de uma), dão meia-volta. */
+  isRampAt(x: number, y: number) {
+    return isRamp(this.tileAt(Math.floor(x / TILE), Math.floor(y / TILE)));
   }
 
   private buildTiles() {
