@@ -65,6 +65,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/dist"
           Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --editor --import
           Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --script res://tests/visual_smoke.gd -- --no-save
+          Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --script res://tests/world1_smoke.gd -- --no-save
           Godot_v4.4.1-stable_linux.x86_64 --headless --path godot --export-release Web "$GITHUB_WORKSPACE/dist/index.html"
           for file in index.html index.js index.wasm index.pck; do
             test -s "dist/$file"
