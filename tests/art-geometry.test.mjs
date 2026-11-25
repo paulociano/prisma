@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -100,4 +100,19 @@ test('terrain plate first chunk has exact crop and preserves the three-column ga
   assert.equal(p.polygons.length,34);assert.equal(p.replaceable,true);
   assert.equal(JSON.stringify(level),before);
   tiles[10][19]=1;assert.equal(terrainPlatePlan(level,artChunks(level)[0]).replaceable,false);
+});
+
+test('connected terrain plates group atomically and separate at real gaps',()=>{
+  const tiles=Array.from({length:12},(_,r)=>Array.from({length:80},(_,c)=>r>=10&&(c<17||(c>=20&&c<58)||c>=60)?1:0));
+  const level={world:1,id:'1-1',cols:80,rows:12,tiles,entities:[]};
+  assert.deepEqual(terrainPlateGroups(level).map(g=>g.map(p=>p.id)),[['chunk_001'],['chunk_002','chunk_003'],['chunk_004']]);
+  assert.equal(terrainPlateGroups(level)[1][0].rightConnected,true);
+});
+test('terrain seam matches world-space alpha and color, rejects hard discontinuities',()=>{
+  const e=(y,rgba)=>({y,rgba:new Uint8ClampedArray(rgba)});
+  const a=e(10,[100,70,40,255,90,60,30,255]);
+  assert.equal(terrainSeamCompatible(a,e(9,[255,0,255,0,105,73,44,255,88,64,32,255])),true);
+  assert.equal(terrainSeamCompatible(a,e(10,[100,70,40,0,90,60,30,255])),false);
+  assert.equal(terrainSeamCompatible(a,e(10,[240,220,200,255,240,220,200,255])),false);
+  assert.equal(terrainSeamCompatible(a,e(11,[100,70,40,255,90,60,30,255])),false);
 });

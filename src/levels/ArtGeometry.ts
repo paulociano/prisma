@@ -189,10 +189,9 @@ export function organicMacroPlans(level:LevelData):OrganicVistaPlan[]{
   return result;
 }
 
-export interface TerrainPlatePlan extends ArtChunk { polygons:[number,number][][]; replaceable:boolean }
+export interface TerrainPlatePlan extends ArtChunk { polygons:[number,number][][]; replaceable:boolean; leftConnected:boolean; rightConnected:boolean; protectedArea:boolean }
 /** Same exact cropped bounds for export and runtime. Independent plate replacement
- * is conservative: no connected neighbors across the chunk boundary, and no
- * overlapping signature sanctuary. Connected chunks need a future seam contract. */
+ * requires isolation; connected plans can only be accepted as a complete group. */
 export function terrainPlatePlan(level:LevelData,ch:ArtChunk):TerrainPlatePlan|undefined{
   if(level.world!==1||level.arena)return;
   const occupied=(c:number,r:number)=>{const t=level.tiles[r]?.[c];return t===T.Solid||isRamp(t);};
@@ -204,5 +203,34 @@ export function terrainPlatePlan(level:LevelData,ch:ArtChunk):TerrainPlatePlan|u
   const connected=(a:number,b:number)=>a>=0&&b<level.cols&&Array.from({length:level.rows},(_,r)=>r).some(r=>occupied(a,r)&&occupied(b,r));
   const sanctuary=rootSanctuaryPlan(level);
   const protectedArea=!!sanctuary&&ch.x<sanctuary.x+sanctuary.width&&ch.x+ch.width>sanctuary.x;
-  return {...ch,y,height:bottom-y,polygons,replaceable:!protectedArea&&!connected(ch.c0-1,ch.c0)&&!connected(ch.c1-1,ch.c1)};
+  const leftConnected=connected(ch.c0-1,ch.c0),rightConnected=connected(ch.c1-1,ch.c1);
+  return {...ch,y,height:bottom-y,polygons,leftConnected,rightConnected,protectedArea,replaceable:!protectedArea&&!leftConnected&&!rightConnected};
+}
+
+/** Connected chunks are all-or-nothing: never mix authored and fallback art
+ * at an artificial cut through a solid mass. */
+export function terrainPlateGroups(level:LevelData):TerrainPlatePlan[][]{
+  const groups:TerrainPlatePlan[][]=[];
+  for(const chunk of artChunks(level)){
+    const plan=terrainPlatePlan(level,chunk);if(!plan)continue;
+    const group=groups[groups.length-1],prev=group?.[group.length-1];
+    if(prev&&prev.c1===plan.c0&&prev.rightConnected&&plan.leftConnected)group.push(plan);
+    else groups.push([plan]);
+  }
+  return groups;
+}
+export interface PlateEdge {y:number;rgba:Uint8ClampedArray}
+/** Compare edges at world-space Y, using premultiplied RGB to ignore hidden
+ * colors in transparent pixels. Tolerance accommodates WebP quantization. */
+export function terrainSeamCompatible(a:PlateEdge,b:PlateEdge):boolean{
+  const start=Math.min(a.y,b.y),end=Math.max(a.y+a.rgba.length/4,b.y+b.rgba.length/4);
+  let total=0,count=0;
+  const get=(e:PlateEdge,y:number,k:number)=>e.rgba[(y-e.y)*4+k]??0;
+  for(let y=start;y<end;y++){
+    const aa=get(a,y,3),ba=get(b,y,3);
+    const delta=Math.max(Math.abs(aa-ba),...[0,1,2].map(k=>Math.abs(get(a,y,k)*aa/255-get(b,y,k)*ba/255)));
+    if(delta>48)return false;
+    if(aa>24||ba>24){total+=delta;count++;}
+  }
+  return count>0&&total/count<=18;
 }

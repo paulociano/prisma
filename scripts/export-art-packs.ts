@@ -60,7 +60,7 @@ async function writeTerrainPlate(l:LevelData,ch:ArtChunk,dir:string){
   await sharp(Buffer.from(header+shapes+'</svg>')).png().toFile(path.join(dir,base+'-mask.png'));
   await fs.writeFile(path.join(dir,base+'-placement.json'),JSON.stringify({
     schema:1,level:l.id,chunk:ch.id,asset:'assets/raw/w1/organic/terrain/'+l.id+'/'+ch.id+'.png',
-    x:ch.x,y:y0,width,height,scale:1,mask:base+'-mask.png',replaceable:plan.replaceable,
+    x:ch.x,y:y0,width,height,scale:1,mask:base+'-mask.png',replaceable:plan.replaceable,leftConnected:plan.leftConnected,rightConnected:plan.rightConnected,protectedArea:plan.protectedArea,
     contract:'Terrain only. Exact solid and ramp coverage. Transparent gaps; no background, one-way, hazards or dynamic entities. Neighboring chunk edges must match.'
   },null,2));
 }

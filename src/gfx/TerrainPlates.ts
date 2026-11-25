@@ -1,29 +1,46 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
-import { artChunks, terrainPlatePlan, type TerrainPlatePlan } from '../levels/ArtGeometry';
+import { terrainPlateGroups, terrainSeamCompatible, type TerrainPlatePlan } from '../levels/ArtGeometry';
 
 /** Only accepted plates replace the legacy presentation; physics still uses LevelData.
  * Runtime rejection leaves the previous organic renderer untouched. */
 export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
-  for(const ch of artChunks(level)){
-    const key='w1_plate_'+level.id+'_'+ch.id;
-    if(!scene.textures.exists(key))continue;
-    const p=terrainPlatePlan(level,ch);
-    if(!p?.replaceable){rejected.push(ch.id+':geometry');continue;}
+  for(const group of terrainPlateGroups(level)){
+    const entries=group.map(p=>({p,key:'w1_plate_'+level.id+'_'+p.id}));
+    const present=entries.filter(e=>scene.textures.exists(e.key));
+    if(!present.length)continue;
+    const reject=(reason:string)=>present.forEach(e=>rejected.push(e.p.id+':'+reason));
+    if(group.some(p=>p.protectedArea)){reject('geometry');continue;}
+    if(present.length!==entries.length){reject('missing-neighbor');continue;}
+    const added:Phaser.GameObjects.Image[]=[];
     try{
-      const source=scene.textures.get(key).getSourceImage() as CanvasImageSource & {width:number;height:number};
-      if(source.width!==p.width||source.height!==p.height||!validAlpha(source,p,level)){
-        rejected.push(ch.id+':alpha-or-size');continue;
+      const sources=entries.map(e=>scene.textures.get(e.key).getSourceImage() as CanvasImageSource & {width:number;height:number});
+      if(entries.some(({p},i)=>sources[i].width!==p.width||sources[i].height!==p.height||!validAlpha(sources[i],p,level))){
+        reject('alpha-or-size');continue;
       }
-      into.add(scene.add.image(p.x,p.y,key).setOrigin(0).setData('terrainPlate',ch.id));
-      for(let c=p.c0;c<p.c1;c++)columns.add(c);
-      accepted.push(ch.id);
-    }catch{rejected.push(ch.id+':render');}
+      if(entries.some(({p},i)=>i>0&&!terrainSeamCompatible(readEdge(sources[i-1],entries[i-1].p,true),readEdge(sources[i],p,false)))){
+        reject('seam');continue;
+      }
+      for(const {p,key} of entries){
+        const image=scene.add.image(p.x,p.y,key).setOrigin(0).setData('terrainPlate',p.id);
+        added.push(image);into.add(image);
+      }
+      for(const {p} of entries){
+        for(let c=p.c0;c<p.c1;c++)columns.add(c);
+        accepted.push(p.id);
+      }
+    }catch{added.forEach(image=>image.destroy());reject('render');}
   }
   scene.data.set('terrainPlates',accepted);scene.data.set('terrainPlateRejected',rejected);
   return columns;
+}
+function readEdge(source:CanvasImageSource,p:TerrainPlatePlan,right:boolean){
+  const canvas=document.createElement('canvas');canvas.width=1;canvas.height=p.height;
+  const g=canvas.getContext('2d');if(!g)throw Error('edge canvas unavailable');
+  g.drawImage(source,right?p.width-1:0,0,1,p.height,0,0,1,p.height);
+  return {y:p.y,rgba:g.getImageData(0,0,1,p.height).data};
 }
 function validAlpha(source:CanvasImageSource,p:TerrainPlatePlan,level:LevelData):boolean{
   const {width:w,height:h}=p;
