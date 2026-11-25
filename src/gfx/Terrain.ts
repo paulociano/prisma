@@ -323,6 +323,13 @@ export function ensureSoftShadow(scene: Phaser.Scene) {
 
 export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phaser.GameObjects.Container): TerrainLayers {
   const { rows, cols, tiles } = level;
+  // Scene instances are reused across phases; always clear presentation telemetry.
+  scene.data.set('organicCoffer',false);
+  scene.data.set('organicCofferSource','legacy');
+  scene.data.set('organicFaces',false);
+  scene.data.set('organicSurfaces',0);
+  scene.data.set('organicFaceBytes',0);
+  scene.data.set('organicMode','legacy');
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
@@ -337,6 +344,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // raízes atrás do interior; sombras de volume por cima dele; decoração atrás da grama do topo
   world.add([under, fills, decals, walls, ramps, shade, decor, tops, shadows]);
   if (level.arena && has(scene, level.arena)) {
+    scene.data.set('organicMode','painted-arena');
     // na arena o piso já está desenhado no fundo; só a colisão importa
     for (const l of [under, fills, decals, walls, ramps, shade, tops, shadows]) l.setVisible(false);
     return { fills, decor, tops };
@@ -372,7 +380,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
   // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
-  const organic = level.id === '1-3' && new URLSearchParams(window.location.search).get('organic') === '1';
+  const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
@@ -429,6 +437,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
   scene.data.set('organicFaces', !!baked);
+  scene.data.set('organicMode',baked?'organic':'legacy');
   let organicSurfaces=0;
 
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */

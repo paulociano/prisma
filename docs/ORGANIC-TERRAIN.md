@@ -38,3 +38,7 @@ OrganicSurface separa a folhagem da faixa de alvenaria, preserva o ponto de cont
 
 ## Piloto 6: captura determinística e referência de produção
 O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout esperando saturação. A captura agora congela física, remove follow de câmera e aplica ColorRestore.complete/update(1) somente pelo script de QA, mantendo a verificação de saturação e paridade física. Não altera a progressão do jogo. O exportador passa a fornecer coffer-mask.png (máscara transparente das células), coffer-guide.png/svg (contatos e abertura) e coffer-placement.json (coordenadas de mundo, escala e contrato do asset). Esses arquivos são guias técnicos e não arte nova. As sombras inferiores são recortadas à massa e os decalques legados não são duplicados sobre o bake. A aprovação permanece condicionada aos testes e inspeção visual.
+
+
+## Piloto 7: extensão para o Mundo 1
+`?organic=1` habilita o renderizador nas três fases de exploração do Vale do Coração. O Tribunal de Pedra conserva a arena já pintada; seu chão faz parte da imagem de fundo. O script valida os quatro mapas, a igualdade dos corpos estáticos, a seleção do renderer e o orçamento de pixels. O relatório world-one-parity.json contém a contagem de superfícies e bytes estimados por fase. Exportação de chunks para as quatro fases. O perfil de borda passa a variar continuamente em coordenadas do mundo, limitado a 10 pixels de projeção decorativa. A versão padrão continua inalterada; não é playtest completo e não contém ilustrações inéditas.

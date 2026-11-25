@@ -12,7 +12,7 @@ import { chromium } from 'playwright-core';
 
 const [label = 'atual', only] = process.argv.slice(2);
 // índice da fase -> colunas onde a câmera para
-const PLAN = { 0: [8, 31, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 4: [40, 112], 8: [40, 110], 12: [40, 96], 13: [40, 110], 16: [40, 110], 20: [40, 116], 24: [40, 80, 114] };
+const PLAN = { 0: [8, 31, 45, 60, 76, 110], 1: [30, 75, 120, 150, 185], 2: [62, 150], 3: [8,15], 4: [40, 112], 8: [40, 110], 12: [40, 96], 13: [40, 110], 16: [40, 110], 20: [40, 116], 24: [40, 80, 114] };
 const wanted = only ? only.split(',').map(Number) : Object.keys(PLAN).map(Number);
 const out = path.resolve('.debug/shots', label);
 fs.mkdirSync(out, { recursive: true });
@@ -41,7 +41,8 @@ for (const index of wanted) {
     g.scene.getScenes(true).forEach((s) => g.scene.stop(s.scene.key));
     g.scene.start('Game', { level: index });
   }, index);
-  await page.waitForFunction(() => window.game.scene.getScene('Game')?.player?.hit?.body && window.game.scene.getScene('Game')?.color, null, { timeout: 120000 });
+  const expectedId=(Math.floor(index/4)+1)+'-'+(index%4+1);
+  await page.waitForFunction(id=>{const s=window.game.scene.getScene('Game');return s?.level?.id===id && s?.player?.hit?.body && s?.color && (window.game.scene.isActive('Game')||window.game.scene.isPaused('Game'));}, expectedId, { timeout: 120000 });
   await page.waitForTimeout(1800);
   const info = await page.evaluate(() => {
     const s = window.game.scene.getScene('Game');
@@ -54,12 +55,15 @@ for (const index of wanted) {
     s.cameras.main.stopFollow();
     s.color.complete();
     s.color.update(1);
-    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), organicMode:s.data.get('organicMode'), organicFaceBytes:s.data.get('organicFaceBytes'), cols:s.level.cols, staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
   });
-  if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces || !(info.organicSurfaces>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
-  if(index===2 && label==='baseline' && info.organicCoffer) throw Error('Baseline unexpectedly uses organic coffer');
+  if(index<3 && label==='organic' && (!info.organicFaces || !(info.organicSurfaces>0) || info.organicMode!=='organic' || !(info.organicFaceBytes>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
+  if(index===2 && label==='organic' && !info.organicCoffer) throw Error('Missing organic coffer');
+  if(index<3 && label==='baseline' && (info.organicFaces||info.organicCoffer)) throw Error('Baseline unexpectedly uses organic terrain');
+  if(index===3 && ['organic','baseline'].includes(label) && info.organicMode!=='painted-arena') throw Error('Arena paint not preserved');
   fs.writeFileSync(path.join(out,info.id+'_renderer.json'),JSON.stringify(info,null,2));
   if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[8,62,150,Math.max(1,info.chest-4),info.chest+2,info.chest+9];
+  stops=[...new Set(stops.map(c=>Math.max(1,Math.min(info.cols-2,c))))];
   for (const col of stops) {
     await page.evaluate((col) => {
       const s = window.game.scene.getScene('Game');
