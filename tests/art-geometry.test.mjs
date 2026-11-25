@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible, terrainArtChunks, towerPillarPlans } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible, terrainArtChunks, towerPillarPlans, towerBridgePlans } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -136,4 +136,19 @@ test('tower pillar plan matches paired vertical geometry and refuses changed pas
   assert.deepEqual(towerPillarPlans(level).map(p=>[p.id,p.col,p.row,p.width,p.height]),[['suspended',6,3,80,768],['anchored',17,3,80,1088]]);
   assert.equal(JSON.stringify(level),before);
   tiles[8][7]=1;assert.deepEqual(towerPillarPlans(level),[]);
+});
+
+test('painted tower bridge plan covers exactly the original one-way runs',()=>{
+  const tiles=Array.from({length:22},(_,r)=>Array(30).fill(r>=20?1:0));
+  for(let r=3;r<=14;r++)tiles[r][6]=1;
+  for(let r=3;r<=19;r++)tiles[r][17]=1;
+  for(let c=7;c<21;c++)tiles[2][c]=2;
+  for(let i=0;i<8;i++)for(let c=6+(i%2===0?6:1);c<6+(i%2===0?6:1)+3;c++)tiles[4+i*2][c]=2;
+  const level={world:1,id:'1-3',cols:30,rows:22,tiles,entities:[]};
+  const before=JSON.stringify(level),plans=towerBridgePlans(level);
+  assert.equal(plans.length,9);assert.equal(plans.reduce((n,p)=>n+p.length,0),38);
+  assert.deepEqual(plans[0],{id:'canopy',col:7,row:2,length:14,x:448,y:120,width:896,height:32});
+  assert.ok(plans.every(p=>Array.from({length:p.length},(_,i)=>tiles[p.row][p.col+i]===2).every(Boolean)));
+  assert.equal(JSON.stringify(level),before);
+  tiles[8][12]=0;assert.equal(towerBridgePlans(level).length,8);
 });

@@ -701,6 +701,15 @@ for(const [id,height] of [['suspended',768],['anchored',1088]]){
   const entry=await processImage({key:'w1_tower_'+id,src,type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Thin painted root bridges, exact one-way run width.
+for(const [id,width] of [['canopy',896],['ruby',192],['moss',192]]){
+  const src='w1/organic/bridge_'+id+'.png',file=path.join(RAW,src);
+  if(!fs.existsSync(file))continue;
+  const meta=await sharp(file).metadata();
+  if(!meta.hasAlpha||meta.width!==width||meta.height!==32)throw Error(src+': invalid bridge dimensions');
+  const entry=await processImage({key:'w1_bridge_'+id,src,type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Optional authored terrain plates. Runtime checks exact generated geometry and alpha.
 for(const id of ['1-1','1-2','1-3']){
   const dir=path.join(RAW,'w1/organic/terrain',id);

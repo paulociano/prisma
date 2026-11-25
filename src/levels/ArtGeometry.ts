@@ -270,3 +270,20 @@ export function towerPillarPlans(level:LevelData):TowerPillarPlan[]{
   }
   return [];
 }
+
+export interface TowerBridgePlan {id:'canopy'|'ruby'|'moss';col:number;row:number;length:number;x:number;y:number;width:number;height:number}
+/** Keep every walkable contact within an existing one-way run. No new bridge
+ * geometry; the alternate ledges and top passage belong to the tower signature. */
+export function towerBridgePlans(level:LevelData):TowerBridgePlan[]{
+  const pillars=towerPillarPlans(level);if(pillars.length!==2)return [];
+  const {col,row}=pillars[0],at=(c:number,r:number)=>level.tiles[r]?.[c];
+  const plans:TowerBridgePlan[]=[];
+  const add=(id:TowerBridgePlan['id'],c:number,r:number,length:number)=>{
+    if(at(c-1,r)===T.OneWay||at(c+length,r)===T.OneWay)return;
+    for(let i=c;i<c+length;i++)if(at(i,r)!==T.OneWay||at(i,r-1)!==T.Empty)return;
+    plans.push({id,col:c,row:r,length,x:c*TILE,y:r*TILE-8,width:length*TILE,height:32});
+  };
+  add('canopy',col+1,row-1,14);
+  for(let i=0;i<8;i++)add(i%2===0?'ruby':'moss',col+(i%2===0?6:1),row+1+i*2,3);
+  return plans;
+}

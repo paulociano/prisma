@@ -27,6 +27,7 @@ import { Ambient } from '../systems/Ambient';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
+import { paintTowerBridges } from '../gfx/TerrainBridge';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
@@ -609,6 +610,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const art = has(this, this.tex('tiles'));
     // o desenho do chão (interior, topo, ilhas, sombras de volume) fica em gfx/Terrain.ts
     const { decor, tops } = buildTerrain(this, this.level, this.world);
+    this.data.set('terrainTowerBridges',[]);
+    const bridgeCells=!this.isSub&&this.data.get('organicMode')==='organic'&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerBridges(this,this.level,tops):new Set<number>();
     this.hasRamps = this.level.tiles.some((row) => row.some(isRamp));
     this.onRampLast = false;
     this.decor = decor;
@@ -621,8 +624,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         const solid = t === T.Solid;
 
         if (t === T.OneWay) {
-          if (art) tops.add(this.add.image(x + TILE / 2, y - 2, this.tex('tiles'), String(F.w1Tiles.plank)).setOrigin(0.5, 0).setDisplaySize(TILE + 4, 18));
-          else tops.add(this.add.image(x, y, 'oneway').setOrigin(0));
+          if (!bridgeCells.has(r*cols+c)) {
+            if (art) tops.add(this.add.image(x + TILE / 2, y - 2, this.tex('tiles'), String(F.w1Tiles.plank)).setOrigin(0.5, 0).setDisplaySize(TILE + 4, 18));
+            else tops.add(this.add.image(x, y, 'oneway').setOrigin(0));
+          }
           const z = this.add.zone(x + TILE / 2, y + 8, TILE, 16);
           this.oneways.add(z);
           const body = z.body as Phaser.Physics.Arcade.StaticBody;

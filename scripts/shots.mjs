@@ -198,7 +198,7 @@ if(label==='organic'&&wanted.includes(2)){
     if(g.scene.isActive('Dialogue'))g.scene.stop('Dialogue');
     if(g.scene.isPaused('Game'))g.scene.resume('Game');
     s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();s.color.complete();s.color.update(1);
-    return {pillars:s.data.get('terrainTowerPillars'),accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    return {bridges:s.data.get('terrainTowerBridges'),pillars:s.data.get('terrainTowerPillars'),accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
   fs.writeFileSync(path.join(out,'root-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-3_renderer.json','utf8'));
@@ -209,7 +209,8 @@ if(label==='organic'&&wanted.includes(2)){
     await page.screenshot({path:path.join(out,'root-plate-c'+col+'.png')});
   }
   if(JSON.stringify(result.pillars?.map(p=>[p.id,p.col,p.row,p.height]))!==JSON.stringify([['suspended',131,3,768],['anchored',142,3,1088]]))throw Error('Tower pillars missing: '+JSON.stringify(result.pillars));
-  for(const [col,row] of [[136,5],[136,11],[136,18]]){
+  if(result.bridges?.length!==9||result.bridges.reduce((n,p)=>n+p.length,0)!==38||result.bridges[0].width!==896)throw Error('Root tower bridges missing: '+JSON.stringify(result.bridges));
+  for(const [col,row] of [[136,2],[136,5],[136,11],[136,18]]){
     await page.evaluate(([col,row])=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,row*64-46);s.cameras.main.centerOn(col*64+32,row*64-46);},[col,row]);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({path:path.join(out,'root-tower-r'+row+'.png')});
