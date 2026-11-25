@@ -38,3 +38,15 @@ OrganicSurface separa a folhagem da faixa de alvenaria, preserva o ponto de cont
 
 ## Piloto 6: captura determinística e referência de produção
 O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout esperando saturação. A captura agora congela física, remove follow de câmera e aplica ColorRestore.complete/update(1) somente pelo script de QA, mantendo a verificação de saturação e paridade física. Não altera a progressão do jogo. O exportador passa a fornecer coffer-mask.png (máscara transparente das células), coffer-guide.png/svg (contatos e abertura) e coffer-placement.json (coordenadas de mundo, escala e contrato do asset). Esses arquivos são guias técnicos e não arte nova. As sombras inferiores são recortadas à massa e os decalques legados não são duplicados sobre o bake. A aprovação permanece condicionada aos testes e inspeção visual.
+
+
+## Piloto 7: extensão para o Mundo 1
+`?organic=1` habilita o renderizador nas três fases de exploração do Vale do Coração. O Tribunal de Pedra conserva a arena já pintada; seu chão faz parte da imagem de fundo. O script valida os quatro mapas, a igualdade dos corpos estáticos, a seleção do renderer e o orçamento de pixels. O relatório world-one-parity.json contém a contagem de superfícies e bytes estimados por fase. Exportação de chunks para as quatro fases. O perfil de borda passa a variar continuamente em coordenadas do mundo, limitado a 10 pixels de projeção decorativa. A versão padrão continua inalterada; não é playtest completo e não contém ilustrações inéditas.
+
+
+## Piloto 8: primeira ilustração inédita
+`assets/raw/w1/organic/coffer.png` é um asset raster gerado para a direção artística do PRISMA, separado do mapa de colisões. A imagem original foi ajustada com remapeamento por trechos para alinhar as alturas de contato e o vão ao gabarito 832×704 RGBA. Validação local do arquivo: 11/11 centros sólidos com alfa >220, 98,97% de amostras transparentes no vão protegido, quatro cantos transparentes. Não contém personagens, HUD ou objetos de interação. O pipeline existente converte para WebP e o renderer HeroCoffer usa o asset somente no modo experimental. A suite visual exige explicitamente organicCofferSource=authored; sem isso a publicação experimental não é aprovada. Os números de alfa não substituem inspeção de alinhamento visual nem playtest.
+
+
+## Piloto 9: primeira ilha orgânica reutilizável
+`assets/raw/w1/organic/island.png`: novo raster gerado, 448×240 RGBA, núcleo horizontal de 384 px (x=32..416), contato y=48. Remapeado por faixas verticais para conservar o volume e alinhar o contato. Verificação local: 99,54% de cobertura alfa >220 no núcleo x=32..415, y=64..159; 9/9 pontos de controle preenchidos, cantos transparentes. O renderer aplica a peça apenas em ilhas sólidas livres de 2–4 células, com margem proporcional e altura fixa de 120 px. Não altera plataformas móveis, atravessáveis ou físicas. O CI verifica o conjunto de posições elegíveis e a utilização de cada asset, além da paridade de colisões. Ainda requer inspeção de capturas para verificar contorno e leitura de superfície; uma variante não resolve toda a repetição.

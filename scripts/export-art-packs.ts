@@ -58,8 +58,8 @@ async function main(){
     const focus=chest?focusArtChunk(l,chest.col+2):undefined;
     await fs.writeFile(path.join(dir,'map.json'),JSON.stringify({schema:1,tileSize:TILE,level:l,chunks,walls:exposedWallRuns(l),focus},null,2));
     await writeGuide(l,full,dir,true);
-    if(l.id==='1-3'){
-      await writeCofferGuide(l,dir);
+    if(l.world===1){
+      if(l.id==='1-3')await writeCofferGuide(l,dir);
       for(const ch of chunks)await writeGuide(l,ch,dir,true);
       if(focus){
         await writeGuide(l,focus,dir,true);

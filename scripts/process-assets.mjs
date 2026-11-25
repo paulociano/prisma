@@ -629,6 +629,24 @@ if(fs.existsSync(cofferFile)){
   const entry=await processImage({key:'w1_organic_coffer',src:'w1/organic/coffer.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Authored floating island: fixed walking plane and a continuous opaque core.
+const islandFile=path.join(RAW,'w1/organic/island.png');
+if(fs.existsSync(islandFile)){
+  const meta=await sharp(islandFile).metadata();
+  const {data,info}=await sharp(islandFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const alpha=(x,y)=>data[(y*info.width+x)*4+3];
+  let ok=meta.hasAlpha&&info.width===448&&info.height===240&&info.channels===4;
+  if(ok){
+    let covered=0,total=0;
+    for(let y=64;y<160;y++)for(let x=32;x<416;x++){total++;if(alpha(x,y)>220)covered++;}
+    ok=covered/total>=.98;
+    ok=ok&&[96,224,352].every(x=>[80,112,144].every(y=>alpha(x,y)>220));
+    ok=ok&&[[0,0],[447,0],[0,239],[447,239]].every(([x,y])=>alpha(x,y)<24);
+  }
+  if(!ok)throw Error('w1/organic/island.png: expected 448x240 RGBA, opaque playable core and transparent corners');
+  const entry=await processImage({key:'w1_organic_island',src:'w1/organic/island.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;

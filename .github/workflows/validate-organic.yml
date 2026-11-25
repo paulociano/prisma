@@ -37,8 +37,8 @@ jobs:
       - run: npm run assets
       - name: Capture baseline and organic pilot
         run: |
-          npm run shots -- baseline 2
-          npm run shots -- organic 2
+          npm run shots -- baseline 0,1,2,3
+          npm run shots -- organic 0,1,2,3
           node scripts/check-visual-parity.mjs
       - uses: actions/upload-artifact@v4
         if: always()

@@ -32,6 +32,7 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
     spans.push({x0,width,c0,c1,y0,y1});
   }
   if(bytes>64*1024*1024)return false;
+  scene.data.set('organicFaceBytes',bytes);
   const source = scene.textures.get(texture).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
   const sw = source.width * .5, sh = source.height * .5;
   if (!sw || !sh) return false;
@@ -53,8 +54,11 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
         count++;
         const x = c*TILE, y = r*TILE, right=x+TILE, bottom=y+TILE;
         const top = r === 0 || !block(c,r-1);
-        const l = empty(c-1,r) ? 4+noise(c,r,1)*6 : 0;
-        const rr = empty(c+1,r) ? 4+noise(c,r,2)*6 : 0;
+        // A coherent rock profile across rows, rather than one random bump per tile.
+        // Retain the physical core and limit protrusions to 10 world pixels.
+        const profile=(edge:number,yy:number)=>3+7*(.5+.5*Math.sin(yy*.012+edge*.74)*Math.cos(yy*.021-edge*.31));
+        const l = empty(c-1,r) ? profile(c,r*TILE+32) : 0;
+        const rr = empty(c+1,r) ? profile(c+1,r*TILE+32) : 0;
         const b = empty(c,r+1) ? 3+noise(c,r,3)*6 : 0;
         // Top 14 px remain under the original painted cap; contact plane is exact.
         g.moveTo(x,y+(top?12:0)); g.lineTo(right,y+(top?12:0));
@@ -125,6 +129,7 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
     return true;
   } catch {
     for(const m of made){m.image.destroy();scene.textures.remove(m.key);}
+    scene.data.set('organicFaceBytes',0);
     return false;
   }
 }

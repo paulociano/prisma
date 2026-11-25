@@ -323,6 +323,15 @@ export function ensureSoftShadow(scene: Phaser.Scene) {
 
 export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phaser.GameObjects.Container): TerrainLayers {
   const { rows, cols, tiles } = level;
+  // Scene instances are reused across phases; always clear presentation telemetry.
+  scene.data.set('organicCoffer',false);
+  scene.data.set('organicCofferSource','legacy');
+  scene.data.set('organicFaces',false);
+  scene.data.set('organicSurfaces',0);
+  scene.data.set('organicFaceBytes',0);
+  scene.data.set('organicMode','legacy');
+  const authoredIslands: {col:number;row:number;length:number}[]=[];
+  scene.data.set('organicAuthoredIslands',authoredIslands);
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
@@ -337,6 +346,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // raízes atrás do interior; sombras de volume por cima dele; decoração atrás da grama do topo
   world.add([under, fills, decals, walls, ramps, shade, decor, tops, shadows]);
   if (level.arena && has(scene, level.arena)) {
+    scene.data.set('organicMode','painted-arena');
     // na arena o piso já está desenhado no fundo; só a colisão importa
     for (const l of [under, fills, decals, walls, ramps, shade, tops, shadows]) l.setVisible(false);
     return { fills, decor, tops };
@@ -372,7 +382,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
   // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
-  const organic = level.id === '1-3' && new URLSearchParams(window.location.search).get('organic') === '1';
+  const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
@@ -388,6 +398,17 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   /** Peças de ilha lado a lado cobrindo as colunas c0..c1 (superfície na linha física `y`). */
   const islandRun = (c0: number, c1: number, y: number, into: Phaser.GameObjects.Container, drop = 4) => {
     const len = c1 - c0 + 1;
+    // Only freestanding solid islands, not one-way, moving platforms or hanging decoration.
+    const authoredKey='w1_organic_island';
+    if(organic && into===tops && drop===4 && len>=2 && len<=4 && has(scene,authoredKey)){
+      // Source contract: 448x240 at 2x, 384px playable core, y=48 contact.
+      // Horizontal scaling matches the actual run; vertical scale remains fixed.
+      const core=len*TILE, scale=core/384;
+      const img=scene.add.image(c0*TILE-32*scale,y-24,authoredKey).setOrigin(0).setDisplaySize(448*scale,120);
+      into.add(img);
+      authoredIslands.push({col:c0,row:y/TILE,length:len});
+      return;
+    }
     const total = len * TILE + 16;
     const n = len === 1 ? 1 : Math.max(1, Math.round(len / (organic ? 3.6 : 2.4)));
     const overlap = n > 1 ? 18 : 0;
@@ -429,6 +450,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
   scene.data.set('organicFaces', !!baked);
+  scene.data.set('organicMode',baked?'organic':'legacy');
   let organicSurfaces=0;
 
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */
