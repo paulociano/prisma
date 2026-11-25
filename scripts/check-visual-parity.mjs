@@ -16,10 +16,13 @@ for(const id of ['1-1','1-2','1-3','1-4']){
     assert.ok(organic.organicFaceBytes>0&&organic.organicFaceBytes<=64*1024*1024);
     assert.equal(base.organicMode,'legacy');
     assert.deepEqual(base.authoredIslands,[]);
+    assert.deepEqual(base.authoredWalls,[]);
+    assert.ok(organic.authoredWalls.length>0,'missing authored walls '+id);
+    assert.ok(organic.authoredWalls.every(w=>w.r1-w.r0+1>=2&&w.r1-w.r0+1<=5),'invalid authored wall segment');
     assert.deepEqual(organic.authoredIslands,base.islandCandidates,'authored islands not rendered '+id);
     if(id==='1-3'){assert.ok(organic.organicCoffer);assert.equal(organic.organicCofferSource,'authored','generated coffer not loaded');}
   }
-  summary.push({id,staticBodies:base.staticGeometry.map(x=>x.length),mode:organic.organicMode,surfaceRuns:organic.organicSurfaces,estimatedFaceBytes:organic.organicFaceBytes,authoredIslands:organic.authoredIslands.length});
+  summary.push({id,staticBodies:base.staticGeometry.map(x=>x.length),mode:organic.organicMode,surfaceRuns:organic.organicSurfaces,estimatedFaceBytes:organic.organicFaceBytes,authoredIslands:organic.authoredIslands.length,authoredWalls:organic.authoredWalls.length});
 }
 fs.writeFileSync('.debug/shots/world-one-parity.json',JSON.stringify(summary,null,2));
 console.log('World 1 A/B physics parity:',JSON.stringify(summary));

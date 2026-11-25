@@ -74,3 +74,15 @@ export function cofferPlan(level: LevelData): { col:number; row:number; cells:Se
     if(ok)return {col:c,row:r,cells};
   }
 }
+
+/** Art-only vertical sections. Prefer one face on thin pillars. */
+export function organicWallSegments(level:LevelData,block?:(c:number,r:number)=>boolean):WallRun[]{
+  const runs=exposedWallRuns(level,block).filter(w=>w.r1-w.r0+1>=2);
+  const out:WallRun[]=[];
+  for(const w of runs){
+    if(w.side==='right'&&runs.some(l=>l.side==='left'&&l.col===w.col&&l.r0<=w.r1&&l.r1>=w.r0))continue;
+    const count=w.r1-w.r0+1,n=Math.ceil(count/5);
+    for(let i=0;i<n;i++)out.push({...w,r0:w.r0+Math.floor(i*count/n),r1:w.r0+Math.floor((i+1)*count/n)-1});
+  }
+  return out;
+}

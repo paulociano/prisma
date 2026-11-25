@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
+import { organicWallSegments } from '../levels/ArtGeometry';
 
 let serial = 0;
 const noise = (c: number, r: number, seed: number) => {
@@ -39,6 +40,9 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
   const made: { key: string; image: Phaser.GameObjects.Image }[] = [];
   const empty = (c: number, r: number) => c >= 0 && c < level.cols && r >= 0 && r < level.rows && level.tiles[r][c] === T.Empty;
   const id = ++serial;
+  const wallKey='w'+level.world+'_organic_wall';
+  const wallSource=scene.textures.exists(wallKey)?scene.textures.get(wallKey).getSourceImage() as HTMLImageElement|HTMLCanvasElement:undefined;
+  const wallSegments=wallSource?organicWallSegments(level,block):[];
   try {
     for (const {x0,width,c0,c1,y0,y1} of spans) {
       const canvas = document.createElement('canvas');
@@ -93,6 +97,16 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
           }
         }
       }
+      // Paint the illustrated face inside the existing solid mask.
+      if(wallSource)for(const q of wallSegments){
+        const x=q.side==='left'?q.col*TILE-12:(q.col+1)*TILE-84;
+        const y=q.r0*TILE-6,w=96,h=(q.r1-q.r0+1)*TILE+12;
+        if(x+w<x0-pad||x>x0+width+pad||y+h<y0-pad||y>y1+pad)continue;
+        g.save();
+        if(q.side==='right'){g.translate(x+w,y);g.scale(-1,1);g.drawImage(wallSource,0,0,w,h);}
+        else g.drawImage(wallSource,x,y,w,h);
+        g.restore();
+      }
       // Local shading is clipped to the actual solid mass.
       for(let r=0;r<level.rows;r++)for(let c=c0;c<c1;c++){
         if(!block(c,r))continue;
@@ -126,6 +140,7 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
       into.add(image);made.push({key,image});
     }
     scene.events.once('shutdown',()=>{for(const m of made)scene.textures.remove(m.key);});
+    scene.data.set('organicAuthoredWalls',wallSegments);
     return true;
   } catch {
     for(const m of made){m.image.destroy();scene.textures.remove(m.key);}

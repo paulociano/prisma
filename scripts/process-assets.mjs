@@ -647,6 +647,22 @@ if(fs.existsSync(islandFile)){
   const entry=await processImage({key:'w1_organic_island',src:'w1/organic/island.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Illustrated cliff face with a validated opaque core.
+const wallFile=path.join(RAW,'w1/organic/wall.png');
+if(fs.existsSync(wallFile)){
+  const meta=await sharp(wallFile).metadata();
+  const {data,info}=await sharp(wallFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const alpha=(x,y)=>data[(y*info.width+x)*4+3];
+  let ok=meta.hasAlpha&&info.width===256&&info.height===512&&info.channels===4;
+  if(ok){
+    let covered=0,total=0;
+    for(let y=56;y<456;y++)for(let x=100;x<190;x++){total++;if(alpha(x,y)>220)covered++;}
+    ok=covered/total>=.98&&[[0,0],[255,0],[0,511],[255,511]].every(([x,y])=>alpha(x,y)<24);
+  }
+  if(!ok)throw Error('w1/organic/wall.png: invalid alpha or dimensions');
+  const entry=await processImage({key:'w1_organic_wall',src:'w1/organic/wall.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;
