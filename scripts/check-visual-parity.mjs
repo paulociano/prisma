@@ -18,6 +18,14 @@ for(const id of ['1-1','1-2','1-3','1-4']){
     assert.deepEqual(base.authoredIslands,[]);
     assert.deepEqual(base.authoredWalls,[]);
     assert.deepEqual(base.authoredGround,[]);
+    assert.deepEqual(base.authoredRamps,[]);
+    assert.deepEqual(base.authoredCorners,[]);
+    assert.deepEqual(organic.authoredRamps,base.rampCandidates,'organic ramp coverage mismatch '+id);
+    assert.deepEqual(organic.rampContacts,base.rampContacts,'ramp physics changed '+id);
+    for(const [i,q] of organic.rampCandidates.entries()){
+      const expected=[.5,32,63.5,64.5,96,127.5].map(dx=>q.row*64+(q.up?64-dx/2:dx/2));
+      assert.ok(expected.every((v,j)=>Math.abs(v-organic.rampContacts[i][j])<.001),'ramp contact mismatch '+id);
+    }
     assert.ok(organic.authoredGround.length>0,'missing authored ground '+id);
     assert.ok(organic.authoredGround.every(g=>g.length>=3),'invalid ground run');
     assert.ok(organic.authoredWalls.length>0,'missing authored walls '+id);
@@ -25,7 +33,7 @@ for(const id of ['1-1','1-2','1-3','1-4']){
     assert.deepEqual(organic.authoredIslands,base.islandCandidates,'authored islands not rendered '+id);
     if(id==='1-3'){assert.ok(organic.organicCoffer);assert.equal(organic.organicCofferSource,'authored','generated coffer not loaded');}
   }
-  summary.push({id,staticBodies:base.staticGeometry.map(x=>x.length),mode:organic.organicMode,surfaceRuns:organic.organicSurfaces,estimatedFaceBytes:organic.organicFaceBytes,authoredIslands:organic.authoredIslands.length,authoredWalls:organic.authoredWalls.length,authoredGround:organic.authoredGround.length,authoredGroundCells:organic.authoredGround.reduce((n,g)=>n+g.length,0)});
+  summary.push({id,staticBodies:base.staticGeometry.map(x=>x.length),mode:organic.organicMode,surfaceRuns:organic.organicSurfaces,estimatedFaceBytes:organic.organicFaceBytes,authoredIslands:organic.authoredIslands.length,authoredWalls:organic.authoredWalls.length,authoredGround:organic.authoredGround.length,authoredGroundCells:organic.authoredGround.reduce((n,g)=>n+g.length,0),authoredRamps:organic.authoredRamps.length,authoredCorners:organic.authoredCorners.length});
 }
 fs.writeFileSync('.debug/shots/world-one-parity.json',JSON.stringify(summary,null,2));
 console.log('World 1 A/B physics parity:',JSON.stringify(summary));

@@ -86,3 +86,33 @@ export function organicWallSegments(level:LevelData,block?:(c:number,r:number)=>
   }
   return out;
 }
+
+export interface OrganicRampPlan {col:number;row:number;up:boolean}
+/** Match complete, authored two-cell ramps. Geometry remains read-only. */
+export function organicRampPlans(level:LevelData):OrganicRampPlan[]{
+  const out:OrganicRampPlan[]=[];
+  for(let r=0;r<level.rows;r++)for(let c=0;c<level.cols-1;c++){
+    const a=level.tiles[r][c],b=level.tiles[r][c+1];
+    if(a===T.RampR1&&b===T.RampR2)out.push({col:c,row:r,up:true});
+    if(a===T.RampL2&&b===T.RampL1)out.push({col:c,row:r,up:false});
+  }
+  return out;
+}
+/** Pixel offset relative to the top of the ramp row, at a local x in [0,128]. */
+export function organicRampY(up:boolean,x:number):number{
+  const u=Math.max(0,Math.min(1,x/(2*TILE)));
+  return TILE*(up?1-u:u);
+}
+export interface OrganicCornerPlan {col:number;row:number;side:'left'|'right'}
+/** Three occupied cells around an empty concave corner; never bridge a gap. */
+export function organicCornerPlans(level:LevelData,block:(c:number,r:number)=>boolean):OrganicCornerPlan[]{
+  const out:OrganicCornerPlan[]=[];
+  for(let r=1;r<level.rows-1;r++)for(let c=1;c<level.cols-1;c++){
+    if(level.tiles[r][c]!==T.Empty||!block(c,r+1))continue;
+    for(const side of ['left','right'] as const){
+      const n=c+(side==='left'?-1:1);
+      if(block(n,r)&&block(n,r+1))out.push({col:c,row:r,side});
+    }
+  }
+  return out;
+}
