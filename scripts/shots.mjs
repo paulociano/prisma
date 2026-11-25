@@ -146,6 +146,14 @@ if(label==='organic'&&wanted.includes(0)){
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
     if(!invalid&&!result.accepted.includes('chunk_001'))throw Error('Authored plate rejected: '+JSON.stringify(result.rejected));
     if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
+    if(!['chunk_011','chunk_012'].every(id=>result.accepted.includes(id)))throw Error('Continuous Vale master rejected: '+JSON.stringify(result.rejected));
+    if(!invalid){
+      for(const col of [201,218,222]){
+        await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,10*64-46);s.cameras.main.centerOn(col*64+32,10*64-46);},col);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        await page.screenshot({path:path.join(out,'vale-master-c'+col+'.png')});
+      }
+    }
   }
 }
 // Two independent authored opening masses in Trilha das Lanternas.
