@@ -67,6 +67,48 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
       // Texture is sampled at a stable world coordinate, never restarted on a cell/chunk.
       for(let y=Math.floor((y0-pad)/sh)*sh;y<y1+pad;y+=sh) for(let x=Math.floor((x0-pad)/sw)*sw;x<x0+width+pad;x+=sw)
         g.drawImage(source,x,y,sw,sh);
+      // World-space jittered painted rock and root decals. Neighbor stamps
+      // are sampled identically in both strips so their seams stay continuous.
+      const decalKey='w'+level.world+'_decals';
+      if(scene.textures.exists(decalKey)){
+        const atlas=scene.textures.get(decalKey);
+        const stamp=(frame:number,x:number,y:number,w:number,h:number,angle:number,alpha:number)=>{
+          if(!atlas.has(String(frame)))return;
+          const f=atlas.get(String(frame));
+          g.save();g.translate(x,y);g.rotate(angle);g.globalAlpha=alpha;
+          g.drawImage(f.source.image as CanvasImageSource,f.cutX,f.cutY,f.cutWidth,f.cutHeight,-w/2,-h/2,w,h);g.restore();
+        };
+        for(let r=Math.max(0,Math.floor((y0-160)/128));r<=Math.ceil((y1+160)/128);r++){
+          for(let c=Math.max(0,Math.floor((x0-180)/144));c<=Math.ceil((x0+width+180)/144);c++){
+            const x=c*144+28+noise(c,r,4)*88,y=r*128+15+noise(c,r,5)*84;
+            if(!block(Math.floor(x/TILE),Math.floor(y/TILE)))continue;
+            const size=92+noise(c,r,6)*92;
+            stamp(noise(c,r,7)>.45?0:1,x,y,size,size*.73,(noise(c,r,8)-.5)*.9,.79);
+            if(noise(c,r,9)>.28)stamp(2,x+18,y+24,size*1.3,size*.53,(noise(c,r,10)-.5)*1.7,.88);
+            if(noise(c,r,11)>.72)stamp(3,x-21,y-18,48,34,(noise(c,r,12)-.5)*.8,.8);
+          }
+        }
+      }
+      // Local shading is clipped to the actual solid mass.
+      for(let r=0;r<level.rows;r++)for(let c=c0;c<c1;c++){
+        if(!block(c,r))continue;
+        const x=c*TILE,y=r*TILE;
+        if(!block(c,r-1)){
+          const q=g.createLinearGradient(0,y+12,0,y+52);
+          q.addColorStop(0,'rgba(44,23,29,.36)');q.addColorStop(1,'rgba(44,23,29,0)');
+          g.fillStyle=q;g.fillRect(x,y+12,TILE,40);
+        }
+        if(empty(c,r+1)){
+          const q=g.createLinearGradient(0,y+TILE-26,0,y+TILE+9);
+          q.addColorStop(0,'rgba(34,17,29,0)');q.addColorStop(1,'rgba(34,17,29,.4)');
+          g.fillStyle=q;g.fillRect(x,y+TILE-26,TILE,35);
+        }
+        if(empty(c-1,r)||empty(c+1,r)){
+          const left=empty(c-1,r),q=g.createLinearGradient(left?x:x+TILE,y,left?x+30:x+TILE-30,y);
+          q.addColorStop(0,'rgba(38,22,32,.31)');q.addColorStop(1,'rgba(38,22,32,0)');
+          g.fillStyle=q;g.fillRect(left?x:x+TILE-30,y,30,TILE);
+        }
+      }
       // Large-scale light modulation across the rock, independent of the grid.
       // A constant vertical illumination avoids visible seams between strips.
       const vertical=g.createLinearGradient(0,0,0,H);

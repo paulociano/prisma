@@ -23,6 +23,7 @@ const browser = await chromium.launch({
   ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' }),
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--no-sandbox'],
 });
+try {
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
@@ -40,17 +41,25 @@ for (const index of wanted) {
     g.scene.getScenes(true).forEach((s) => g.scene.stop(s.scene.key));
     g.scene.start('Game', { level: index });
   }, index);
-  await page.waitForFunction(() => window.game.scene.getScene('Game')?.player, null, { timeout: 120000 });
+  await page.waitForFunction(() => window.game.scene.getScene('Game')?.player?.hit?.body && window.game.scene.getScene('Game')?.color, null, { timeout: 120000 });
   await page.waitForTimeout(1800);
   const info = await page.evaluate(() => {
     const s = window.game.scene.getScene('Game');
-    s.color.complete(); // cor cheia: é assim que a arte é julgada
-    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource') };
+    // Capture is not a playtest. Fix state explicitly instead of waiting for
+    // the gameplay clock (which may pause during dialogue or on a slow runner).
+    if (window.game.scene.isActive('Dialogue')) window.game.scene.stop('Dialogue');
+    if (window.game.scene.isPaused('Game')) window.game.scene.resume('Game');
+    s.player.frozen=true;
+    s.physics.world.pause();
+    s.cameras.main.stopFollow();
+    s.color.complete();
+    s.color.update(1);
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
   });
-  if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces)) throw Error('Organic renderer fallback: '+JSON.stringify(info));
+  if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces || !(info.organicSurfaces>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
   if(index===2 && label==='baseline' && info.organicCoffer) throw Error('Baseline unexpectedly uses organic coffer');
   fs.writeFileSync(path.join(out,info.id+'_renderer.json'),JSON.stringify(info,null,2));
-  if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[Math.max(1,info.chest-4),info.chest+2,info.chest+9];
+  if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[8,62,150,Math.max(1,info.chest-4),info.chest+2,info.chest+9];
   for (const col of stops) {
     await page.evaluate((col) => {
       const s = window.game.scene.getScene('Game');
@@ -59,19 +68,24 @@ for (const index of wanted) {
       let row = s.level.rows - 3;
       for (let r = 1; r < s.level.rows; r++) if (s.level.tiles[r][col] === 1 && s.level.tiles[r - 1][col] === 0) { row = r; break; }
       s.player.frozen = true;
+      s.physics.world.pause();
       h.body.allowGravity = false;
       h.body.reset(col * 64 + 32, row * 64 - 46);
-      s.cameras.main.centerOn(col * 64 + 32, row * 64 - 46); // sem esperar a câmera suavizada chegar
+      s.cameras.main.stopFollow();
+      s.cameras.main.centerOn(col * 64 + 32, row * 64 - 46);
+      s.color.complete(); s.color.update(1);
+      if(s.color.value<.998)throw Error('Capture saturation not synchronized');
     }, col);
-    // ColorRestore animates independently; wait for the same saturation in each shot.
-    await page.waitForFunction(()=>window.game.scene.getScene('Game').color.value>=.998,null,{timeout:30000});
-    await page.waitForTimeout(500);
+    // Two rendered frames after the state change, rather than gameplay time.
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({ path: path.join(out, `${info.id}_c${String(col).padStart(3, '0')}.png`) });
   }
   console.log(`fase ${info.id}: ${stops.length} captura(s), ${info.objects} objetos em cena`);
 }
 if (errors.length) console.log('erros no console:\n' + [...new Set(errors)].slice(0, 10).join('\n'));
-await browser.close();
-await server.close();
 console.log(`capturas em ${out}`);
-process.exit(errors.length ? 1 : 0);
+if(errors.length)process.exitCode=1;
+} finally {
+  await browser.close();
+  await server.close();
+}

@@ -3,7 +3,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { LEVELS } from '../src/levels';
 import { TILE } from '../src/config';
-import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, type ArtChunk } from '../src/levels/ArtGeometry';
+import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, type ArtChunk } from '../src/levels/ArtGeometry';
 import type { LevelData } from '../src/levels/LevelBuilder';
 
 const root=path.resolve('.debug/art-packs');
@@ -32,6 +32,21 @@ async function writeGuide(l:LevelData,ch:ArtChunk,dir:string,png:boolean){
   await fs.writeFile(path.join(dir,ch.id+'.svg'),data);
   if(png)await sharp(Buffer.from(data)).resize({width:Math.min(ch.width,4096),withoutEnlargement:true}).png().toFile(path.join(dir,ch.id+'.png'));
 }
+/** Exact 2x coffer template for the asset ingestion contract. Mask is a guide, not final art. */
+async function writeCofferGuide(l:LevelData,dir:string){
+  const plan=cofferPlan(l);if(!plan)return;
+  const w=832,h=704,pad=96,tile=128;
+  const cells=Array.from(plan.cells).map(i=>({c:i%l.cols-plan.col,r:Math.floor(i/l.cols)-plan.row}));
+  const blocks=cells.map(({c,r})=>'<rect x="'+(pad+c*tile)+'" y="'+(pad+r*tile)+'" width="128" height="128" fill="#ffffff"/>').join('');
+  const header='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">';
+  await sharp(Buffer.from(header+blocks+'</svg>')).png().toFile(path.join(dir,'coffer-mask.png'));
+  const lines='<path d="M96 96H608 M224 480H736" stroke="#f7ce68" stroke-width="5" fill="none"/><path d="M224 224H608V480H224Z" stroke="#56e3cf" stroke-width="3" stroke-dasharray="9 7" fill="none"/>';
+  const guide=header+'<rect width="832" height="704" fill="#302a3b"/><g opacity=".6">'+blocks+'</g>'+lines+
+    '<g font-family="sans-serif" font-size="20" fill="#fff"><text x="16" y="40">PRISMA / coffer 2x · 832 × 704</text><text x="245" y="360">Vão transparente</text><text x="244" y="466">Superfície jogável</text></g></svg>';
+  await fs.writeFile(path.join(dir,'coffer-guide.svg'),guide);
+  await sharp(Buffer.from(guide)).png().toFile(path.join(dir,'coffer-guide.png'));
+  await fs.writeFile(path.join(dir,'coffer-placement.json'),JSON.stringify({schema:1,level:l.id,asset:'assets/raw/w1/organic/coffer.png',width:w,height:h,scale:.5,origin:{x:plan.col*TILE-48,y:plan.row*TILE-48},cells,contactLines:[{x0:96,x1:608,y:96},{x0:224,x1:736,y:480}],clearArea:{x:250,y:250,width:215,height:180}},null,2));
+}
 async function main(){
   await fs.mkdir(root,{recursive:true});
   const index=[];
@@ -44,6 +59,7 @@ async function main(){
     await fs.writeFile(path.join(dir,'map.json'),JSON.stringify({schema:1,tileSize:TILE,level:l,chunks,walls:exposedWallRuns(l),focus},null,2));
     await writeGuide(l,full,dir,true);
     if(l.id==='1-3'){
+      await writeCofferGuide(l,dir);
       for(const ch of chunks)await writeGuide(l,ch,dir,true);
       if(focus){
         await writeGuide(l,focus,dir,true);
