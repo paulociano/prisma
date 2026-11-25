@@ -562,6 +562,15 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
             const frame = endL && !endR ? K2.underL : endR && !endL ? K2.underR : rnd() < 0.5 ? K2.under : K2.under2;
             const img = scene.add.image(i * TILE + TILE / 2, y + TILE - 12, kit2, String(frame)).setOrigin(0.5, 0);
             img.setScale((TILE + 8) / img.width);
+            if(baked){
+              // Deterministic variation in the decorative underside only.
+              // Keep the upper attachment and the physical contact unchanged.
+              const phase=i*.91+r*1.73;
+              const sx=img.scaleX,sy=img.scaleY;
+              img.setScale(sx,sy*(.82+.26*(.5+.5*Math.sin(phase))));
+              img.setTint(0xd2c2cb);
+              if(!endL&&!endR)img.setFlipX(Math.sin(phase*1.7)<0);
+            }
             under.add(img);
           }
         } else {
