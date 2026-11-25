@@ -109,6 +109,45 @@ for (const index of wanted) {
   }
   console.log(`fase ${info.id}: ${stops.length} captura(s), ${info.objects} objetos em cena`);
 }
+// Test the real plate and a rejected blank texture in the existing visual CI.
+if(label==='organic'&&wanted.includes(0)){
+  const report=[];
+  for(const invalid of [false,true]){
+    await page.goto('http://localhost:5199/?debug&organic=1&plates=1');
+    await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
+    await page.evaluate(invalid=>{
+      const game=window.game,key='w1_plate_1-1_chunk_001';
+      if(!game.textures.exists(key))throw Error('Authored plate missing');
+      if(invalid){game.textures.remove(key);game.textures.createCanvas(key,1280,160).refresh();}
+      game.scene.getScenes(true).forEach(s=>game.scene.stop(s.scene.key));
+      game.scene.start('Game',{level:0});
+    },invalid);
+    await page.waitForFunction(()=>{
+      const s=window.game.scene.getScene('Game');
+      return s?.level?.id==='1-1'&&s?.player?.hit?.body&&s?.color&&(window.game.scene.isActive('Game')||window.game.scene.isPaused('Game'));
+    },null,{timeout:120000});
+    const result=await page.evaluate(()=>{
+      const game=window.game,s=game.scene.getScene('Game');
+      if(game.scene.isActive('Dialogue'))game.scene.stop('Dialogue');
+      if(game.scene.isPaused('Game'))game.scene.resume('Game');
+      s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();
+      s.color.complete();s.color.update(1);
+      s.player.hit.body.allowGravity=false;s.player.hit.body.reset(8*64+32,10*64-46);
+      s.cameras.main.centerOn(8*64+32,10*64-46);
+      return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),
+        geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    });
+    const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
+    report.push({invalid,...result});
+    fs.writeFileSync(path.join(out,'terrain-plates-report.json'),JSON.stringify(report,null,2));
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':'plate-authored.png')});
+    if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
+    if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(!invalid&&!result.accepted.includes('chunk_001'))throw Error('Authored plate rejected: '+JSON.stringify(result.rejected));
+    if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
+  }
+}
 if (errors.length) console.log('erros no console:\n' + [...new Set(errors)].slice(0, 10).join('\n'));
 console.log(`capturas em ${out}`);
 if(errors.length)process.exitCode=1;
