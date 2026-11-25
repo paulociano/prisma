@@ -45,7 +45,16 @@ export function paintOrganicGround(scene:Phaser.Scene,into:Phaser.GameObjects.Co
           const dy=py-CONTACT;
           let a=clamp((fadeEnd-dy)/Math.max(1,fadeEnd-fadeStart));a=a*a*(3-2*a);
           if(dy>18)a*=1-(1-clamp(edge/16))*clamp((dy-18)/26)*.75;
-          data.data[(py*w+x)*4+3]*=a;
+          const idx=(py*w+x)*4;
+          // Large-scale mineral and foliage variation, continuous in world
+          // coordinates even across mirrored source and canvas boundaries.
+          const wx=gx+x;
+          const tone=Math.sin(wx*.0027+y*.0031)*.045+Math.sin(wx*.0071+1.4)*.025;
+          const depthMix=clamp((dy+18)/70);
+          data.data[idx]*=1+tone*(1+.35*depthMix);
+          data.data[idx+1]*=1+tone*.72;
+          data.data[idx+2]*=1-tone*.45;
+          data.data[idx+3]*=a;
         }
       }
       g.putImageData(data,0,0);

@@ -680,6 +680,59 @@ if(fs.existsSync(organicGroundFile)){
   const entry=await processImage({key:'w1_organic_ground',src:'w1/organic/ground.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Exclusive rooted tree composition: preserve transparent opening and solid left trunk.
+const sanctuaryFile=path.join(RAW,'w1/organic/root_sanctuary.png');
+if(fs.existsSync(sanctuaryFile)){
+  const meta=await sharp(sanctuaryFile).metadata();
+  const {data,info}=await sharp(sanctuaryFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const ratio=(x0,y0,x1,y1,test)=>{let good=0,n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){n++;if(test(data[(y*info.width+x)*4+3]))good++;}return good/n;};
+  if(!meta.hasAlpha||info.width!==1536||info.height!==1024||info.channels!==4||
+    ratio(900,300,1400,700,a=>a<24)<.98||ratio(180,400,330,700,a=>a>220)<.98)
+    throw Error('w1/organic/root_sanctuary.png: invalid dimensions or protected alpha');
+  const entry=await processImage({key:'w1_organic_sanctuary',src:'w1/organic/root_sanctuary.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
+// Authored tower columns: exact contact width plus a small guarded margin.
+for(const [id,height] of [['suspended',768],['anchored',1088]]){
+  const src='w1/organic/tower_'+id+'.png',file=path.join(RAW,src);
+  if(!fs.existsSync(file))continue;
+  const meta=await sharp(file).metadata();
+  if(!meta.hasAlpha||meta.width!==80||meta.height!==height)throw Error(src+': invalid tower dimensions');
+  const entry=await processImage({key:'w1_tower_'+id,src,type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
+// Thin painted root bridges, exact one-way run width.
+for(const [id,width] of [['canopy',896],['ruby',192],['moss',192]]){
+  const src='w1/organic/bridge_'+id+'.png',file=path.join(RAW,src);
+  if(!fs.existsSync(file))continue;
+  const meta=await sharp(file).metadata();
+  if(!meta.hasAlpha||meta.width!==width||meta.height!==32)throw Error(src+': invalid bridge dimensions');
+  const entry=await processImage({key:'w1_bridge_'+id,src,type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
+// Single painted tower composition, optional experimental mode.
+{
+  const src='w1/organic/tower_macro.png',file=path.join(RAW,src);
+  if(fs.existsSync(file)){
+    const meta=await sharp(file).metadata();
+    if(!meta.hasAlpha||meta.width!==1088||meta.height!==1344)throw Error(src+': invalid macro dimensions');
+    const entry=await processImage({key:'w1_tower_macro',src,type:'image'});
+    if(entry)manifest.sprites.push(entry);
+  }
+}
+// Optional authored terrain plates. Runtime checks exact generated geometry and alpha.
+for(const id of ['1-1','1-2','1-3']){
+  const dir=path.join(RAW,'w1/organic/terrain',id);
+  if(!fs.existsSync(dir))continue;
+  for(const name of fs.readdirSync(dir).sort()){
+    if(!/^chunk_\d{3}\.png$/.test(name))continue;
+    const meta=await sharp(path.join(dir,name)).metadata();
+    if(!meta.hasAlpha||!meta.width||!meta.height||meta.width>1280||meta.height>2048)
+      throw Error(id+'/'+name+': invalid terrain plate alpha or dimensions');
+    const entry=await processImage({key:'w1_plate_'+id+'_'+name.slice(0,-4),src:'w1/organic/terrain/'+id+'/'+name,type:'image'});
+    if(entry)manifest.sprites.push(entry);
+  }
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;
