@@ -34,3 +34,7 @@ Uma ilustração refinada pode ser integrada automaticamente por `assets/raw/w1/
 
 ## Piloto 5: composição de paisagem
 OrganicSurface separa a folhagem da faixa de alvenaria, preserva o ponto de contato e dissolve a borda inferior com alfa variável. OrganicFaces aplica rochas, raízes e vegetação do atlas em coordenadas contínuas, com iluminação local recortada à massa. Faixas mantêm a mesma amostragem e são limitadas em tamanho. O renderer legado continua sendo fallback. A comparação passa por seis posições e o CI exige igualdade entre os corpos estáticos de sólidos, plataformas atravessáveis e perigos. É um teste de paridade geométrica, não um playtest completo.
+
+
+## Piloto 6: captura determinística e referência de produção
+O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout esperando saturação. A captura agora congela física, remove follow de câmera e aplica ColorRestore.complete/update(1) somente pelo script de QA, mantendo a verificação de saturação e paridade física. Não altera a progressão do jogo. O exportador passa a fornecer coffer-mask.png (máscara transparente das células), coffer-guide.png/svg (contatos e abertura) e coffer-placement.json (coordenadas de mundo, escala e contrato do asset). Esses arquivos são guias técnicos e não arte nova. As sombras inferiores são recortadas à massa e os decalques legados não são duplicados sobre o bake. A aprovação permanece condicionada aos testes e inspeção visual.

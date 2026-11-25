@@ -98,6 +98,11 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
           q.addColorStop(0,'rgba(44,23,29,.36)');q.addColorStop(1,'rgba(44,23,29,0)');
           g.fillStyle=q;g.fillRect(x,y+12,TILE,40);
         }
+        if(empty(c,r+1)){
+          const q=g.createLinearGradient(0,y+TILE-26,0,y+TILE+9);
+          q.addColorStop(0,'rgba(34,17,29,0)');q.addColorStop(1,'rgba(34,17,29,.4)');
+          g.fillStyle=q;g.fillRect(x,y+TILE-26,TILE,35);
+        }
         if(empty(c-1,r)||empty(c+1,r)){
           const left=empty(c-1,r),q=g.createLinearGradient(left?x:x+TILE,y,left?x+30:x+TILE-30,y);
           q.addColorStop(0,'rgba(38,22,32,.31)');q.addColorStop(1,'rgba(38,22,32,0)');

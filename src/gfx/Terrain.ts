@@ -515,8 +515,10 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       if (!bottom && botStart >= 0) {
         const c0 = botStart, c1 = c - 1;
         botStart = -1;
-        shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, 0, 0.5, 0.5);
-        shade.fillRect(c0 * TILE, y + TILE - 22, (c1 - c0 + 1) * TILE, 22);
+        if (!baked) {
+          shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, 0, 0.5, 0.5);
+          shade.fillRect(c0 * TILE, y + TILE - 22, (c1 - c0 + 1) * TILE, 22);
+        }
         if (kit2) {
           // parte de baixo pintada: uma peça por bloco, com pontas onde o trecho termina no ar
           for (let i = c0; i <= c1; i++) {
@@ -578,7 +580,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   }
 
   // decalques: pedras, raízes e relíquias espalhados pelo interior, longe das bordas, com a semente da fase
-  if (decalsKey) {
+  if (decalsKey && !baked) {
     const inner = (c: number, r: number) => block(c, r) && depth[r][c] >= 1 && block(c - 1, r) && block(c + 1, r) && (r === rows - 1 || block(c, r + 1));
     const taken = new Set<number>();
     for (let r = 1; r < rows; r++) for (let c = 1; c < cols - 1; c++) {

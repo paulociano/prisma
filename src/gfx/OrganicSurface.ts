@@ -24,8 +24,8 @@ export function buildOrganicSurface(scene:Phaser.Scene,into:Phaser.GameObjects.C
       for(let px=0;px<canvas.width;px++){
         const gx=x+px/2;
         const wave=5*Math.sin(gx*.043)+3*Math.sin(gx*.093+1.3);
-        const fadeStart=pivot+sink+12+wave;
-        const fadeEnd=Math.max(fadeStart+9,Math.min(keep,pivot+sink+30+wave));
+        const fadeEnd=Math.min(keep-1,pivot+sink+30+wave);
+        const fadeStart=Math.min(fadeEnd-9,pivot+sink+12+wave);
         const edge=Math.min(openL?gx-start:1000,openR?start+width-gx:1000);
         for(let py=0;py<canvas.height;py++){
           const yy=py/2;
