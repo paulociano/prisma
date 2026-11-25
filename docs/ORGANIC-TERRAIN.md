@@ -54,3 +54,7 @@ O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout 
 
 ## Piloto 10: paredão orgânico
 `assets/raw/w1/organic/wall.png` (256×512 RGBA) é uma face vertical ilustrada, com transparência nas junções. O núcleo validado tem 100% de amostras alfa >220. O bake desenha trechos de 2–5 células dentro da máscara sólida original, evitando sobreposição de duas faces em pilares estreitos. O CI verifica presença nas três fases de exploração, ausência no modo legado, segmentação e paridade de colisões. Não altera a silhueta física nem substitui inspeção visual e playtest.
+
+
+## Piloto 11: caminhos ilustrados contínuos
+`assets/raw/w1/organic/ground.png` é uma quarta ilustração inédita, 1024×320 RGBA, com contato em y=96 e escala de 0,5. O recorte central e remapeamento alinham o caminho à linha física. Validação local: 100% de cobertura alfa >220 em x=0..1023, y=100..219; margem superior inteiramente transparente. OrganicGround amostra a peça em coordenadas do mundo e alterna reflexão horizontal para obter junções de pixels idênticos; a reflexão pode inverter a direção da luz, uma limitação a rever visualmente. Aplica apenas a superfícies sólidas de ao menos três células, em chunks de no máximo 512×160 pixels, com máscara de profundidade por coluna e transição inferior para o bake. As colisões, rampas, ilhas, plataformas móveis e perigos mantêm o código anterior. O CI exige uso do módulo nas três fases de exploração e paridade física. Não substitui inspeção de screenshots e playtest.

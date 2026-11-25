@@ -5,6 +5,7 @@ import { F, has } from './art';
 import { gfx } from '../systems/Settings';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
+import { paintOrganicGround } from './OrganicGround';
 import { buildHeroCoffer } from './HeroCoffer';
 import { cofferPlan } from '../levels/ArtGeometry';
 
@@ -333,6 +334,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const authoredIslands: {col:number;row:number;length:number}[]=[];
   scene.data.set('organicAuthoredIslands',authoredIslands);
   scene.data.set('organicAuthoredWalls',[]);
+  const authoredGround:{col:number;row:number;length:number}[]=[];
+  scene.data.set('organicAuthoredGround',authoredGround);
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
@@ -458,6 +461,11 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const drawTopRun = (c0: number, c1: number, y: number) => {
     const row = Math.floor(y / TILE);
     const openL = !filled(c0 - 1, row), openR = !filled(c1 + 1, row);
+    if(baked && paintOrganicGround(scene,tops,tx('organic_ground'),c0,c1,y,rows,block)){
+      authoredGround.push({col:c0,row,length:c1-c0+1});
+      organicSurfaces++;
+      return;
+    }
     if (baked && hasStrip && buildOrganicSurface(scene,tops,stripKey,tilesKey,c0,c1,y,SINK,openL,openR)) {
       organicSurfaces++;
       return;
