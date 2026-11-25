@@ -29,6 +29,19 @@ export function composeRootSanctuary(scene:Phaser.Scene,world:Phaser.GameObjects
     const img=scene.add.image(plan.x,plan.y,key).setOrigin(0).setTint(0xc9b2b9).setAlpha(.78);
     img.setData('rootSanctuary',true);
     world.addAt(img,0);
+    // The terrain owns the foreground contact; reuse the same painting for a
+    // soft root-coloured contact shadow, strictly below the walkable plane.
+    // Insert above terrain fills but below its decorative and gameplay layers.
+    const contact=scene.add.graphics();
+    const floor=plan.groundRow*64;
+    const left=plan.x+70, right=plan.x+330;
+    for(let i=0;i<8;i++){
+      contact.fillStyle(0x251c2a,.035);
+      contact.fillEllipse((left+right)/2,floor+14, (right-left)+i*12, 12+i*3);
+    }
+    // The ellipse stays below the physical surface and inside the verified shelf.
+    contact.setData('rootSanctuaryContact',true);
+    world.addAt(contact,3);
     scene.events.once('shutdown',()=>scene.textures.remove(key));
     return plan;
   }catch{
