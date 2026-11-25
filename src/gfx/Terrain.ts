@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
+import { exposedWallRuns } from '../levels/ArtGeometry';
 
 // Desenho do terreno (só a parte visual; a colisão continua em GameScene.buildTiles).
 //
@@ -367,6 +368,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   if (kit2) ensureWalls(scene, kit2);
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
+  // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
+  const organic = level.id === '1-3' && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
@@ -383,7 +386,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const islandRun = (c0: number, c1: number, y: number, into: Phaser.GameObjects.Container, drop = 4) => {
     const len = c1 - c0 + 1;
     const total = len * TILE + 16;
-    const n = len === 1 ? 1 : Math.max(1, Math.round(len / 2.4));
+    const n = len === 1 ? 1 : Math.max(1, Math.round(len / (organic ? 3.6 : 2.4)));
     const overlap = n > 1 ? 18 : 0;
     const each = (total + overlap * (n - 1)) / n;
     const frame = len === 1 ? F.w1Tiles.floatSmall : F.w1Tiles.floatMid;
@@ -392,6 +395,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       const cx = c0 * TILE - 8 + each / 2 + i * (each - overlap);
       const img = scene.add.image(cx, y + drop, tilesKey, String(frame)).setOrigin(0.5, s.pivotY);
       img.setScale(each / (s.w * 2));
+      if (organic && len > 1) img.setScale(img.scaleX, Math.min(img.scaleY, 0.75));
       // altura mínima: a peça precisa cobrir o bloco físico de 64 px
       const below = img.displayHeight * (1 - s.pivotY);
       if (below < TILE - drop + 6) img.scaleY *= (TILE - drop + 6) / below;
@@ -478,12 +482,12 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
 
       // paredes expostas: a lateral escurece em direção à borda (volume)
       if (b && c > 0 && !filled(c - 1, r)) {
-        if (kit2 && !top) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        if (kit2 && !top && !organic) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4, 0);
         shade.fillRect(c * TILE, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
       if (b && c < cols - 1 && !filled(c + 1, r)) {
-        if (kit2 && !top) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        if (kit2 && !top && !organic) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4);
         shade.fillRect(c * TILE + TILE - 20, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
@@ -512,6 +516,18 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
           for (const o of under.list.slice(before) as Phaser.GameObjects.Image[]) o.setTint(0xb8a8b8);
         }
         castShadow(c0, c1, r);
+      }
+    }
+  }
+  // O piloto compõe uma face por trecho vertical, em vez de repetir uma pedra por linha.
+  // Preserva as extremidades físicas e não cobre áreas vazias; o topo continua no renderer original.
+  if (organic && kit2) {
+    for (const run of exposedWallRuns(level, block)) {
+      for (let start = run.r0; start <= run.r1; start += 3) {
+        const count = Math.min(3, run.r1 - start + 1);
+        const x = run.col * TILE - (run.side === 'left' ? 5 : 0);
+        walls.add(scene.add.image(x, start * TILE - 1, kit2 + (run.side === 'left' ? '_wallL' : '_wallR'))
+          .setOrigin(0).setDisplaySize(TILE + 5, count * TILE + 2));
       }
     }
   }
