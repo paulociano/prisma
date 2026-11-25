@@ -45,7 +45,7 @@ for (const index of wanted) {
   const info = await page.evaluate(() => {
     const s = window.game.scene.getScene('Game');
     s.color.complete(); // cor cheia: é assim que a arte é julgada
-    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces') };
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource') };
   });
   if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces)) throw Error('Organic renderer fallback: '+JSON.stringify(info));
   if(index===2 && label==='baseline' && info.organicCoffer) throw Error('Baseline unexpectedly uses organic coffer');
@@ -63,7 +63,9 @@ for (const index of wanted) {
       h.body.reset(col * 64 + 32, row * 64 - 46);
       s.cameras.main.centerOn(col * 64 + 32, row * 64 - 46); // sem esperar a câmera suavizada chegar
     }, col);
-    await page.waitForTimeout(1600);
+    // ColorRestore animates independently; wait for the same saturation in each shot.
+    await page.waitForFunction(()=>window.game.scene.getScene('Game').color.value>=.998,null,{timeout:30000});
+    await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(out, `${info.id}_c${String(col).padStart(3, '0')}.png`) });
   }
   console.log(`fase ${info.id}: ${stops.length} captura(s), ${info.objects} objetos em cena`);

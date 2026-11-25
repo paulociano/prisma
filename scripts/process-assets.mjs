@@ -607,6 +607,28 @@ for (const sheet of SHEETS) {
   if (entry) manifest.sprites.push(entry);
 }
 manifest.sprites.push(...extraImages);
+// Optional bespoke illustration: exact canvas and alpha contract, no manual slicing.
+// Do not register invalid art; the runtime keeps the painted-atlas composition.
+const cofferFile=path.join(RAW,'w1/organic/coffer.png');
+if(fs.existsSync(cofferFile)){
+  const {data,info}=await sharp(cofferFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const alpha=(x,y)=>data[((y*info.width+x)*4)+3];
+  let ok=info.width===832&&info.height===704&&info.channels===4;
+  if(ok){
+    // Window inside the chamber, away from the gate and surfaces, must stay empty.
+    let clear=0,total=0;
+    for(let y=250;y<430;y+=4)for(let x=250;x<465;x+=4){total++;if(alpha(x,y)<24)clear++;}
+    ok=clear/total>=.96;
+    // Each physical roof/floor/wall cell must have a visible body at its center.
+    const cells=[[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[4,3]];
+    ok=ok&&cells.every(([c,r])=>alpha(96+c*128+64,96+r*128+64)>220);
+    // Corner pixels must be transparent, not a baked landscape or checkerboard.
+    ok=ok&&[[0,0],[831,0],[0,703],[831,703]].every(([x,y])=>alpha(x,y)<24);
+  }
+  if(!ok)throw Error('w1/organic/coffer.png: expected 832x704 RGBA, clear chamber and visible structural cells');
+  const entry=await processImage({key:'w1_organic_coffer',src:'w1/organic/coffer.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;
