@@ -56,3 +56,21 @@ export function focusArtChunk(level: LevelData, col: number, columns = 20): ArtC
   const c0 = Math.max(0, Math.min(level.cols-span, Math.floor(col-span/2)));
   return { id:'focus',c0,c1:c0+span,x:c0*TILE,y:0,width:span*TILE,height:level.rows*TILE };
 }
+
+/** Match the authored C-shaped coffer after procedural extension, never by absolute column. */
+export function cofferPlan(level: LevelData): { col:number; row:number; cells:Set<number> } | undefined {
+  if(level.id!=='1-3')return;
+  const at=(c:number,r:number)=>level.tiles[r]?.[c];
+  for(const chest of level.entities.filter(e=>e.type==='chest')){
+    const c=chest.col-1,r=chest.row-2;
+    if(c<1||r<1||c+5>=level.cols||r+4>=level.rows)continue;
+    if(!level.entities.some(e=>e.type==='colorgate'&&e.col===c+3&&e.row===r+1))continue;
+    const cells=new Set<number>();let ok=true;
+    for(let dy=-1;dy<=4;dy++)for(let dx=-1;dx<=5;dx++){
+      const solid=(dy===0&&dx>=0&&dx<=3)||(dy===3&&dx>=0&&dx<=4)||((dy===1||dy===2)&&dx===0);
+      if(solid){if(at(c+dx,r+dy)!==T.Solid)ok=false;cells.add((r+dy)*level.cols+c+dx);}
+      else if(at(c+dx,r+dy)!==T.Empty)ok=false;
+    }
+    if(ok)return {col:c,row:r,cells};
+  }
+}

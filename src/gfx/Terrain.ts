@@ -4,6 +4,8 @@ import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
 import { bakeOrganicFaces } from './OrganicFaces';
+import { buildHeroCoffer } from './HeroCoffer';
+import { cofferPlan } from '../levels/ArtGeometry';
 
 // Desenho do terreno (só a parte visual; a colisão continua em GameScene.buildTiles).
 //
@@ -418,8 +420,13 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       }
     }
   }
-  const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && islet[r][c]);
+  scene.data.set('organicCoffer', false);
+  const plan = organic ? cofferPlan(level) : undefined;
+  const hero = plan && groundKey ? buildHeroCoffer(scene, plan, groundKey, tilesKey, tops) : false;
+  scene.data.set('organicCoffer', !!hero);
+  const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
+  scene.data.set('organicFaces', !!baked);
 
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */
   const drawTopRun = (c0: number, c1: number, y: number) => {
@@ -577,6 +584,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       decals.add(img);
     }
   }
+
+  if (hero && plan) castShadow(plan.col, plan.col + 4, plan.row + 3);
 
   // ilhas também projetam sombra
   for (let r = 0; r < rows; r++) {

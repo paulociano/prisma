@@ -18,7 +18,20 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
   texture: string, block: (c: number, r: number) => boolean): boolean {
   const H = level.rows * TILE, W = level.cols * TILE;
   const pad = 12, stride = 16 * TILE;
-  if (H + pad * 2 > 2048 || W * (H + pad * 2) * 4 > 64 * 1024 * 1024) return false;
+  // Budget actual occupied bounds, not the empty sky of tall levels.
+  const spans: { x0:number;width:number;c0:number;c1:number;y0:number;y1:number }[]=[];
+  let bytes=0;
+  for(let x0=0;x0<W;x0+=stride){
+    const width=Math.min(stride,W-x0),c0=x0/TILE,c1=(x0+width)/TILE;
+    let r0=level.rows,r1=-1;
+    for(let r=0;r<level.rows;r++)for(let c=c0;c<c1;c++)if(block(c,r)){r0=Math.min(r0,r);r1=Math.max(r1,r);}
+    if(r1<0)continue;
+    const y0=r0*TILE,y1=(r1+1)*TILE;
+    if(y1-y0+pad*2>2048)return false;
+    bytes+=(width+pad*2)*(y1-y0+pad*2)*4;
+    spans.push({x0,width,c0,c1,y0,y1});
+  }
+  if(bytes>64*1024*1024)return false;
   const source = scene.textures.get(texture).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
   const sw = source.width * .5, sh = source.height * .5;
   if (!sw || !sh) return false;
@@ -26,13 +39,12 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
   const empty = (c: number, r: number) => c >= 0 && c < level.cols && r >= 0 && r < level.rows && level.tiles[r][c] === T.Empty;
   const id = ++serial;
   try {
-    for (let x0 = 0; x0 < W; x0 += stride) {
-      const width = Math.min(stride, W - x0), c0 = x0 / TILE, c1 = (x0 + width) / TILE;
+    for (const {x0,width,c0,c1,y0,y1} of spans) {
       const canvas = document.createElement('canvas');
-      canvas.width = width + pad * 2; canvas.height = H + pad * 2;
+      canvas.width = width + pad * 2; canvas.height = y1-y0 + pad * 2;
       const g = canvas.getContext('2d');
       if (!g) throw Error('canvas unavailable');
-      g.translate(pad - x0, pad);
+      g.translate(pad - x0, pad-y0);
       // Union of occupied cells and continuous outward-rounded decorative edges.
       g.beginPath();
       let count = 0;
@@ -53,7 +65,7 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
       if(!count) continue;
       g.clip();
       // Texture is sampled at a stable world coordinate, never restarted on a cell/chunk.
-      for(let y=0;y<H+pad;y+=sh) for(let x=Math.floor((x0-pad)/sw)*sw;x<x0+width+pad;x+=sw)
+      for(let y=Math.floor((y0-pad)/sh)*sh;y<y1+pad;y+=sh) for(let x=Math.floor((x0-pad)/sw)*sw;x<x0+width+pad;x+=sw)
         g.drawImage(source,x,y,sw,sh);
       // Large-scale light modulation across the rock, independent of the grid.
       // A constant vertical illumination avoids visible seams between strips.
@@ -61,10 +73,10 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
       vertical.addColorStop(0,'rgba(255,211,156,0.07)');
       vertical.addColorStop(.55,'rgba(255,226,178,0.025)');
       vertical.addColorStop(1,'rgba(53,25,49,0.13)');
-      g.fillStyle=vertical;g.fillRect(x0-pad,0,width+pad*2,H+pad);
+      g.fillStyle=vertical;g.fillRect(x0-pad,y0-pad,width+pad*2,y1-y0+pad*2);
       const key='organic_face_'+id+'_'+c0;
       if(!scene.textures.addCanvas(key,canvas))throw Error('texture unavailable');
-      const image=scene.add.image(x0-pad,-pad,key).setOrigin(0);
+      const image=scene.add.image(x0-pad,y0-pad,key).setOrigin(0);
       into.add(image);made.push({key,image});
     }
     scene.events.once('shutdown',()=>{for(const m of made)scene.textures.remove(m.key);});
