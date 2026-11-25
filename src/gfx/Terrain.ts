@@ -330,6 +330,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   scene.data.set('organicSurfaces',0);
   scene.data.set('organicFaceBytes',0);
   scene.data.set('organicMode','legacy');
+  const authoredIslands: {col:number;row:number;length:number}[]=[];
+  scene.data.set('organicAuthoredIslands',authoredIslands);
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
@@ -396,6 +398,17 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   /** Peças de ilha lado a lado cobrindo as colunas c0..c1 (superfície na linha física `y`). */
   const islandRun = (c0: number, c1: number, y: number, into: Phaser.GameObjects.Container, drop = 4) => {
     const len = c1 - c0 + 1;
+    // Only freestanding solid islands, not one-way, moving platforms or hanging decoration.
+    const authoredKey='w1_organic_island';
+    if(organic && into===tops && drop===4 && len>=2 && len<=4 && has(scene,authoredKey)){
+      // Source contract: 448x240 at 2x, 384px playable core, y=48 contact.
+      // Horizontal scaling matches the actual run; vertical scale remains fixed.
+      const core=len*TILE, scale=core/384;
+      const img=scene.add.image(c0*TILE-32*scale,y-24,authoredKey).setOrigin(0).setDisplaySize(448*scale,120);
+      into.add(img);
+      authoredIslands.push({col:c0,row:y/TILE,length:len});
+      return;
+    }
     const total = len * TILE + 16;
     const n = len === 1 ? 1 : Math.max(1, Math.round(len / (organic ? 3.6 : 2.4)));
     const overlap = n > 1 ? 18 : 0;
