@@ -710,6 +710,16 @@ for(const [id,width] of [['canopy',896],['ruby',192],['moss',192]]){
   const entry=await processImage({key:'w1_bridge_'+id,src,type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Single painted tower composition, optional experimental mode.
+{
+  const src='w1/organic/tower_macro.png',file=path.join(RAW,src);
+  if(fs.existsSync(file)){
+    const meta=await sharp(file).metadata();
+    if(!meta.hasAlpha||meta.width!==1088||meta.height!==1344)throw Error(src+': invalid macro dimensions');
+    const entry=await processImage({key:'w1_tower_macro',src,type:'image'});
+    if(entry)manifest.sprites.push(entry);
+  }
+}
 // Optional authored terrain plates. Runtime checks exact generated geometry and alpha.
 for(const id of ['1-1','1-2','1-3']){
   const dir=path.join(RAW,'w1/organic/terrain',id);

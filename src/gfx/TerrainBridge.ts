@@ -1,11 +1,12 @@
 import type Phaser from 'phaser';
 import { type LevelData } from '../levels/LevelBuilder';
-import { towerBridgePlans, type TowerBridgePlan } from '../levels/ArtGeometry';
+import { towerBridgePlans, towerMacroPlan, type TowerBridgePlan } from '../levels/ArtGeometry';
 
 /** Thin one-way art only. The original physics zones are still constructed
  * by GameScene. Refuse incomplete tower sets rather than mix incompatible skins. */
 export function paintTowerBridges(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const cells=new Set<number>(),plans=towerBridgePlans(level);
+  if(scene.data.get('terrainTowerMacro'))return towerMacroPlan(level)?.oneways??cells;
   if(plans.length!==9||scene.data.get('terrainTowerPillars')?.length!==2)return cells;
   const keys=new Map<TowerBridgePlan['id'],string>();
   try{

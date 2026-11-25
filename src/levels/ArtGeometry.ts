@@ -287,3 +287,20 @@ export function towerBridgePlans(level:LevelData):TowerBridgePlan[]{
   for(let i=0;i<8;i++)add(i%2===0?'ruby':'moss',col+(i%2===0?6:1),row+1+i*2,3);
   return plans;
 }
+
+/** A single authored composition owns the tower, not its physical bodies.
+ * Strict geometry signature protects every cell in the painted envelope. */
+export function towerMacroPlan(level:LevelData){
+  const pillars=towerPillarPlans(level),bridges=towerBridgePlans(level);
+  if(pillars.length!==2||bridges.length!==9)return;
+  const c0=pillars[0].col-1,r0=pillars[0].row-2,c1=c0+17,r1=r0+21;
+  if(c0<0||r0<0||c1>level.cols||r1!==level.rows)return;
+  const solids=new Set<number>(),oneways=new Set<number>();
+  for(const p of pillars)for(let r=p.row;r<p.row+p.length;r++)solids.add(r*level.cols+p.col);
+  for(const p of bridges)for(let c=p.col;c<p.col+p.length;c++)oneways.add(p.row*level.cols+c);
+  for(let r=r0;r<r1;r++)for(let c=c0;c<c1;c++){
+    const i=r*level.cols+c,expected=solids.has(i)||r>=r1-2?T.Solid:oneways.has(i)?T.OneWay:T.Empty;
+    if(level.tiles[r][c]!==expected)return;
+  }
+  return {x:c0*TILE,y:r0*TILE,width:17*TILE,height:21*TILE,c0,c1,r0,r1,pillars,bridges,solids,oneways};
+}

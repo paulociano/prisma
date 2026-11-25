@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
+import { paintTowerMacro } from './TerrainMacro';
 import { paintTowerPillars } from './TerrainTower';
 import { paintTerrainPlates, paintTerrainBlend } from './TerrainPlates';
 import { bakeOrganicFaces } from './OrganicFaces';
@@ -331,6 +332,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
   scene.data.set('terrainTowerPillars',[]);
+  scene.data.set('terrainTowerMacro',null);
   scene.data.set('terrainBlends',[]);
   scene.data.set('terrainPlateRejected',[]);
   scene.data.set('organicCoffer',false);
@@ -400,7 +402,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const covered=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTerrainPlates(scene,level,tops):new Set<number>();
-  const towerCells=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerPillars(scene,level,tops,covered):new Set<number>();
+  const macro=organic&&new URLSearchParams(window.location.search).get('plates')==='1'&&new URLSearchParams(window.location.search).get('macro')==='1'?paintTowerMacro(scene,level,tops,covered):undefined;
+  const towerCells=macro?.solids??(organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerPillars(scene,level,tops,covered):new Set<number>());
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
     return { pivotY: f.customPivot ? f.pivotY : 0, h: f.height / 2, w: f.width / 2 };
@@ -686,5 +689,6 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Transitional painted plate: above the original structural artwork,
   // below contact shadows and independently drawn hazards/entities.
   if(baked&&new URLSearchParams(window.location.search).get('plates')==='1')paintTerrainBlend(scene,level,tops);
+  if(macro)tops.bringToTop(macro.image);
   return { fills, decor, tops };
 }
