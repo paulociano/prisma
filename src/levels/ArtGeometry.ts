@@ -116,3 +116,33 @@ export function organicCornerPlans(level:LevelData,block:(c:number,r:number)=>bo
   }
   return out;
 }
+
+export interface OrganicVistaPlan {col:number;row:number;span:number}
+/** Select one calm, ground-anchored vista in the final map. The whole envelope
+ * is checked against the tile grid, not against the pre-extension layout.
+ * It is strictly decorative, with a preference for unoccupied scenery.
+ */
+export function organicVistaPlan(level:LevelData):OrganicVistaPlan|undefined {
+  if(level.arena)return;
+  const target=Math.floor(level.cols*.45);
+  const forbidden=new Set(['player','exit','checkpoint','shard','chest','guardian','colorgate','gate','portal','mover','spring']);
+  const entities=level.entities??[];
+  let best:OrganicVistaPlan|undefined,score=Infinity;
+  for(const span of [7,5]){
+    const half=Math.floor(span/2);
+    for(let r=4;r<level.rows;r++)for(let c=half+2;c<level.cols-half-2;c++){
+      let valid=true;
+      for(let x=c-half;x<=c+half;x++){
+        if(level.tiles[r][x]!==T.Solid){valid=false;break;}
+        for(let y=r-4;y<r;y++)if(level.tiles[y][x]!==T.Empty){valid=false;break;}
+        if(!valid)break;
+      }
+      if(!valid)continue;
+      if(entities.some(e=>forbidden.has(e.type)&&Math.abs(e.col-c)<=half+1&&e.row>=r-5&&e.row<=r))continue;
+      const density=entities.filter(e=>Math.abs(e.col-c)<=half+1&&e.row>=r-5&&e.row<=r).length;
+      const cost=Math.abs(c-target)+density*7+(span===5?16:0);
+      if(cost<score){best={col:c,row:r,span};score=cost;}
+    }
+  }
+  return best;
+}

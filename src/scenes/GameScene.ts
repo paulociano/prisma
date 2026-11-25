@@ -29,6 +29,7 @@ import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
+import { composeOrganicVista } from '../gfx/OrganicVista';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -260,7 +261,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
     // Presentation-only: insert airlight inside the background before ColorRestore.
     this.data.set('organicAtmosphereLayers',0);
+    this.data.set('organicVista',null);
+    this.data.set('organicVistaObjects',0);
     const quality=getSettings().quality;
+    const vista=this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.landmark?composeOrganicVista(this,this.level,this.landmark):undefined;
+    if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);}
     if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){
       const count=addOrganicAtmosphere(this,this.bgContainer,this.bgMid,this.bgNear,quality);
       this.data.set('organicAtmosphereLayers',count);
@@ -268,7 +273,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.fgTop?.setAlpha(.88);
       this.fgBot?.setAlpha(.78);
     }
-    this.color = new ColorRestore([this.bgContainer, this.world, ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
+    this.color = new ColorRestore([this.bgContainer, this.world, ...(vista?[vista.layer]:[]), ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
