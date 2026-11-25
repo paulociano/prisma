@@ -50,3 +50,7 @@ O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout 
 
 ## Piloto 9: primeira ilha orgânica reutilizável
 `assets/raw/w1/organic/island.png`: novo raster gerado, 448×240 RGBA, núcleo horizontal de 384 px (x=32..416), contato y=48. Remapeado por faixas verticais para conservar o volume e alinhar o contato. Verificação local: 99,54% de cobertura alfa >220 no núcleo x=32..415, y=64..159; 9/9 pontos de controle preenchidos, cantos transparentes. O renderer aplica a peça apenas em ilhas sólidas livres de 2–4 células, com margem proporcional e altura fixa de 120 px. Não altera plataformas móveis, atravessáveis ou físicas. O CI verifica o conjunto de posições elegíveis e a utilização de cada asset, além da paridade de colisões. Ainda requer inspeção de capturas para verificar contorno e leitura de superfície; uma variante não resolve toda a repetição.
+
+
+## Piloto 10: paredão orgânico
+`assets/raw/w1/organic/wall.png` (256×512 RGBA) é uma face vertical ilustrada, com transparência nas junções. O núcleo validado tem 100% de amostras alfa >220. O bake desenha trechos de 2–5 células dentro da máscara sólida original, evitando sobreposição de duas faces em pilares estreitos. O CI verifica presença nas três fases de exploração, ausência no modo legado, segmentação e paridade de colisões. Não altera a silhueta física nem substitui inspeção visual e playtest.

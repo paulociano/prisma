@@ -332,6 +332,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   scene.data.set('organicMode','legacy');
   const authoredIslands: {col:number;row:number;length:number}[]=[];
   scene.data.set('organicAuthoredIslands',authoredIslands);
+  scene.data.set('organicAuthoredWalls',[]);
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
