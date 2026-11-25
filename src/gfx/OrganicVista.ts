@@ -22,13 +22,20 @@ export function composeOrganicVista(scene:Phaser.Scene,level:LevelData,landmark:
     const hero=scene.add.image(x,y,landmark.texture.key,landmark.frame.name)
       .setOrigin(.5,1).setScale(scale).setTint(0xd8c2c8).setAlpha(.88);
     layer.add(hero);
-    const frames=[F.w1Props.heartFlower,F.w1Props.berries,F.w1Props.mushrooms,F.w1Props.heartFlower];
-    const placements=[[-.43,.42],[-.29,.30],[.31,.31],[.43,.40]];
+    // Regional compositions share the painted atlas, but differ in rhythm,
+    // species emphasis and silhouette. Keep all props behind gameplay.
+    const profiles:Record<string,{frames:number[];placements:number[][];tint:number}>={
+      '1-1':{frames:[F.w1Props.heartFlower,F.w1Props.berries,F.w1Props.heartFlower,F.w1Props.mushrooms],placements:[[-.43,.40],[-.28,.27],[.29,.38],[.44,.24]],tint:0xd9c5b5},
+      '1-2':{frames:[F.w1Props.mushrooms,F.w1Props.mushrooms,F.w1Props.berries,F.w1Props.mushrooms],placements:[[-.44,.29],[-.33,.44],[.26,.25],[.43,.36]],tint:0xbfc3d1},
+      '1-3':{frames:[F.w1Props.berries,F.w1Props.heartFlower,F.w1Props.mushrooms,F.w1Props.berries],placements:[[-.43,.38],[-.23,.25],[.34,.35],[.45,.28]],tint:0xcdb1bf}
+    };
+    const profile=profiles[level.id]??profiles['1-1'];
+    const {frames,placements}=profile;
     for(let i=0;i<frames.length;i++){
       const frame=String(frames[i]);if(!atlas.has(frame))continue;
       const [dx,s]=placements[i];
       const p=scene.add.image(x+dx*width,y+3,key,frame).setOrigin(.5,1).setScale(s)
-        .setTint(0xc8b5c0).setAlpha(.75);
+        .setTint(profile.tint).setAlpha(.75);
       p.setFlipX(i>=2);
       layer.add(p);
     }
