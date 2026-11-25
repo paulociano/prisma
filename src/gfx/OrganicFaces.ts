@@ -61,14 +61,25 @@ export function bakeOrganicFaces(scene: Phaser.Scene, level: LevelData, into: Ph
         // A coherent rock profile across rows, rather than one random bump per tile.
         // Retain the physical core and limit protrusions to 10 world pixels.
         const profile=(edge:number,yy:number)=>3+7*(.5+.5*Math.sin(yy*.012+edge*.74)*Math.cos(yy*.021-edge*.31));
-        const l = empty(c-1,r) ? profile(c,r*TILE+32) : 0;
-        const rr = empty(c+1,r) ? profile(c+1,r*TILE+32) : 0;
+        const leftOpen=empty(c-1,r),rightOpen=empty(c+1,r);
+        // Carry the silhouette through adjoining exposed rows. Only a real
+        // corner closes the contour, rather than every 64-pixel tile boundary.
+        const edgeAt=(side:-1|1,otherRow:number,yy:number)=>{
+          const neighbor=c+side,edge=side===-1?c:c+1;
+          return empty(neighbor,r)&&block(c,otherRow)&&empty(neighbor,otherRow)?profile(edge,yy):0;
+        };
+        const lt=top?0:edgeAt(-1,r-1,y),rt=top?0:edgeAt(1,r-1,y);
+        const lb=edgeAt(-1,r+1,bottom),rb=edgeAt(1,r+1,bottom);
+        const l1=leftOpen?profile(c,y+21):0,l2=leftOpen?profile(c,y+43):0;
+        const r1=rightOpen?profile(c+1,y+21):0,r2=rightOpen?profile(c+1,y+43):0;
         const b = empty(c,r+1) ? 3+noise(c,r,3)*6 : 0;
-        // Top 14 px remain under the original painted cap; contact plane is exact.
-        g.moveTo(x,y+(top?12:0)); g.lineTo(right,y+(top?12:0));
-        g.bezierCurveTo(right+rr,y+26,right+rr,y+46,right,bottom);
-        g.bezierCurveTo(right-17,bottom+b,x+17,bottom+b,x,bottom);
-        g.bezierCurveTo(x-l,y+46,x-l,y+26,x,y+(top?12:0)); g.closePath();
+        // Preserve the solid core and the exact top contact; all variation is
+        // outward, bounded by the original 10px decorative margin.
+        const capY=y+(top?12:0);
+        g.moveTo(x-lt,capY); g.lineTo(right+rt,capY);
+        g.bezierCurveTo(right+r1,y+26,right+r2,y+46,right+rb,bottom);
+        g.bezierCurveTo(right-17,bottom+b,x+17,bottom+b,x-lb,bottom);
+        g.bezierCurveTo(x-l2,y+46,x-l1,y+26,x-lt,capY); g.closePath();
       }
       if(!count) continue;
       g.clip();
