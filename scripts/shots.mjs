@@ -28,8 +28,9 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.goto('http://localhost:5199/?debug'+(label==='organic'?'&organic=1':''));
+await page.goto('http://localhost:5199/?debug'+(label==='organic'||label==='organic-low'?'&organic=1':''));
 await page.waitForFunction(() => window.game?.scene.isActive('Title'), null, { timeout: 120000 });
+if(label==='organic-low')await page.evaluate(async()=>{const {setSettings}=await import('/src/systems/Settings.ts');setSettings({quality:'low',reduceMotion:true});});
 
 for (const index of wanted) {
   let stops = PLAN[index] ?? [20, 80];
@@ -56,13 +57,16 @@ for (const index of wanted) {
     s.cameras.main.stopFollow();
     s.color.complete();
     s.color.update(1);
-    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), organicMode:s.data.get('organicMode'), authoredIslands:s.data.get('organicAuthoredIslands'), authoredWalls:s.data.get('organicAuthoredWalls'), authoredGround:s.data.get('organicAuthoredGround'), authoredRamps:s.data.get('organicAuthoredRamps'), authoredCorners:s.data.get('organicAuthoredCorners'), rampCandidates:organicRampPlans(s.level), rampContacts:organicRampPlans(s.level).map(q=>[.5,32,63.5,64.5,96,127.5].map(dx=>s.rampSurface(q.col*64+dx,q.row,s.level.tiles[q.row][q.col+Math.floor(dx/64)]))), islandCandidates:(()=>{const runs=[];const l=s.level;const solid=(c,r)=>c<0||c>=l.cols||(r>=0&&r<l.rows&&l.tiles[r][c]===1);for(let r=0;r<l.rows;r++){let start=-1;for(let c=0;c<=l.cols;c++){const lone=c<l.cols&&solid(c,r)&&!solid(c,r-1)&&!solid(c,r+1);if(lone&&start<0)start=c;if(!lone&&start>=0){if(c-start>=2&&c-start<=4&&start>0&&c<l.cols&&!solid(start-1,r)&&!solid(c,r))runs.push({col:start,row:r,length:c-start});start=-1;}}}return runs;})(), organicFaceBytes:s.data.get('organicFaceBytes'), cols:s.level.cols, staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), organicMode:s.data.get('organicMode'), atmosphereLayers:s.data.get('organicAtmosphereLayers'), authoredIslands:s.data.get('organicAuthoredIslands'), authoredWalls:s.data.get('organicAuthoredWalls'), authoredGround:s.data.get('organicAuthoredGround'), authoredRamps:s.data.get('organicAuthoredRamps'), authoredCorners:s.data.get('organicAuthoredCorners'), rampCandidates:organicRampPlans(s.level), rampContacts:organicRampPlans(s.level).map(q=>[.5,32,63.5,64.5,96,127.5].map(dx=>s.rampSurface(q.col*64+dx,q.row,s.level.tiles[q.row][q.col+Math.floor(dx/64)]))), islandCandidates:(()=>{const runs=[];const l=s.level;const solid=(c,r)=>c<0||c>=l.cols||(r>=0&&r<l.rows&&l.tiles[r][c]===1);for(let r=0;r<l.rows;r++){let start=-1;for(let c=0;c<=l.cols;c++){const lone=c<l.cols&&solid(c,r)&&!solid(c,r-1)&&!solid(c,r+1);if(lone&&start<0)start=c;if(!lone&&start>=0){if(c-start>=2&&c-start<=4&&start>0&&c<l.cols&&!solid(start-1,r)&&!solid(c,r))runs.push({col:start,row:r,length:c-start});start=-1;}}}return runs;})(), organicFaceBytes:s.data.get('organicFaceBytes'), cols:s.level.cols, staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
   });
   if(index<3 && label==='organic' && (!info.organicFaces || !(info.organicSurfaces>0) || info.organicMode!=='organic' || !(info.organicFaceBytes>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
   if(index===2 && label==='organic' && (!info.organicCoffer || info.organicCofferSource!=='authored')) throw Error('Missing authored coffer: '+info.organicCofferSource);
   if(index<3 && label==='organic' && JSON.stringify(info.authoredIslands)!==JSON.stringify(info.islandCandidates))throw Error('Authored island coverage mismatch: '+JSON.stringify({id:info.id,actual:info.authoredIslands,expected:info.islandCandidates}));
   if(index<3 && label==='organic' && !info.authoredWalls.length)throw Error('Missing authored walls in '+info.id);
   if(index<3 && label==='organic' && !info.authoredGround.length)throw Error('Missing authored ground in '+info.id);
+  if(index<3 && label==='organic' && info.atmosphereLayers!==2)throw Error('Atmosphere missing '+info.id);
+  if((label==='baseline'||label==='organic-low'||index===3)&&info.atmosphereLayers!==0)throw Error('Unexpected atmosphere '+info.id);
+  if(label==='organic-low'&&info.organicMode!=='organic')throw Error('Low quality must retain organic terrain');
   if(index<3 && label==='organic' && JSON.stringify(info.authoredRamps)!==JSON.stringify(info.rampCandidates))throw Error('Missing organic ramp in '+info.id);
   if(index<3 && label==='baseline' && (info.organicFaces||info.organicCoffer||info.authoredWalls.length||info.authoredGround.length)) throw Error('Baseline unexpectedly uses organic terrain');
   if(index===3 && ['organic','baseline'].includes(label) && info.organicMode!=='painted-arena') throw Error('Arena paint not preserved');
@@ -71,6 +75,7 @@ for (const index of wanted) {
   if(index<3 && ['organic','baseline'].includes(label) && info.islandCandidates.length)stops.push(info.islandCandidates[0].col+1);
   if(index<3 && ['organic','baseline'].includes(label)&&info.rampCandidates.length)stops.push(info.rampCandidates[0].col+1);
   stops=[...new Set(stops.map(c=>Math.max(1,Math.min(info.cols-2,c))))];
+  if(label==='organic-low')stops=stops.slice(0,1);
   for (const col of stops) {
     await page.evaluate((col) => {
       const s = window.game.scene.getScene('Game');

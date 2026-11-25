@@ -62,3 +62,7 @@ O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout 
 
 ## Piloto 12: transições naturais
 OrganicTransitions reaproveita o caminho ilustrado nas rampas completas de duas células, com cisalhamento alinhado à inclinação física, margem decorativa de 24 px e sem rotação do material. Nos cantos internos, um decalque pintado de raiz é recortado à união de três células sólidas e fundido à massa por alfa radial. O vão permanece livre. Não há PNG novo nesta etapa: reutilização deliberada para manter identidade artística. O CI compara a utilização das rampas com os pares do mapa e amostra seis pontos da função física rampSurface, além da paridade dos corpos estáticos. A aprovação visual e o playtest continuam necessários.
+
+
+## Piloto 13: profundidade atmosférica
+OrganicAtmosphere cria duas texturas Canvas estáticas de 640×360, reutilizadas entre cenas (1,76 MiB de pixels RGBA estimados, não medição GPU). A luz quente fica antes do plano médio e a névoa entre a arquitetura/vegetação próxima e o fundo. Ambas entram no container de fundo antes de ColorRestore, sem cobrir jogador, perigos ou HUD. Média tem opacidade reduzida; Baixa não adiciona efeitos. Não introduz movimento nem flashes, e mantém a regra de redução de movimento da folhagem existente. A arena e subníveis não recebem o efeito. O CI exige duas camadas nas três fases orgânicas, zero na arena/legado/baixa, e compara os corpos estáticos também na qualidade baixa. Capturas não são medição de FPS nem playtest. A iluminação é atmosférica, não iluminação 3D dinâmica.

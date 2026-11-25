@@ -27,6 +27,7 @@ import { Ambient } from '../systems/Ambient';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
+import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -254,6 +255,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.player.gravityScale = this.level.gravity ?? 1;
     this.buildWater();
 
+    // Presentation-only: insert airlight inside the background before ColorRestore.
+    this.data.set('organicAtmosphereLayers',0);
+    const quality=getSettings().quality;
+    if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){
+      const count=addOrganicAtmosphere(this,this.bgContainer,this.bgMid,this.bgNear,quality);
+      this.data.set('organicAtmosphereLayers',count);
+      // Existing front foliage stays at the screen edges and never receives new geometry.
+      this.fgTop?.setAlpha(.88);
+      this.fgBot?.setAlpha(.78);
+    }
     this.color = new ColorRestore([this.bgContainer, this.world, ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)

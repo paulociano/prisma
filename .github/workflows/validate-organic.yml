@@ -39,6 +39,7 @@ jobs:
         run: |
           npm run shots -- baseline 0,1,2,3
           npm run shots -- organic 0,1,2,3
+          npm run shots -- organic-low 0
           node scripts/check-visual-parity.mjs
       - uses: actions/upload-artifact@v4
         if: always()
