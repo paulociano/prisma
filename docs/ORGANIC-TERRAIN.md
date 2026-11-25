@@ -82,3 +82,7 @@ OrganicForeground recompõe as faixas de folhagem pintadas já existentes: a fai
 
 ## Piloto 18: Santuário das Raízes, composição exclusiva
 `assets/raw/w1/organic/root_sanctuary.png` é uma ilustração inédita de árvore ancestral, rocha, raízes e folhagem rubra, 1536×1024 RGBA. Núcleo esquerdo e região aberta à direita passaram nas verificações locais de alfa (100% em ambas as amostras). A composição usa o gabarito da Ponte das Raízes: cofre em col 182 / row 13, piso em row 20, arte em 960×640 px ancorada ao mapa final, sem depender de coluna absoluta. RootSanctuary exige uma prateleira sólida de 15 células e recorta o vão do cofre e sua entrada com alfa zero e transição de 28 px. Desenha atrás do terreno, dentro de ColorRestore, sem novos corpos físicos. Qualidade baixa e legado não recebem a camada. O CI verifica âncora, ordem de desenho, amostra de alfa zero e paridade física. O resultado é uma composição de fundo estrutural, não substitui a silhueta das colisões. Inspeção visual e playtest ainda necessários.
+
+
+## Piloto 27: macrocomposições ancoradas
+Dois agrupamentos ambientais secundários por fase quando houver prateleiras seguras próximas de 19% e 76% da extensão final. O planejador reserva o marco principal e o Santuário, exige ar livre e piso sólido, e limita a proximidade entre cenas. Composições assimétricas com assets existentes, atrás do gameplay, no mesmo ColorRestore. Não são pinturas inéditas nem cobertura integral do mapa. Teste determinístico de separação e imutabilidade; inspeção visual pendente.

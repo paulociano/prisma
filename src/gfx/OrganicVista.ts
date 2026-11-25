@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { F } from './art';
-import { organicVistaPlan, type OrganicVistaPlan } from '../levels/ArtGeometry';
+import { organicVistaPlan, organicMacroPlans, type OrganicVistaPlan } from '../levels/ArtGeometry';
 import type { LevelData } from '../levels/LevelBuilder';
 
 export interface OrganicVista {layer:Phaser.GameObjects.Container;plan:OrganicVistaPlan;objects:number}
@@ -48,6 +48,26 @@ export function composeOrganicVista(scene:Phaser.Scene,level:LevelData,landmark:
       p.setFlipX(i>=2);
       layer.add(p);
     }
+    // Two additional ground-anchored environmental scenes, composed as
+    // asymmetric groups rather than a repeated strip. The original landmark
+    // stays unique. All objects are part of the same ColorRestore layer.
+    const macros=organicMacroPlans(level);
+    for(const [index,q] of macros.entries()){
+      const cx=(q.col+.5)*TILE,base=q.row*TILE+5,span=q.span*TILE;
+      const recipe=index===0
+        ? [{f:F.w1Props.arch,dx:-.16,w:.62,h:230,a:.43},{f:F.w1Props.heartFlower,dx:.34,w:.31,h:190,a:.52},{f:F.w1Props.berries,dx:-.39,w:.22,h:95,a:.65}]
+        : [{f:F.w1Props.log,dx:.04,w:.72,h:130,a:.52},{f:F.w1Props.mushrooms,dx:-.32,w:.34,h:210,a:.46},{f:F.w1Props.heartFlower,dx:.36,w:.24,h:145,a:.58}];
+      for(const item of recipe){
+        const frame=String(item.f);if(!atlas.has(frame))continue;
+        const f=atlas.get(frame);
+        const s=Math.min(span*item.w/f.width,item.h/f.height);
+        const obj=scene.add.image(cx+span*item.dx,base,key,frame).setOrigin(.5,1)
+          .setScale(s).setTint(profile.tint).setAlpha(item.a);
+        obj.setData('organicMacro',index);
+        layer.add(obj);
+      }
+    }
+    scene.data.set('organicMacroPlans',macros);
     // Disable the old drifting landmark only after the replacement is ready.
     landmark.setVisible(false);
     return {layer,plan,objects:layer.length};

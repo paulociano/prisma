@@ -122,15 +122,16 @@ export interface OrganicVistaPlan {col:number;row:number;span:number}
  * is checked against the tile grid, not against the pre-extension layout.
  * It is strictly decorative, with a preference for unoccupied scenery.
  */
-export function organicVistaPlan(level:LevelData):OrganicVistaPlan|undefined {
+export function organicVistaPlan(level:LevelData, fraction=.45, exclude:OrganicVistaPlan[]=[]):OrganicVistaPlan|undefined {
   if(level.arena)return;
-  const target=Math.floor(level.cols*.45);
+  const target=Math.floor(level.cols*fraction);
   const forbidden=new Set(['player','exit','checkpoint','shard','chest','guardian','colorgate','gate','portal','mover','spring']);
   const entities=level.entities??[];
   let best:OrganicVistaPlan|undefined,score=Infinity;
   for(const span of [7,5]){
     const half=Math.floor(span/2);
     for(let r=4;r<level.rows;r++)for(let c=half+2;c<level.cols-half-2;c++){
+      if(exclude.some(p=>Math.abs(p.col-c)<Math.max(20,(p.span+span)/2+6)))continue;
       let valid=true;
       for(let x=c-half;x<=c+half;x++){
         if(level.tiles[r][x]!==T.Solid){valid=false;break;}
@@ -171,4 +172,19 @@ export function rootSanctuaryPlan(level:LevelData):RootSanctuaryPlan|undefined{
   const width=15*TILE,height=10*TILE,x=start*TILE,y=groundRow*TILE-height+8;
   if(y<0)return;
   return {x,y,width,height,groundRow,clear:{x:(p.col+1)*TILE,y:(p.row+1)*TILE,width:5*TILE,height:2*TILE}};
+}
+
+/** Secondary scenes use real ground shelves, separated by at least one camera.
+ * Keep the sanctuary and main landmark as protected anchors. */
+export function organicMacroPlans(level:LevelData):OrganicVistaPlan[]{
+  if(level.arena||level.world!==1)return [];
+  const main=organicVistaPlan(level);const sanctuary=rootSanctuaryPlan(level);
+  const reserved:OrganicVistaPlan[]=main?[main]:[];
+  if(sanctuary)reserved.push({col:(sanctuary.x+sanctuary.width/2)/TILE,row:sanctuary.groundRow,span:sanctuary.width/TILE});
+  const result:OrganicVistaPlan[]=[];
+  for(const fraction of [.19,.76]){
+    const p=organicVistaPlan(level,fraction,[...reserved,...result]);
+    if(p&&Math.abs(p.col-level.cols*fraction)<=level.cols*.18)result.push(p);
+  }
+  return result;
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -79,4 +79,15 @@ test('root sanctuary matches the real coffer envelope and refuses unsafe ground'
  assert.equal(JSON.stringify(level),before);
  tiles[20][c+7]=0;
  assert.equal(rootSanctuaryPlan(level),undefined);
+});
+
+test('macro scenes reserve the primary landmark and use separated clear shelves',()=>{
+ const tiles=Array.from({length:9},(_,r)=>Array(180).fill(r>=7?1:0));
+ const level={world:1,id:'1-1',cols:180,rows:9,tiles,entities:[]};
+ const before=JSON.stringify(level),main=organicVistaPlan(level),plans=organicMacroPlans(level);
+ assert.equal(plans.length,2);
+ assert.ok(plans.every(p=>Math.abs(p.col-main.col)>=20&&p.row===7));
+ assert.ok(Math.abs(plans[0].col-plans[1].col)>=20);
+ assert.deepEqual(organicMacroPlans(level),plans);assert.equal(JSON.stringify(level),before);
+ assert.deepEqual(organicMacroPlans({...level,arena:'boss'}),[]);
 });
