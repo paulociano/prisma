@@ -3,7 +3,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { LEVELS } from '../src/levels';
 import { TILE } from '../src/config';
-import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, terrainPlatePlan, terrainArtChunks, type ArtChunk } from '../src/levels/ArtGeometry';
+import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, terrainPlatePlan, terrainArtChunks, terrainPlateGroups, towerMacroPlan, type ArtChunk } from '../src/levels/ArtGeometry';
 import type { LevelData } from '../src/levels/LevelBuilder';
 
 const root=path.resolve('.debug/art-packs');
@@ -64,6 +64,31 @@ async function writeTerrainPlate(l:LevelData,ch:ArtChunk,dir:string){
     contract:'Terrain only. Exact solid and ramp coverage. Transparent gaps; no background, one-way, hazards or dynamic entities. Neighboring chunk edges must match.'
   },null,2));
 }
+/** A single authored master covers a connected terrain mass. The per-plate
+ * crop rectangles retain the original runtime texture budget and world Y. */
+async function writeTerrainGroups(l:LevelData,dir:string){
+  const groups=terrainPlateGroups(l),tower=towerMacroPlan(l),queue=[];
+  for(const group of groups){
+    const first=group[0],last=group[group.length-1];
+    const id='group_'+first.id.slice(6)+'_'+last.id.slice(6);
+    const x=first.x,y=Math.min(...group.map(p=>p.y));
+    const width=last.x+last.width-x,height=Math.max(...group.map(p=>p.y+p.height))-y;
+    const protectedArea=group.some(p=>p.protectedArea)||!!tower&&first.c0<tower.c1&&last.c1>tower.c0;
+    const members=group.map(p=>({id:p.id,x:p.x-x,y:p.y-y,width:p.width,height:p.height,mask:p.id+'-terrain-mask.png'}));
+    const missing=[];
+    for(const m of members){
+      const target=path.resolve('assets/raw/w1/organic/terrain',l.id,m.id+'.png');
+      try{await fs.access(target);}catch{missing.push(m.id);}
+    }
+    queue.push({id,x,y,width,height,protectedArea,members:members.map(m=>m.id),missing});
+    if(protectedArea)continue;
+    const shapes=group.flatMap(p=>p.polygons).map(p=>'<polygon fill="#fff" points="'+p.map(v=>v.join(',')).join(' ')+'"/>').join('');
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="'+x+' '+y+' '+width+' '+height+'">'+shapes+'</svg>';
+    await sharp(Buffer.from(svg)).png().toFile(path.join(dir,id+'-master-mask.png'));
+    await fs.writeFile(path.join(dir,id+'-master.json'),JSON.stringify({schema:1,level:l.id,id,x,y,width,height,protectedArea:false,mask:id+'-master-mask.png',members},null,2));
+  }
+  await fs.writeFile(path.join(dir,'terrain-production.json'),JSON.stringify(queue,null,2));
+}
 async function main(){
   await fs.mkdir(root,{recursive:true});
   const index=[];
@@ -78,7 +103,10 @@ async function main(){
     if(l.world===1){
       if(l.id==='1-3')await writeCofferGuide(l,dir);
       for(const ch of chunks)await writeGuide(l,ch,dir,true);
-      if(!l.arena)for(const ch of terrainArtChunks(l))await writeTerrainPlate(l,ch,dir);
+      if(!l.arena){
+        for(const ch of terrainArtChunks(l))await writeTerrainPlate(l,ch,dir);
+        await writeTerrainGroups(l,dir);
+      }
       if(focus){
         await writeGuide(l,focus,dir,true);
         await fs.writeFile(path.join(dir,'focus-brief.md'),[

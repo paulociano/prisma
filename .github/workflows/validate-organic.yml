@@ -25,6 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:art-geometry
+      - run: npm run test:terrain-master
       - run: npm run test:levels
       - run: npm run check-levels
       - run: npm run build
