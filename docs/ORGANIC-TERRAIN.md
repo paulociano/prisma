@@ -86,3 +86,7 @@ OrganicForeground recompõe as faixas de folhagem pintadas já existentes: a fai
 
 ## Piloto 27: macrocomposições ancoradas
 Dois agrupamentos ambientais secundários por fase quando houver prateleiras seguras próximas de 19% e 76% da extensão final. O planejador reserva o marco principal e o Santuário, exige ar livre e piso sólido, e limita a proximidade entre cenas. Composições assimétricas com assets existentes, atrás do gameplay, no mesmo ColorRestore. Não são pinturas inéditas nem cobertura integral do mapa. Teste determinístico de separação e imutabilidade; inspeção visual pendente.
+
+
+## Piloto 28: produção de massas de terreno (escopo corrigido)
+Preservar bg_far, bg_mid, bg_near e foreground existentes. As pinturas panorâmicas anteriores são referências estéticas, não substitutos da geometria. O exportador gera chunk_NNN-terrain-mask.png e chunk_NNN-terrain-placement.json por trecho de 20 colunas nas fases de exploração do mundo 1, com escala 1:1 e recorte vertical. A máscara cobre somente sólidos e rampas; vãos, espinhos e plataformas atravessáveis ficam transparentes. Contrato proposto para ilustrações em assets/raw/w1/organic/terrain/<fase>/<chunk>.png: rocha, musgo, raízes e transições pintadas como uma massa única, respeitando a máscara, alinhamento e bordas comuns. Não pintar fundos, HUD, entidades nem pontes sobre vãos. A importação no renderer não está implementada neste commit; primeiro validar as artes contra as máscaras e verificar continuidade. Arena permanece intacta.

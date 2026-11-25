@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import { LEVELS } from '../src/levels';
 import { TILE } from '../src/config';
 import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, type ArtChunk } from '../src/levels/ArtGeometry';
-import type { LevelData } from '../src/levels/LevelBuilder';
+import { T, isRamp, type LevelData } from '../src/levels/LevelBuilder';
 
 const root=path.resolve('.debug/art-packs');
 const colors: Record<number,string>={1:'#8b9bb1',2:'#63d5cd',3:'#f06a80',4:'#d5b8ff',5:'#d5b8ff',6:'#d5b8ff',7:'#d5b8ff'};
@@ -47,6 +47,31 @@ async function writeCofferGuide(l:LevelData,dir:string){
   await sharp(Buffer.from(guide)).png().toFile(path.join(dir,'coffer-guide.png'));
   await fs.writeFile(path.join(dir,'coffer-placement.json'),JSON.stringify({schema:1,level:l.id,asset:'assets/raw/w1/organic/coffer.png',width:w,height:h,scale:.5,origin:{x:plan.col*TILE-48,y:plan.row*TILE-48},cells,contactLines:[{x0:96,x1:608,y:96},{x0:224,x1:736,y:480}],clearArea:{x:250,y:250,width:215,height:180}},null,2));
 }
+/** Export terrain-only masks at exact world scale, with a cropped vertical
+ * envelope. Empty space, hazards, one-way platforms and entities remain open.
+ * Internal chunk boundaries are exact; margin is vertical only to avoid
+ * painting duplicate pixels into neighboring chunks. */
+async function writeTerrainPlate(l:LevelData,ch:ArtChunk,dir:string){
+  const polygons:[number,number][][]=[];
+  for(let r=0;r<l.rows;r++)for(let c=ch.c0;c<ch.c1;c++){
+    const t=l.tiles[r][c];
+    if(t!==T.Solid&&!isRamp(t))continue;
+    polygons.push(tilePolygon(t,c,r));
+  }
+  if(!polygons.length)return;
+  const y0=Math.max(0,Math.min(...polygons.flat().map(p=>p[1]))-TILE/2);
+  const y1=Math.min(l.rows*TILE,Math.max(...polygons.flat().map(p=>p[1]))+TILE/2);
+  const width=ch.width,height=y1-y0;
+  const base=ch.id+'-terrain';
+  const header='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="'+ch.x+' '+y0+' '+width+' '+height+'">';
+  const shapes=polygons.map(p=>'<polygon fill="#fff" points="'+p.map(v=>v.join(',')).join(' ')+'"/>').join('');
+  await sharp(Buffer.from(header+shapes+'</svg>')).png().toFile(path.join(dir,base+'-mask.png'));
+  await fs.writeFile(path.join(dir,base+'-placement.json'),JSON.stringify({
+    schema:1,level:l.id,chunk:ch.id,asset:'assets/raw/w1/organic/terrain/'+l.id+'/'+ch.id+'.png',
+    x:ch.x,y:y0,width,height,scale:1,mask:base+'-mask.png',
+    contract:'Terrain only. Exact solid and ramp coverage. Transparent gaps; no background, one-way, hazards or dynamic entities. Neighboring chunk edges must match.'
+  },null,2));
+}
 async function main(){
   await fs.mkdir(root,{recursive:true});
   const index=[];
@@ -60,7 +85,7 @@ async function main(){
     await writeGuide(l,full,dir,true);
     if(l.world===1){
       if(l.id==='1-3')await writeCofferGuide(l,dir);
-      for(const ch of chunks)await writeGuide(l,ch,dir,true);
+      for(const ch of chunks){await writeGuide(l,ch,dir,true);if(!l.arena)await writeTerrainPlate(l,ch,dir);}
       if(focus){
         await writeGuide(l,focus,dir,true);
         await fs.writeFile(path.join(dir,'focus-brief.md'),[
