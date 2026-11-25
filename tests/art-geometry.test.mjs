@@ -130,7 +130,7 @@ test('tower pillar plan matches paired vertical geometry and refuses changed pas
   const tiles=Array.from({length:22},(_,r)=>Array(30).fill(r>=20?1:0));
   for(let r=3;r<=14;r++)tiles[r][6]=1;
   for(let r=3;r<=19;r++)tiles[r][17]=1;
-  tiles[6][7]=2;tiles[4][16]=2;
+  tiles[6][7]=2;tiles[4][12]=2;tiles[2][17]=2;
   const level={world:1,id:'1-3',cols:30,rows:22,tiles,entities:[]};
   const before=JSON.stringify(level);
   assert.deepEqual(towerPillarPlans(level).map(p=>[p.id,p.col,p.row,p.width,p.height]),[['suspended',6,3,80,768],['anchored',17,3,80,1088]]);
