@@ -251,3 +251,22 @@ export function terrainSeamCompatible(a:PlateEdge,b:PlateEdge):boolean{
   }
   return count>0&&total/count<=18;
 }
+
+export interface TowerPillarPlan {id:'suspended'|'anchored';col:number;row:number;length:number;x:number;y:number;width:number;height:number}
+/** Identify the matching tower silhouette, not an absolute generated column. */
+export function towerPillarPlans(level:LevelData):TowerPillarPlan[]{
+  if(level.id!=='1-3'||level.arena)return [];
+  const at=(c:number,r:number)=>level.tiles[r]?.[c];
+  const single=(c:number,r:number)=>at(c,r)===T.Solid&&[at(c-1,r),at(c+1,r)].every(t=>t===T.Empty||t===T.OneWay);
+  for(let c=1;c+12<level.cols;c++)for(let r=1;r+17<level.rows;r++){
+    const right=c+11;
+    if(at(c,r-1)!==T.Empty||at(right,r-1)!==T.Empty||at(c,r+12)!==T.Empty)continue;
+    if(!Array.from({length:12},(_,i)=>single(c,r+i)).every(Boolean)||!Array.from({length:17},(_,i)=>single(right,r+i)).every(Boolean))continue;
+    if(![right-1,right,right+1].every(x=>at(x,r+17)===T.Solid))continue;
+    // Signature: one-way ledges on opposite sides, leaving a climbing corridor.
+    if(at(c+1,r+3)!==T.OneWay||at(right-1,r+1)!==T.OneWay)continue;
+    const make=(id:TowerPillarPlan['id'],col:number,length:number):TowerPillarPlan=>({id,col,row:r,length,x:col*TILE-8,y:r*TILE,width:TILE+16,height:length*TILE});
+    return [make('suspended',c,12),make('anchored',right,17)];
+  }
+  return [];
+}

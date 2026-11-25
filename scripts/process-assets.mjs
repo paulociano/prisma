@@ -692,6 +692,15 @@ if(fs.existsSync(sanctuaryFile)){
   const entry=await processImage({key:'w1_organic_sanctuary',src:'w1/organic/root_sanctuary.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Authored tower columns: exact contact width plus a small guarded margin.
+for(const [id,height] of [['suspended',768],['anchored',1088]]){
+  const src='w1/organic/tower_'+id+'.png',file=path.join(RAW,src);
+  if(!fs.existsSync(file))continue;
+  const meta=await sharp(file).metadata();
+  if(!meta.hasAlpha||meta.width!==80||meta.height!==height)throw Error(src+': invalid tower dimensions');
+  const entry=await processImage({key:'w1_tower_'+id,src,type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Optional authored terrain plates. Runtime checks exact generated geometry and alpha.
 for(const id of ['1-1','1-2','1-3']){
   const dir=path.join(RAW,'w1/organic/terrain',id);

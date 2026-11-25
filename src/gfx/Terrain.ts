@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
+import { paintTowerPillars } from './TerrainTower';
 import { paintTerrainPlates, paintTerrainBlend } from './TerrainPlates';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
@@ -329,6 +330,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const { rows, cols, tiles } = level;
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
+  scene.data.set('terrainTowerPillars',[]);
   scene.data.set('terrainBlends',[]);
   scene.data.set('terrainPlateRejected',[]);
   scene.data.set('organicCoffer',false);
@@ -398,6 +400,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const covered=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTerrainPlates(scene,level,tops):new Set<number>();
+  const towerCells=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerPillars(scene,level,tops,covered):new Set<number>();
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
     return { pivotY: f.customPivot ? f.pivotY : 0, h: f.height / 2, w: f.width / 2 };
@@ -444,7 +447,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   for (let r = 0; r < rows; r++) {
     let start = -1;
     for (let c = 0; c <= cols; c++) {
-      const lone = c < cols && !covered.has(c) && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
+      const lone = c < cols && !covered.has(c) && !towerCells.has(r*cols+c) && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
       if (lone && start < 0) start = c;
       if (!lone && start >= 0) {
         const c0 = start, c1 = c - 1;
@@ -461,7 +464,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const plan = organic ? cofferPlan(level) : undefined;
   const hero = plan && groundKey ? buildHeroCoffer(scene, plan, groundKey, tilesKey, tops) : false;
   scene.data.set('organicCoffer', !!hero);
-  const block = (c: number, r: number) => !covered.has(c) && solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
+  const block = (c: number, r: number) => !covered.has(c) && !towerCells.has(r*cols+c) && solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
   scene.data.set('organicFaces', !!baked);
   scene.data.set('organicMode',baked?'organic':'legacy');
