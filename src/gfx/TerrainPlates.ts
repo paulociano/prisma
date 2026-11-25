@@ -40,7 +40,14 @@ function readEdge(source:CanvasImageSource,p:TerrainPlatePlan,right:boolean){
   const canvas=document.createElement('canvas');canvas.width=1;canvas.height=p.height;
   const g=canvas.getContext('2d');if(!g)throw Error('edge canvas unavailable');
   g.drawImage(source,right?p.width-1:0,0,1,p.height,0,0,1,p.height);
-  return {y:p.y,rgba:g.getImageData(0,0,1,p.height).data};
+  const rgba=g.getImageData(0,0,1,p.height).data;
+  g.clearRect(0,0,1,p.height);g.fillStyle='#fff';
+  const edgeX=p.x+(right?p.width-1:0);
+  for(const poly of p.polygons){
+    g.beginPath();poly.forEach(([x,y],i)=>i?g.lineTo(x-edgeX,y-p.y):g.moveTo(x-edgeX,y-p.y));g.closePath();g.fill();
+  }
+  const mask=g.getImageData(0,0,1,p.height).data.filter((_,i)=>i%4===3);
+  return {y:p.y,rgba,mask};
 }
 function validAlpha(source:CanvasImageSource,p:TerrainPlatePlan,level:LevelData):boolean{
   const {width:w,height:h}=p;

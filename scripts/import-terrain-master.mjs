@@ -26,6 +26,14 @@ export function checkSeam(left,right){
   const pixel=(p,x,y,k)=>y<p.y||y>=p.y+p.height?0:p.data[((y-p.y)*p.width+x)*4+k];
   for(let y=lo;y<hi;y++){
     const a=pixel(left,left.width-1,y,3),b=pixel(right,0,y,3);
+    if(left.mask&&right.mask){
+      const m=(p,x,y)=>y<p.y||y>=p.y+p.height?0:p.mask[((y-p.y)*p.width+x)*4+3];
+      const am=m(left,left.width-1,y),bm=m(right,0,y);
+      if((am>=250&&bm===0)||(bm>=250&&am===0)){
+        if(am>=250?(a<220||b>24):(b<220||a>24))throw Error('Seam geometry alpha mismatch at y='+y);
+        continue;
+      }
+    }
     let d=Math.abs(a-b);
     for(let k=0;k<3;k++)d=Math.max(d,Math.abs(pixel(left,left.width-1,y,k)*a/255-pixel(right,0,y,k)*b/255));
     if(d>48)throw Error('Seam discontinuity at world-relative y='+y);
@@ -58,7 +66,7 @@ export async function importMaster(level,id,source,{write=false,overwrite=false}
     const {data}=await rgba(png),{data:mask,info}=await rgba(path.join(dir,p.mask));
     if(info.width!==p.width||info.height!==p.height)throw Error('Mask size mismatch: '+p.id);
     validatePlatePixels(data,mask,p.width,p.height,guide.x+p.x,guide.y+p.y);
-    const entry={...p,data,png,target:path.join(output,p.id+'.png')};
+    const entry={...p,data,mask,png,target:path.join(output,p.id+'.png')};
     if(prepared.length)checkSeam(prepared.at(-1),entry);
     prepared.push(entry);
   }

@@ -49,3 +49,12 @@ test('import dry run, exact crop writes and overwrite protection',async()=>{
     await assert.rejects(importMaster('1-2',id,'master.png',{write:true}),/Destination exists/);
   }finally{process.chdir(old);await fs.rm(tmp,{recursive:true,force:true});}
 });
+
+test('master seam permits a genuine step only with matching mask alpha',()=>{
+  const left={y:0,width:1,height:2,data:rgba(1,2),mask:rgba(1,2)};
+  const right={...left,data:rgba(1,2),mask:rgba(1,2)};
+  right.data.fill(0,0,4);right.mask.fill(0,0,4);
+  assert.doesNotThrow(()=>checkSeam(left,right));
+  assert.throws(()=>checkSeam(left,{...right,mask:left.mask}),/discontinuity/);
+  assert.throws(()=>checkSeam(left,{...right,data:left.data}),/geometry alpha mismatch/);
+});

@@ -165,3 +165,12 @@ test('single tower painting is gated by all physical cells in its envelope',()=>
   assert.equal(JSON.stringify(level),before);
   tiles[8][10]=3;assert.equal(towerMacroPlan(level),undefined);
 });
+
+test('terrain seam allows only mask-proven cliff termination, not missing paint',()=>{
+  const a={y:0,rgba:Uint8ClampedArray.from([80,70,60,255,80,70,60,255]),mask:Uint8ClampedArray.from([255,255])};
+  const b={y:0,rgba:Uint8ClampedArray.from([0,0,0,0,80,70,60,255]),mask:Uint8ClampedArray.from([0,255])};
+  assert.equal(terrainSeamCompatible(a,b),true);
+  assert.equal(terrainSeamCompatible(a,{...b,mask:a.mask}),false);
+  assert.equal(terrainSeamCompatible(a,{...b,rgba:a.rgba}),false);
+  assert.equal(terrainSeamCompatible({...a,mask:undefined},b),false);
+});

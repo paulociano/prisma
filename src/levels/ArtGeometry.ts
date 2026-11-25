@@ -236,7 +236,7 @@ export function terrainPlateGroups(level:LevelData):TerrainPlatePlan[][]{
   }
   return groups;
 }
-export interface PlateEdge {y:number;rgba:Uint8ClampedArray}
+export interface PlateEdge {y:number;rgba:Uint8ClampedArray;mask?:Uint8ClampedArray}
 /** Compare edges at world-space Y, using premultiplied RGB to ignore hidden
  * colors in transparent pixels. Tolerance accommodates WebP quantization. */
 export function terrainSeamCompatible(a:PlateEdge,b:PlateEdge):boolean{
@@ -245,6 +245,15 @@ export function terrainSeamCompatible(a:PlateEdge,b:PlateEdge):boolean{
   const get=(e:PlateEdge,y:number,k:number)=>e.rgba[(y-e.y)*4+k]??0;
   for(let y=start;y<end;y++){
     const aa=get(a,y,3),ba=get(b,y,3);
+    // A real cliff or island termination is not an artificial texture seam.
+    // Require exact geometry evidence on both sides and correct actual alpha.
+    if(a.mask&&b.mask){
+      const am=a.mask[y-a.y]??0,bm=b.mask[y-b.y]??0;
+      if((am>=250&&bm===0)||(bm>=250&&am===0)){
+        if(am>=250?(aa<220||ba>24):(ba<220||aa>24))return false;
+        continue;
+      }
+    }
     const delta=Math.max(Math.abs(aa-ba),...[0,1,2].map(k=>Math.abs(get(a,y,k)*aa/255-get(b,y,k)*ba/255)));
     if(delta>48)return false;
     if(aa>24||ba>24){total+=delta;count++;}
