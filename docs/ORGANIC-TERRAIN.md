@@ -42,3 +42,7 @@ O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout 
 
 ## Piloto 7: extensão para o Mundo 1
 `?organic=1` habilita o renderizador nas três fases de exploração do Vale do Coração. O Tribunal de Pedra conserva a arena já pintada; seu chão faz parte da imagem de fundo. O script valida os quatro mapas, a igualdade dos corpos estáticos, a seleção do renderer e o orçamento de pixels. O relatório world-one-parity.json contém a contagem de superfícies e bytes estimados por fase. Exportação de chunks para as quatro fases. O perfil de borda passa a variar continuamente em coordenadas do mundo, limitado a 10 pixels de projeção decorativa. A versão padrão continua inalterada; não é playtest completo e não contém ilustrações inéditas.
+
+
+## Piloto 8: primeira ilustração inédita
+`assets/raw/w1/organic/coffer.png` é um asset raster gerado para a direção artística do PRISMA, separado do mapa de colisões. A imagem original foi ajustada com remapeamento por trechos para alinhar as alturas de contato e o vão ao gabarito 832×704 RGBA. Validação local do arquivo: 11/11 centros sólidos com alfa >220, 98,97% de amostras transparentes no vão protegido, quatro cantos transparentes. Não contém personagens, HUD ou objetos de interação. O pipeline existente converte para WebP e o renderer HeroCoffer usa o asset somente no modo experimental. A suite visual exige explicitamente organicCofferSource=authored; sem isso a publicação experimental não é aprovada. Os números de alfa não substituem inspeção de alinhamento visual nem playtest.

@@ -58,7 +58,7 @@ for (const index of wanted) {
     return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), organicMode:s.data.get('organicMode'), organicFaceBytes:s.data.get('organicFaceBytes'), cols:s.level.cols, staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
   });
   if(index<3 && label==='organic' && (!info.organicFaces || !(info.organicSurfaces>0) || info.organicMode!=='organic' || !(info.organicFaceBytes>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
-  if(index===2 && label==='organic' && !info.organicCoffer) throw Error('Missing organic coffer');
+  if(index===2 && label==='organic' && (!info.organicCoffer || info.organicCofferSource!=='authored')) throw Error('Missing authored coffer: '+info.organicCofferSource);
   if(index<3 && label==='baseline' && (info.organicFaces||info.organicCoffer)) throw Error('Baseline unexpectedly uses organic terrain');
   if(index===3 && ['organic','baseline'].includes(label) && info.organicMode!=='painted-arena') throw Error('Arena paint not preserved');
   fs.writeFileSync(path.join(out,info.id+'_renderer.json'),JSON.stringify(info,null,2));
