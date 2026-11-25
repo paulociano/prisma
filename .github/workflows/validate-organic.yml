@@ -19,3 +19,29 @@ jobs:
       - run: npm run check-levels
       - run: npm run build
       - run: test -s dist/studio.html
+      - run: npm run art:packs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prisma-art-packs
+          path: .debug/art-packs
+          if-no-files-found: error
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run assets
+      - name: Capture baseline and organic pilot
+        run: |
+          npm run shots -- baseline 2
+          npm run shots -- organic 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prisma-pilot-comparison
+          path: .debug/shots
+          if-no-files-found: warn

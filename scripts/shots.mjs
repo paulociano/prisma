@@ -27,11 +27,11 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.goto('http://localhost:5199/?debug');
+await page.goto('http://localhost:5199/?debug'+(label==='organic'?'&organic=1':''));
 await page.waitForFunction(() => window.game?.scene.isActive('Title'), null, { timeout: 120000 });
 
 for (const index of wanted) {
-  const stops = PLAN[index] ?? [20, 80];
+  let stops = PLAN[index] ?? [20, 80];
   await page.evaluate(async (index) => {
     const g = window.game;
     const { ensureWorld } = await import('/src/systems/Loader.ts');
@@ -45,8 +45,9 @@ for (const index of wanted) {
   const info = await page.evaluate(() => {
     const s = window.game.scene.getScene('Game');
     s.color.complete(); // cor cheia: é assim que a arte é julgada
-    return { id: s.level.id, objects: s.children.length };
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col };
   });
+  if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[Math.max(1,info.chest-4),info.chest+2,info.chest+9];
   for (const col of stops) {
     await page.evaluate((col) => {
       const s = window.game.scene.getScene('Game');

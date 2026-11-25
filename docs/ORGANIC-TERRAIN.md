@@ -16,3 +16,8 @@ Exportar 1-3 e selecionar o trecho do cofre suspenso (procurar entidade chest). 
  
 ## Verificação
 `npm run test:art-geometry`, `npm run test:levels`, `npm run check-levels`, `npm run build`. A/B com `?organic=1` e sem parâmetro. Testar mapa inteiro, exportação PNG/JSON, zoom e trechos, colisões, fragmentos, reset e restauração de cor. Nenhuma alegação de playtest até execução real.
+
+## Automação (piloto 2)
+O CI gera os 28 panoramas SVG/PNG e JSON, e todos os chunks da fase 1-3. Localiza o cofre pelo mapa final e cria focus.png, focus.svg e focus-brief.md com coordenadas reais. Tudo fica no artifact prisma-art-packs. O job visual captura o mesmo trecho no renderer legado e orgânico, artifact prisma-pilot-comparison. As capturas são de cenas posicionadas pelo script, não um playtest humano.
+
+O modo orgânico agora recompõe o interior do terreno em faixas de canvas com textura amostrada em coordenadas do mundo, volume e pequenas bordas curvas, mantendo capas, rampas, raízes e colisões atuais. Limite de 64 MiB de pixels de textura estimados; fallback para o renderer legado quando o limite ou a alocação falhar. Não há novos assets autorais nesta etapa. A arte de referência ainda exige refinamento da silhueta e composição.

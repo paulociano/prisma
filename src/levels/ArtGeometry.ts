@@ -48,3 +48,11 @@ export function tilePolygon(tile: T, c: number, r: number): [number, number][] {
   if (tile === T.Spike) return [[x+4,y+26],[x+TILE-4,y+26],[x+TILE-4,y+62],[x+4,y+62]];
   return [[x,y],[x+TILE,y],[x+TILE,b],[x,b]];
 }
+
+/** A camera-sized art reference centered on an entity in the final generated level. */
+export function focusArtChunk(level: LevelData, col: number, columns = 20): ArtChunk {
+  if (!Number.isInteger(columns) || columns < 1 || !Number.isFinite(col)) throw new Error('Invalid focus');
+  const span = Math.min(columns, level.cols);
+  const c0 = Math.max(0, Math.min(level.cols-span, Math.floor(col-span/2)));
+  return { id:'focus',c0,c1:c0+span,x:c0*TILE,y:0,width:span*TILE,height:level.rows*TILE };
+}
