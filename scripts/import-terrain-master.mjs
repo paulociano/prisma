@@ -34,7 +34,7 @@ export function checkSeam(left,right){
   if(!count||total/count>18)throw Error('Incompatible seam');
 }
 async function rgba(source){
-  return sharp(source).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  return sharp(source).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});
 }
 export async function importMaster(level,id,source,{write=false,overwrite=false}={}){
   if(!/^1-[123]$/.test(level)||!/^group_\d{3}_\d{3}$/.test(id))throw Error('Use a World 1 level and exported group ID');
@@ -44,6 +44,10 @@ export async function importMaster(level,id,source,{write=false,overwrite=false}
   const meta=await sharp(source).metadata();
   if(meta.format!=='png'||!meta.hasAlpha||meta.width!==guide.width||meta.height!==guide.height)throw Error('Master must be PNG RGBA at exact exported dimensions');
   const {data:master}=await rgba(source);
+  if(guide.mask!==id+'-master-mask.png')throw Error('Invalid master mask name');
+  const {data:masterMask,info:maskInfo}=await rgba(path.join(dir,guide.mask));
+  if(maskInfo.width!==guide.width||maskInfo.height!==guide.height)throw Error('Master mask size mismatch');
+  validatePlatePixels(master,masterMask,guide.width,guide.height,guide.x,guide.y);
   const output=path.resolve('assets/raw/w1/organic/terrain',level),prepared=[];
   let end=0;
   for(const p of guide.members){
