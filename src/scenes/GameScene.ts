@@ -31,6 +31,7 @@ import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
+import { composeRootSanctuary } from '../gfx/RootSanctuary';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -265,7 +266,12 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.data.set('organicVista',null);
     this.data.set('organicVistaObjects',0);
     this.data.set('organicForeground',false);
+    this.data.set('organicRootSanctuary',null);
     const quality=getSettings().quality;
+    if(this.data.get('organicMode')==='organic'&&!this.isSub&&quality!=='low'){
+      const sanctuary=composeRootSanctuary(this,this.world,this.level);
+      if(sanctuary)this.data.set('organicRootSanctuary',sanctuary);
+    }
     const vista=this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.landmark?composeOrganicVista(this,this.level,this.landmark):undefined;
     if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);}
     if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){

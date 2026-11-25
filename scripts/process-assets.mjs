@@ -680,6 +680,18 @@ if(fs.existsSync(organicGroundFile)){
   const entry=await processImage({key:'w1_organic_ground',src:'w1/organic/ground.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Exclusive rooted tree composition: preserve transparent opening and solid left trunk.
+const sanctuaryFile=path.join(RAW,'w1/organic/root_sanctuary.png');
+if(fs.existsSync(sanctuaryFile)){
+  const meta=await sharp(sanctuaryFile).metadata();
+  const {data,info}=await sharp(sanctuaryFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const ratio=(x0,y0,x1,y1,test)=>{let good=0,n=0;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){n++;if(test(data[(y*info.width+x)*4+3]))good++;}return good/n;};
+  if(!meta.hasAlpha||info.width!==1536||info.height!==1024||info.channels!==4||
+    ratio(900,300,1400,700,a=>a<24)<.98||ratio(180,400,330,700,a=>a>220)<.98)
+    throw Error('w1/organic/root_sanctuary.png: invalid dimensions or protected alpha');
+  const entry=await processImage({key:'w1_organic_sanctuary',src:'w1/organic/root_sanctuary.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;

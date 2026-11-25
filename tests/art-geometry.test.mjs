@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -65,4 +65,18 @@ test('foreground fades near player, remains bounded and respects quality',()=>{
    const a=foregroundVisibility(y,720,'high');
    assert.ok(a.top>=0&&a.top<=.86&&a.bottom>=0&&a.bottom<=.78);
  }
+});
+
+test('root sanctuary matches the real coffer envelope and refuses unsafe ground',()=>{
+ const tiles=Array.from({length:22},(_,r)=>Array(32).fill(r>=20?1:0));
+ const c=12,r=13;
+ for(let dx=0;dx<4;dx++)tiles[r][c+dx]=1;
+ for(let dx=0;dx<5;dx++)tiles[r+3][c+dx]=1;
+ tiles[r+1][c]=tiles[r+2][c]=1;
+ const level={id:'1-3',cols:32,rows:22,tiles,entities:[{type:'chest',col:c+1,row:r+2},{type:'colorgate',col:c+3,row:r+1}]};
+ const before=JSON.stringify(level);
+ assert.deepEqual(rootSanctuaryPlan(level),{x:448,y:648,width:960,height:640,groundRow:20,clear:{x:832,y:896,width:320,height:128}});
+ assert.equal(JSON.stringify(level),before);
+ tiles[20][c+7]=0;
+ assert.equal(rootSanctuaryPlan(level),undefined);
 });

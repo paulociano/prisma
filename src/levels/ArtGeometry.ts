@@ -157,3 +157,18 @@ export function foregroundVisibility(screenY:number,height:number,quality:'mediu
     bottom:strength*.78*smooth((height-screenY-72)/112)
   };
 }
+
+export interface RootSanctuaryPlan {x:number;y:number;width:number;height:number;groundRow:number;clear:{x:number;y:number;width:number;height:number}}
+/** Stage-specific scenery: locate the exact coffer and a continuous ground
+ * shelf under the full illustration. No hard-coded generated column. */
+export function rootSanctuaryPlan(level:LevelData):RootSanctuaryPlan|undefined{
+  const p=cofferPlan(level);if(!p)return;
+  const start=p.col-5,end=p.col+9,groundRow=p.row+7;
+  if(start<0||end>=level.cols||groundRow>=level.rows)return;
+  for(let c=start;c<=end;c++){
+    if(level.tiles[groundRow][c]!==T.Solid||level.tiles[groundRow-1][c]!==T.Empty)return;
+  }
+  const width=15*TILE,height=10*TILE,x=start*TILE,y=groundRow*TILE-height+8;
+  if(y<0)return;
+  return {x,y,width,height,groundRow,clear:{x:(p.col+1)*TILE,y:(p.row+1)*TILE,width:5*TILE,height:2*TILE}};
+}
