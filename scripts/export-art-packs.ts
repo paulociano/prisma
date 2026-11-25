@@ -3,7 +3,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { LEVELS } from '../src/levels';
 import { TILE } from '../src/config';
-import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, terrainPlatePlan, type ArtChunk } from '../src/levels/ArtGeometry';
+import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, terrainPlatePlan, terrainArtChunks, type ArtChunk } from '../src/levels/ArtGeometry';
 import type { LevelData } from '../src/levels/LevelBuilder';
 
 const root=path.resolve('.debug/art-packs');
@@ -77,7 +77,8 @@ async function main(){
     await writeGuide(l,full,dir,true);
     if(l.world===1){
       if(l.id==='1-3')await writeCofferGuide(l,dir);
-      for(const ch of chunks){await writeGuide(l,ch,dir,true);if(!l.arena)await writeTerrainPlate(l,ch,dir);}
+      for(const ch of chunks)await writeGuide(l,ch,dir,true);
+      if(!l.arena)for(const ch of terrainArtChunks(l))await writeTerrainPlate(l,ch,dir);
       if(focus){
         await writeGuide(l,focus,dir,true);
         await fs.writeFile(path.join(dir,'focus-brief.md'),[

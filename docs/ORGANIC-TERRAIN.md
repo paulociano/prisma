@@ -98,3 +98,7 @@ Use ?organic=1&plates=1. O pipeline de assets reconhece arquivos PNG RGBA em ass
 
 ## Piloto 31: continuidade entre placas
 O exportador indica conexões laterais e áreas protegidas. TerrainPlates agrupa trechos adjacentes conectados pela geometria; todos os PNGs do grupo devem existir, passar na validação dimensional/de alfa e apresentar bordas compatíveis em Y de mundo (diferença premultiplicada máxima 48 e média 18, limites iniciais para WebP). Se um falhar, o grupo inteiro mantém a apresentação anterior; nenhuma placa parcial é aplicada. Santuário continua protegido. Testes puros de agrupamento, transparência e descontinuidade; não equivale a validação visual de emendas pintadas. As artes conectadas ainda precisam ser produzidas.
+
+
+## Piloto 32: duas massas pintadas da Trilha das Lanternas
+O particionamento de placas prefere vãos físicos entre 12 e 20 colunas, mantendo o limite de 1280 px. Gabaritos gerais de câmera continuam fixos; gabaritos de placas usam terrainArtChunks. A fase 1-2 recebe dois PNGs inéditos: chunk_001 (1024×160, 13 células sólidas) e chunk_002 (1280×160, 12 células sólidas), originados da mesma folha de arte, rocha violeta acinzentada, raízes e musgo frio. Remapeamento por coluna preserva o contato y=1280 no mundo; cobertura alfa local de 100% no núcleo e zero pixels fora do vão. Os PNGs são registrados juntos, sem alterar fundos, física ou arena. QA adicional exige ambos carregados e compara corpos estáticos; capturas em três posições. Os conjuntos longos ainda precisam de arte e inspeção das emendas.

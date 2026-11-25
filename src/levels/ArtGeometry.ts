@@ -209,9 +209,26 @@ export function terrainPlatePlan(level:LevelData,ch:ArtChunk):TerrainPlatePlan|u
 
 /** Connected chunks are all-or-nothing: never mix authored and fallback art
  * at an artificial cut through a solid mass. */
+/** Prefer real gaps close to the nominal 20-column boundary. Preserve the
+ * established first Vale plate and never exceed the texture budget. */
+export function terrainArtChunks(level:LevelData):ArtChunk[]{
+  const out:ArtChunk[]=[];
+  const occupied=(c:number,r:number)=>{const t=level.tiles[r]?.[c];return t===T.Solid||isRamp(t);};
+  for(let c0=0;c0<level.cols;){
+    let c1=Math.min(level.cols,c0+20);
+    if(c1<level.cols){
+      for(let cut=c1;cut>=c0+12;cut--){
+        if(!Array.from({length:level.rows},(_,r)=>r).some(r=>occupied(cut-1,r)&&occupied(cut,r))){c1=cut;break;}
+      }
+    }
+    out.push({id:'chunk_'+String(out.length+1).padStart(3,'0'),c0,c1,x:c0*TILE,y:0,width:(c1-c0)*TILE,height:level.rows*TILE});
+    c0=c1;
+  }
+  return out;
+}
 export function terrainPlateGroups(level:LevelData):TerrainPlatePlan[][]{
   const groups:TerrainPlatePlan[][]=[];
-  for(const chunk of artChunks(level)){
+  for(const chunk of terrainArtChunks(level)){
     const plan=terrainPlatePlan(level,chunk);if(!plan)continue;
     const group=groups[groups.length-1],prev=group?.[group.length-1];
     if(prev&&prev.c1===plan.c0&&prev.rightConnected&&plan.leftConnected)group.push(plan);

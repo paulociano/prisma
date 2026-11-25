@@ -148,6 +148,34 @@ if(label==='organic'&&wanted.includes(0)){
     if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
   }
 }
+// Two independent authored opening masses in Trilha das Lanternas.
+if(label==='organic'&&wanted.includes(1)){
+  await page.goto('http://localhost:5199/?debug&organic=1&plates=1');
+  await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
+  await page.evaluate(()=>{
+    const g=window.game;
+    for(const id of ['001','002'])if(!g.textures.exists('w1_plate_1-2_chunk_'+id))throw Error('Lantern terrain plate missing '+id);
+    g.scene.getScenes(true).forEach(s=>g.scene.stop(s.scene.key));
+    g.scene.start('Game',{level:1});
+  });
+  await page.waitForFunction(()=>{const s=window.game.scene.getScene('Game');return s?.level?.id==='1-2'&&s?.player?.hit?.body&&s?.color&&(window.game.scene.isActive('Game')||window.game.scene.isPaused('Game'));},null,{timeout:120000});
+  const result=await page.evaluate(()=>{
+    const g=window.game,s=g.scene.getScene('Game');
+    if(g.scene.isActive('Dialogue'))g.scene.stop('Dialogue');
+    if(g.scene.isPaused('Game'))g.scene.resume('Game');
+    s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();s.color.complete();s.color.update(1);
+    return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+  });
+  fs.writeFileSync(path.join(out,'lantern-plates-report.json'),JSON.stringify(result,null,2));
+  const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
+  if(JSON.stringify(result.geometry)!==JSON.stringify(baseline.staticGeometry))throw Error('Lantern plates physics regression');
+  for(const col of [6,14,22]){
+    await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,20*64-46);s.cameras.main.centerOn(col*64+32,20*64-46);},col);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await page.screenshot({path:path.join(out,'lantern-plate-c'+col+'.png')});
+  }
+  if(!['chunk_001','chunk_002'].every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
+}
 if (errors.length) console.log('erros no console:\n' + [...new Set(errors)].slice(0, 10).join('\n'));
 console.log(`capturas em ${out}`);
 if(errors.length)process.exitCode=1;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible, terrainArtChunks } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -115,4 +115,13 @@ test('terrain seam matches world-space alpha and color, rejects hard discontinui
   assert.equal(terrainSeamCompatible(a,e(10,[100,70,40,0,90,60,30,255])),false);
   assert.equal(terrainSeamCompatible(a,e(10,[240,220,200,255,240,220,200,255])),false);
   assert.equal(terrainSeamCompatible(a,e(11,[100,70,40,255,90,60,30,255])),false);
+});
+
+test('terrain plate boundaries prefer gaps and preserve opening masses',()=>{
+  const tiles=Array.from({length:22},(_,r)=>Array.from({length:60},(_,c)=>r>=20&&(c<13||(c>=16&&c<28)||c>=38)?1:0));
+  const level={world:1,id:'1-2',cols:60,rows:22,tiles,entities:[]};
+  const chunks=terrainArtChunks(level);
+  assert.deepEqual(chunks.slice(0,2).map(p=>[p.c0,p.c1,p.width]),[[0,16,1024],[16,36,1280]]);
+  assert.deepEqual(terrainPlateGroups(level).slice(0,2).map(g=>g.map(p=>[p.id,p.y,p.height,p.replaceable])),[[['chunk_001',1248,160,true]],[['chunk_002',1248,160,true]]]);
+  assert.equal(chunks.at(-1).c1,level.cols);
 });
