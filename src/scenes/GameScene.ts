@@ -611,7 +611,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // o desenho do chão (interior, topo, ilhas, sombras de volume) fica em gfx/Terrain.ts
     const { decor, tops } = buildTerrain(this, this.level, this.world);
     this.data.set('terrainTowerBridges',[]);
-    const bridgeCells=!this.isSub&&this.data.get('organicMode')==='organic'&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerBridges(this,this.level,tops):new Set<number>();
+    const bridgeCells=!this.isSub&&this.data.get('terrainPlatesEnabled')?paintTowerBridges(this,this.level,tops):new Set<number>();
     this.hasRamps = this.level.tiles.some((row) => row.some(isRamp));
     this.onRampLast = false;
     this.decor = decor;

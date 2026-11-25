@@ -2,6 +2,16 @@ name: Validate Organic Terrain
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'src/gfx/**'
+      - 'src/scenes/**'
+      - 'src/levels/**'
+      - 'assets/raw/w1/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/validate-organic.yml'
 permissions:
   contents: read
 jobs:

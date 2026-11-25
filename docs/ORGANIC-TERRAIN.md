@@ -5,7 +5,7 @@
 - Abra `/studio.html` para visualizar o mapa final das 28 fases, incluindo `extendLevel` e `autoRamps`.
 - Selecione 1-3 (Ponte das Raízes), fase inicial do Studio. Selecione um trecho de 20 colunas (1280 px) para PNG de referência em escala nativa; o panorama inteiro é reduzido se necessário.
 - Exporte o JSON da fase (ou todas): grade, entidades, limites de trechos, paredes e escala de 64 px. O intervalo de colunas é [c0,c1), sem sobreposição.
-- Abra `/index.html?organic=1` e entre na fase 1-3 (progressão normal). Sem o parâmetro, o renderer anterior permanece intacto.
+- Abra `/index.html` e entre nas fases 1-1 a 1-3 (progressão normal): o terreno orgânico é o padrão. Use `?organic=0` para comparar com o renderer original, `?plates=0` para o orgânico sem placas autorais, ou `?macro=0` para os pilares e pontes separados.
 - O modo orgânico do Studio é esquemático. No jogo, o piloto agrupa paredes e plataformas usando a arte existente; não promete a fidelidade de arte personalizada.
  
 ## Invariantes
@@ -15,7 +15,7 @@ Não alterar colisões, perigos, entidades, mecânicas, dados de fase, progress�
 Exportar 1-3 e selecionar o trecho do cofre suspenso (procurar entidade chest). Comparar capturas antes/depois. Produzir primeiro uma formação rochosa contínua com raízes, usando PNG técnico como referência de coordenadas e a imagem de direção artística do usuário. Gerar transparência verdadeira; preservar superfícies pisáveis e espaço livre. Exportar partes separadas para terreno, decoração atrás do player, oclusão diante do player. Só depois de medir encaixe e custo de memória ampliar o kit. Não publicar arte definitiva sem playtest.
  
 ## Verificação
-`npm run test:art-geometry`, `npm run test:levels`, `npm run check-levels`, `npm run build`. A/B com `?organic=1` e sem parâmetro. Testar mapa inteiro, exportação PNG/JSON, zoom e trechos, colisões, fragmentos, reset e restauração de cor. Nenhuma alegação de playtest até execução real.
+`npm run test:art-geometry`, `npm run test:levels`, `npm run check-levels`, `npm run build`. A/B com `?organic=0` (legado) e `?organic=1&plates=0` (piloto original); URL sem flags para a composição atual. Testar mapa inteiro, exportação PNG/JSON, zoom e trechos, colisões, fragmentos, reset e restauração de cor. Nenhuma alegação de playtest até execução real.
 
 ## Automação (piloto 2)
 O CI gera os 28 panoramas SVG/PNG e JSON, e todos os chunks da fase 1-3. Localiza o cofre pelo mapa final e cria focus.png, focus.svg e focus-brief.md com coordenadas reais. Tudo fica no artifact prisma-art-packs. O job visual captura o mesmo trecho no renderer legado e orgânico, artifact prisma-pilot-comparison. As capturas são de cenas posicionadas pelo script, não um playtest humano.
@@ -122,3 +122,7 @@ Três PNGs autorais: bridge_canopy (896×32), bridge_ruby e bridge_moss (192×32
 
 ## Piloto 37: macroestrutura única da Torre das Raízes
 A referência aprovada pelo usuário é uma pintura contínua, não uma biblioteca de peças soltas. O mapa existente tem oito patamares, uma ponte, dois pilares assimétricos; as referências geradas não coincidem exatamente. Uma nova pintura foi reprojetada para as coordenadas reais, com oito superfícies ajustadas usando material das pontes existentes, raízes decorativas mais escuras, corredor central protegido e base em transição. PNG RGBA 1088×1344. O asset candidato cobre 157696 pixels dos 29 sólidos e 38 one-way (100% alfa local), e mantém livre a faixa central x350–419, y144–1151. A arte foi inspecionada localmente; há distorção de material e apoios não sólidos que exigem avaliação visual/jogável. Use ?organic=1&plates=1&macro=1 para comparar com o piloto anterior. TerrainMacro valida a assinatura de todas as células, o alfa dos contatos e a transparência do corredor; só então desenha um sprite e suprime as peças anteriores. O chão original permanece sob a base. Não modifica LevelData, colisores, entidades, fundos ou arena. CI adicional compara física e exige ausência das peças anteriores; capturas em quatro alturas. Não é aprovação estética final nem cobertura completa da fase.
+
+
+## Piloto 38: composição orgânica por padrão no Mundo 1
+As fases de exploração 1-1, 1-2 e 1-3 usam a composição orgânica, as placas validadas e a Torre das Raízes contínua sem flags. Arena e demais mundos não mudam. Placas e macroestrutura continuam condicionadas à geometria, alfa e disponibilidade de assets; os fallbacks anteriores permanecem. `?organic=0` recupera o legado, `?plates=0` recupera o orgânico inicial e `?macro=0` recupera os pilares e pontes separados. O CI captura o legado e o piloto original explicitamente e testa a aceitação e a paridade física do caminho padrão nas três fases; a alternativa da torre usa `?macro=0`. Nenhum novo asset ou alteração de física/saves. Avaliação estética e playtest continuam separados dos checks automatizados.

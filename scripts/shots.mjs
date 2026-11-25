@@ -28,7 +28,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.goto('http://localhost:5199/?debug'+(label==='organic'||label==='organic-low'?'&organic=1':''));
+await page.goto('http://localhost:5199/?debug'+(label==='organic'||label==='organic-low'?'&organic=1&plates=0':label==='baseline'?'&organic=0':''));
 await page.waitForFunction(() => window.game?.scene.isActive('Title'), null, { timeout: 120000 });
 if(label==='organic-low')await page.evaluate(async()=>{const {setSettings}=await import('/src/systems/Settings.ts');setSettings({quality:'low',reduceMotion:true});});
 
@@ -113,7 +113,7 @@ for (const index of wanted) {
 if(label==='organic'&&wanted.includes(0)){
   const report=[];
   for(const invalid of [false,true]){
-    await page.goto('http://localhost:5199/?debug&organic=1&plates=1');
+    await page.goto('http://localhost:5199/?debug');
     await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
     await page.evaluate(invalid=>{
       const game=window.game,key='w1_plate_1-1_chunk_001';
@@ -150,7 +150,7 @@ if(label==='organic'&&wanted.includes(0)){
 }
 // Two independent authored opening masses in Trilha das Lanternas.
 if(label==='organic'&&wanted.includes(1)){
-  await page.goto('http://localhost:5199/?debug&organic=1&plates=1');
+  await page.goto('http://localhost:5199/?debug');
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{
     const g=window.game;
@@ -184,7 +184,7 @@ if(label==='organic'&&wanted.includes(1)){
 }
 // Root Bridge: an authored mass and its separated floating island.
 if(label==='organic'&&wanted.includes(2)){
-  await page.goto('http://localhost:5199/?debug&organic=1&plates=1');
+  await page.goto('http://localhost:5199/?debug&macro=0');
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{
     const g=window.game;
@@ -219,7 +219,7 @@ if(label==='organic'&&wanted.includes(2)){
 }
 // Unified tower: same gameplay, one authored image instead of separate pieces.
 if(label==='organic'&&wanted.includes(2)){
-  await page.goto('http://localhost:5199/?debug&organic=1&plates=1&macro=1');
+  await page.goto('http://localhost:5199/?debug');
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{const g=window.game;g.scene.getScenes(true).forEach(s=>g.scene.stop(s.scene.key));g.scene.start('Game',{level:2});});
   await page.waitForFunction(()=>{const s=window.game.scene.getScene('Game');return s?.level?.id==='1-3'&&s?.player?.hit?.body&&s?.color&&(window.game.scene.isActive('Game')||window.game.scene.isPaused('Game'));},null,{timeout:120000});

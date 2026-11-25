@@ -331,6 +331,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const { rows, cols, tiles } = level;
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
+  scene.data.set('terrainPlatesEnabled',false);
   scene.data.set('terrainTowerPillars',[]);
   scene.data.set('terrainTowerMacro',null);
   scene.data.set('terrainBlends',[]);
@@ -398,12 +399,18 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   if (kit2) ensureWalls(scene, kit2);
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
-  // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
-  const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
-
-  const covered=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTerrainPlates(scene,level,tops):new Set<number>();
-  const macro=organic&&new URLSearchParams(window.location.search).get('plates')==='1'&&new URLSearchParams(window.location.search).get('macro')==='1'?paintTowerMacro(scene,level,tops,covered):undefined;
-  const towerCells=macro?.solids??(organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTowerPillars(scene,level,tops,covered):new Set<number>());
+  // World 1 exploration now uses validated organic art by default.
+  // Explicit opt-outs keep the comparison and rollback paths available.
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('organic');
+  const organic = level.world === 1 && !level.arena && (requested === '1' ||
+    (requested === null && ['1-1','1-2','1-3'].includes(level.id)));
+  const plates = organic && params.get('plates') !== '0';
+  const macroEnabled = plates && params.get('macro') !== '0';
+  scene.data.set('terrainPlatesEnabled',plates);
+  const covered=plates?paintTerrainPlates(scene,level,tops):new Set<number>();
+  const macro=macroEnabled?paintTowerMacro(scene,level,tops,covered):undefined;
+  const towerCells=macro?.solids??(plates?paintTowerPillars(scene,level,tops,covered):new Set<number>());
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
     return { pivotY: f.customPivot ? f.pivotY : 0, h: f.height / 2, w: f.width / 2 };
@@ -688,7 +695,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
 
   // Transitional painted plate: above the original structural artwork,
   // below contact shadows and independently drawn hazards/entities.
-  if(baked&&new URLSearchParams(window.location.search).get('plates')==='1')paintTerrainBlend(scene,level,tops);
+  if(baked&&plates)paintTerrainBlend(scene,level,tops);
   if(macro)tops.bringToTop(macro.image);
   return { fills, decor, tops };
 }
