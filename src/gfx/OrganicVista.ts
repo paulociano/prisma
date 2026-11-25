@@ -21,6 +21,15 @@ export function composeOrganicVista(scene:Phaser.Scene,level:LevelData,landmark:
     const scale=Math.min(width/landmark.width,265/landmark.height);
     const hero=scene.add.image(x,y,landmark.texture.key,landmark.frame.name)
       .setOrigin(.5,1).setScale(scale).setTint(0xd8c2c8).setAlpha(.88);
+    // A larger, recessive foliage silhouette supplies a distant
+    // silhouette. It stays in the same world-anchored composition and never
+    // participates in collision or covers the foreground.
+    const distantFrame=String(F.w1Props.heartFlower);
+    if(atlas.has(distantFrame)){
+      const distant=scene.add.image(x-width*.34,y-18,key,distantFrame)
+        .setOrigin(.5,1).setScale(.95).setTint(0x99899f).setAlpha(.32);
+      layer.add(distant);
+    }
     layer.add(hero);
     // Regional compositions share the painted atlas, but differ in rhythm,
     // species emphasis and silhouette. Keep all props behind gameplay.
