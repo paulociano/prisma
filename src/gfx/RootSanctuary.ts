@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import { rootSanctuaryPlan, type RootSanctuaryPlan } from '../levels/ArtGeometry';
-import type { LevelData } from '../levels/LevelBuilder';
+import { T, type LevelData } from '../levels/LevelBuilder';
+import { TILE } from '../config';
 let serial=0;
 const KEY='w1_organic_sanctuary';
 /** Exclusive scenery below gameplay art in the world container. The alpha
@@ -33,15 +34,44 @@ export function composeRootSanctuary(scene:Phaser.Scene,world:Phaser.GameObjects
     // soft root-coloured contact shadow, strictly below the walkable plane.
     // Insert above terrain fills but below its decorative and gameplay layers.
     const contact=scene.add.graphics();
-    const floor=plan.groundRow*64;
+    const floor=plan.groundRow*TILE;
     const left=plan.x+70, right=plan.x+330;
     for(let i=0;i<8;i++){
       contact.fillStyle(0x251c2a,.035);
-      contact.fillEllipse((left+right)/2,floor+14, (right-left)+i*12, 12+i*3);
+      contact.fillEllipse((left+right)/2,floor+19, (right-left)+i*12, 12+i*3);
     }
     // The ellipse stays below the physical surface and inside the verified shelf.
     contact.setData('rootSanctuaryContact',true);
     world.addAt(contact,3);
+    // Continue the painted trunk into the rock using a narrow, irregular
+    // projection of its existing lower edge. Only occupied solid pixels can
+    // receive paint; the walkable surface and the coffer opening stay intact.
+    const skirt=document.createElement('canvas');
+    skirt.width=plan.width;skirt.height=TILE;
+    const sg=skirt.getContext('2d');
+    if(sg){
+      const seam=floor-plan.y;
+      sg.drawImage(canvas,0,seam-54,plan.width,54,0,0,plan.width,TILE);
+      const pixels=sg.getImageData(0,0,skirt.width,skirt.height);
+      for(let x=0;x<skirt.width;x++){
+        const c=Math.floor((plan.x+x)/TILE);
+        const taper=22+12*Math.sin(x*.027)+7*Math.sin(x*.071+1.2);
+        for(let y=0;y<skirt.height;y++){
+          const solid=level.tiles[Math.floor((floor+y)/TILE)]?.[c]===T.Solid;
+          const side=smooth((x-24)/45)*smooth((390-x)/90);
+          const fade=smooth((taper-y)/20)*smooth(y/5);
+          pixels.data[(y*skirt.width+x)*4+3]*=solid?side*fade:0;
+        }
+      }
+      sg.putImageData(pixels,0,0);
+      const skirtKey=key+'_roots';
+      if(scene.textures.addCanvas(skirtKey,skirt)){
+        const roots=scene.add.image(plan.x,floor,skirtKey).setOrigin(0).setTint(0xc9b2b9).setAlpha(.82);
+        roots.setData('rootSanctuarySkirt',true);
+        world.addAt(roots,4);
+        scene.events.once('shutdown',()=>scene.textures.remove(skirtKey));
+      }
+    }
     scene.events.once('shutdown',()=>scene.textures.remove(key));
     return plan;
   }catch{
