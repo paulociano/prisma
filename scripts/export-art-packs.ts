@@ -3,8 +3,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { LEVELS } from '../src/levels';
 import { TILE } from '../src/config';
-import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, type ArtChunk } from '../src/levels/ArtGeometry';
-import { T, isRamp, type LevelData } from '../src/levels/LevelBuilder';
+import { artChunks, focusArtChunk, tilePolygon, exposedWallRuns, cofferPlan, terrainPlatePlan, type ArtChunk } from '../src/levels/ArtGeometry';
+import type { LevelData } from '../src/levels/LevelBuilder';
 
 const root=path.resolve('.debug/art-packs');
 const colors: Record<number,string>={1:'#8b9bb1',2:'#63d5cd',3:'#f06a80',4:'#d5b8ff',5:'#d5b8ff',6:'#d5b8ff',7:'#d5b8ff'};
@@ -52,23 +52,15 @@ async function writeCofferGuide(l:LevelData,dir:string){
  * Internal chunk boundaries are exact; margin is vertical only to avoid
  * painting duplicate pixels into neighboring chunks. */
 async function writeTerrainPlate(l:LevelData,ch:ArtChunk,dir:string){
-  const polygons:[number,number][][]=[];
-  for(let r=0;r<l.rows;r++)for(let c=ch.c0;c<ch.c1;c++){
-    const t=l.tiles[r][c];
-    if(t!==T.Solid&&!isRamp(t))continue;
-    polygons.push(tilePolygon(t,c,r));
-  }
-  if(!polygons.length)return;
-  const y0=Math.max(0,Math.min(...polygons.flat().map(p=>p[1]))-TILE/2);
-  const y1=Math.min(l.rows*TILE,Math.max(...polygons.flat().map(p=>p[1]))+TILE/2);
-  const width=ch.width,height=y1-y0;
+  const plan=terrainPlatePlan(l,ch);if(!plan)return;
+  const {polygons,y:y0,width,height}=plan;
   const base=ch.id+'-terrain';
   const header='<svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="'+ch.x+' '+y0+' '+width+' '+height+'">';
   const shapes=polygons.map(p=>'<polygon fill="#fff" points="'+p.map(v=>v.join(',')).join(' ')+'"/>').join('');
   await sharp(Buffer.from(header+shapes+'</svg>')).png().toFile(path.join(dir,base+'-mask.png'));
   await fs.writeFile(path.join(dir,base+'-placement.json'),JSON.stringify({
     schema:1,level:l.id,chunk:ch.id,asset:'assets/raw/w1/organic/terrain/'+l.id+'/'+ch.id+'.png',
-    x:ch.x,y:y0,width,height,scale:1,mask:base+'-mask.png',
+    x:ch.x,y:y0,width,height,scale:1,mask:base+'-mask.png',replaceable:plan.replaceable,
     contract:'Terrain only. Exact solid and ramp coverage. Transparent gaps; no background, one-way, hazards or dynamic entities. Neighboring chunk edges must match.'
   },null,2));
 }

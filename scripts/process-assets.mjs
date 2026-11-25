@@ -692,6 +692,19 @@ if(fs.existsSync(sanctuaryFile)){
   const entry=await processImage({key:'w1_organic_sanctuary',src:'w1/organic/root_sanctuary.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Optional authored terrain plates. Runtime checks exact generated geometry and alpha.
+for(const id of ['1-1','1-2','1-3']){
+  const dir=path.join(RAW,'w1/organic/terrain',id);
+  if(!fs.existsSync(dir))continue;
+  for(const name of fs.readdirSync(dir).sort()){
+    if(!/^chunk_\d{3}\.png$/.test(name))continue;
+    const meta=await sharp(path.join(dir,name)).metadata();
+    if(!meta.hasAlpha||!meta.width||!meta.height||meta.width>1280||meta.height>2048)
+      throw Error(id+'/'+name+': invalid terrain plate alpha or dimensions');
+    const entry=await processImage({key:'w1_plate_'+id+'_'+name.slice(0,-4),src:'w1/organic/terrain/'+id+'/'+name,type:'image'});
+    if(entry)manifest.sprites.push(entry);
+  }
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;

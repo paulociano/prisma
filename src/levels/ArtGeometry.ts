@@ -188,3 +188,21 @@ export function organicMacroPlans(level:LevelData):OrganicVistaPlan[]{
   }
   return result;
 }
+
+export interface TerrainPlatePlan extends ArtChunk { polygons:[number,number][][]; replaceable:boolean }
+/** Same exact cropped bounds for export and runtime. Independent plate replacement
+ * is conservative: no connected neighbors across the chunk boundary, and no
+ * overlapping signature sanctuary. Connected chunks need a future seam contract. */
+export function terrainPlatePlan(level:LevelData,ch:ArtChunk):TerrainPlatePlan|undefined{
+  if(level.world!==1||level.arena)return;
+  const occupied=(c:number,r:number)=>{const t=level.tiles[r]?.[c];return t===T.Solid||isRamp(t);};
+  const polygons:[number,number][][]=[];
+  for(let r=0;r<level.rows;r++)for(let c=ch.c0;c<ch.c1;c++)if(occupied(c,r))polygons.push(tilePolygon(level.tiles[r][c],c,r));
+  if(!polygons.length)return;
+  const y=Math.max(0,Math.min(...polygons.flat().map(p=>p[1]))-TILE/2);
+  const bottom=Math.min(level.rows*TILE,Math.max(...polygons.flat().map(p=>p[1]))+TILE/2);
+  const connected=(a:number,b:number)=>a>=0&&b<level.cols&&Array.from({length:level.rows},(_,r)=>r).some(r=>occupied(a,r)&&occupied(b,r));
+  const sanctuary=rootSanctuaryPlan(level);
+  const protectedArea=!!sanctuary&&ch.x<sanctuary.x+sanctuary.width&&ch.x+ch.width>sanctuary.x;
+  return {...ch,y,height:bottom-y,polygons,replaceable:!protectedArea&&!connected(ch.c0-1,ch.c0)&&!connected(ch.c1-1,ch.c1)};
+}

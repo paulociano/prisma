@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
+import { paintTerrainPlates } from './TerrainPlates';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
 import { paintOrganicGround } from './OrganicGround';
@@ -327,6 +328,8 @@ export function ensureSoftShadow(scene: Phaser.Scene) {
 export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phaser.GameObjects.Container): TerrainLayers {
   const { rows, cols, tiles } = level;
   // Scene instances are reused across phases; always clear presentation telemetry.
+  scene.data.set('terrainPlates',[]);
+  scene.data.set('terrainPlateRejected',[]);
   scene.data.set('organicCoffer',false);
   scene.data.set('organicCofferSource','legacy');
   scene.data.set('organicFaces',false);
@@ -393,6 +396,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
   const organic = level.world === 1 && !level.arena && new URLSearchParams(window.location.search).get('organic') === '1';
 
+  const covered=organic&&new URLSearchParams(window.location.search).get('plates')==='1'?paintTerrainPlates(scene,level,tops):new Set<number>();
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
     return { pivotY: f.customPivot ? f.pivotY : 0, h: f.height / 2, w: f.width / 2 };
@@ -439,7 +443,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   for (let r = 0; r < rows; r++) {
     let start = -1;
     for (let c = 0; c <= cols; c++) {
-      const lone = c < cols && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
+      const lone = c < cols && !covered.has(c) && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
       if (lone && start < 0) start = c;
       if (!lone && start >= 0) {
         const c0 = start, c1 = c - 1;
@@ -456,7 +460,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const plan = organic ? cofferPlan(level) : undefined;
   const hero = plan && groundKey ? buildHeroCoffer(scene, plan, groundKey, tilesKey, tops) : false;
   scene.data.set('organicCoffer', !!hero);
-  const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
+  const block = (c: number, r: number) => !covered.has(c) && solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
   scene.data.set('organicFaces', !!baked);
   scene.data.set('organicMode',baked?'organic':'legacy');
@@ -587,6 +591,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const rampPlans=baked?organicRampPlans(level):[];
   // rampas: a peça pintada do kit 2, esticada em 2 colunas e encaixada na linha da colisão
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols - 1; c++) {
+    if(covered.has(c)||covered.has(c+1))continue;
     const t = tiles[r][c];
     if (t !== T.RampR1 && t !== T.RampL2) continue;
     const plan=rampPlans.find(q=>q.col===c&&q.row===r);
