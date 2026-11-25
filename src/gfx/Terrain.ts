@@ -4,6 +4,7 @@ import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
 import { bakeOrganicFaces } from './OrganicFaces';
+import { buildOrganicSurface } from './OrganicSurface';
 import { buildHeroCoffer } from './HeroCoffer';
 import { cofferPlan } from '../levels/ArtGeometry';
 
@@ -428,11 +429,16 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
   const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
   scene.data.set('organicFaces', !!baked);
+  let organicSurfaces=0;
 
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */
   const drawTopRun = (c0: number, c1: number, y: number) => {
     const row = Math.floor(y / TILE);
     const openL = !filled(c0 - 1, row), openR = !filled(c1 + 1, row);
+    if (baked && hasStrip && buildOrganicSurface(scene,tops,stripKey,tilesKey,c0,c1,y,SINK,openL,openR)) {
+      organicSurfaces++;
+      return;
+    }
     if (hasStrip) {
       const s = surface(F.w1Tiles.top);
       const ts = scene.add.tileSprite(c0 * TILE, y - SINK - s.pivotY * s.h, (c1 - c0 + 1) * TILE, s.h, stripKey);
@@ -471,7 +477,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
           if (groundKey) fills.add(scene.add.tileSprite(fx, fy, w, y + TILE - fy, groundKey).setOrigin(0).setTileScale(0.5).setTilePosition(fx * 2, fy * 2));
           else for (let i = fillStart; i < c; i++) fills.add(scene.add.image(i * TILE, y, 'tile_fill').setOrigin(0));
         }
-        if (fillTop) {
+        if (fillTop && !baked) {
           // sombra da grama sobre a terra logo abaixo dela
           shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0.42, 0.42, 0, 0);
           shade.fillRect(fx, fy, w, 30);
@@ -483,7 +489,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       // escurece com a profundidade (trechos de mesma profundidade de uma vez)
       const d = b ? depth[r][c] : -1;
       if (depStart >= 0 && d !== depVal) {
-        if (depVal > 0) {
+        if (depVal > 0 && !baked) {
           shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, depthA(depVal - 0.5), depthA(depVal - 0.5), depthA(depVal + 0.5), depthA(depVal + 0.5));
           shade.fillRect(depStart * TILE, y, (c - depStart) * TILE, TILE);
         }
@@ -492,12 +498,12 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       if (b && depStart < 0) { depStart = c; depVal = d; }
 
       // paredes expostas: a lateral escurece em direção à borda (volume)
-      if (b && c > 0 && !filled(c - 1, r)) {
+      if (b && c > 0 && !filled(c - 1, r) && !baked) {
         if (kit2 && !top && !baked) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4, 0);
         shade.fillRect(c * TILE, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
-      if (b && c < cols - 1 && !filled(c + 1, r)) {
+      if (b && c < cols - 1 && !filled(c + 1, r) && !baked) {
         if (kit2 && !top && !baked) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4);
         shade.fillRect(c * TILE + TILE - 20, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
@@ -530,6 +536,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       }
     }
   }
+  scene.data.set('organicSurfaces',organicSurfaces);
   // rampas: a peça pintada do kit 2, esticada em 2 colunas e encaixada na linha da colisão
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols - 1; c++) {
     const t = tiles[r][c];

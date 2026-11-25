@@ -45,12 +45,12 @@ for (const index of wanted) {
   const info = await page.evaluate(() => {
     const s = window.game.scene.getScene('Game');
     s.color.complete(); // cor cheia: é assim que a arte é julgada
-    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource') };
+    return { id: s.level.id, objects: s.children.length, chest: s.level.entities.find(e=>e.type==='chest')?.col, organicCoffer: s.data.get('organicCoffer'), organicFaces: s.data.get('organicFaces'), organicCofferSource:s.data.get('organicCofferSource'), organicSurfaces:s.data.get('organicSurfaces'), staticGeometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3])) };
   });
-  if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces)) throw Error('Organic renderer fallback: '+JSON.stringify(info));
+  if(index===2 && label==='organic' && (!info.organicCoffer || !info.organicFaces || !(info.organicSurfaces>0))) throw Error('Organic renderer fallback: '+JSON.stringify(info));
   if(index===2 && label==='baseline' && info.organicCoffer) throw Error('Baseline unexpectedly uses organic coffer');
   fs.writeFileSync(path.join(out,info.id+'_renderer.json'),JSON.stringify(info,null,2));
-  if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[Math.max(1,info.chest-4),info.chest+2,info.chest+9];
+  if(index===2 && (label==='organic'||label==='baseline') && info.chest!==undefined) stops=[8,62,150,Math.max(1,info.chest-4),info.chest+2,info.chest+9];
   for (const col of stops) {
     await page.evaluate((col) => {
       const s = window.game.scene.getScene('Game');
