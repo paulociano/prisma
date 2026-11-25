@@ -28,6 +28,6 @@ export default defineConfig({
   // caminhos relativos para o build funcionar no itch.io
   base: './',
   server: { port: 5173 },
-  build: { chunkSizeWarningLimit: 2000 },
+  build: { chunkSizeWarningLimit: 2000, rollupOptions: { input: { game: 'index.html', studio: 'studio.html' } } },
   plugins: [snapshotEndpoint()],
 });

@@ -12,7 +12,9 @@
     "test:save": "esbuild src/systems/Save.ts --bundle --platform=node --format=esm --outfile=.debug/save.mjs --log-level=error && node --test tests/save.test.mjs",
     "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs",
     "test:levels": "esbuild src/levels/extend.ts --bundle --platform=node --format=esm --outfile=.debug/extend.mjs --log-level=error && esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs",
-    "shots": "node scripts/shots.mjs"
+    "shots": "node scripts/shots.mjs",
+    "test:art-geometry": "esbuild src/levels/ArtGeometry.ts --bundle --platform=node --format=esm --outfile=.debug/art-geometry.mjs --log-level=error && node --test tests/art-geometry.test.mjs",
+    "art:packs": "esbuild scripts/export-art-packs.ts --bundle --platform=node --format=esm --packages=external --outfile=.debug/export-art-packs.mjs --log-level=error && node .debug/export-art-packs.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

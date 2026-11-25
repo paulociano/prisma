@@ -3,6 +3,9 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
+import { bakeOrganicFaces } from './OrganicFaces';
+import { buildHeroCoffer } from './HeroCoffer';
+import { cofferPlan } from '../levels/ArtGeometry';
 
 // Desenho do terreno (só a parte visual; a colisão continua em GameScene.buildTiles).
 //
@@ -367,6 +370,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   if (kit2) ensureWalls(scene, kit2);
   ensureSoftShadow(scene);
   const rnd = seeded(hash(level.id));
+  // Piloto opt-in: nenhuma mudança em LevelData, física ou saves.
+  const organic = level.id === '1-3' && new URLSearchParams(window.location.search).get('organic') === '1';
 
   const surface = (frame: number) => {
     const f = scene.textures.getFrame(tilesKey, String(frame));
@@ -383,7 +388,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const islandRun = (c0: number, c1: number, y: number, into: Phaser.GameObjects.Container, drop = 4) => {
     const len = c1 - c0 + 1;
     const total = len * TILE + 16;
-    const n = len === 1 ? 1 : Math.max(1, Math.round(len / 2.4));
+    const n = len === 1 ? 1 : Math.max(1, Math.round(len / (organic ? 3.6 : 2.4)));
     const overlap = n > 1 ? 18 : 0;
     const each = (total + overlap * (n - 1)) / n;
     const frame = len === 1 ? F.w1Tiles.floatSmall : F.w1Tiles.floatMid;
@@ -392,6 +397,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       const cx = c0 * TILE - 8 + each / 2 + i * (each - overlap);
       const img = scene.add.image(cx, y + drop, tilesKey, String(frame)).setOrigin(0.5, s.pivotY);
       img.setScale(each / (s.w * 2));
+      if (organic && len > 1) img.setScale(img.scaleX, Math.min(img.scaleY, 0.75));
       // altura mínima: a peça precisa cobrir o bloco físico de 64 px
       const below = img.displayHeight * (1 - s.pivotY);
       if (below < TILE - drop + 6) img.scaleY *= (TILE - drop + 6) / below;
@@ -414,7 +420,13 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       }
     }
   }
-  const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && islet[r][c]);
+  scene.data.set('organicCoffer', false);
+  const plan = organic ? cofferPlan(level) : undefined;
+  const hero = plan && groundKey ? buildHeroCoffer(scene, plan, groundKey, tilesKey, tops) : false;
+  scene.data.set('organicCoffer', !!hero);
+  const block = (c: number, r: number) => solid(c, r) && !(r >= 0 && r < rows && c >= 0 && c < cols && (islet[r][c] || (hero && plan!.cells.has(r * cols + c))));
+  const baked = organic && !!groundKey && bakeOrganicFaces(scene, level, fills, groundKey, block);
+  scene.data.set('organicFaces', !!baked);
 
   /** Trecho contínuo de topo de chão (colunas c0..c1): faixa sem emendas e cantos nas pontas abertas. */
   const drawTopRun = (c0: number, c1: number, y: number) => {
@@ -454,8 +466,10 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       if (fillStart >= 0 && (!b || top !== fillTop)) {
         const fx = fillStart * TILE, w = (c - fillStart) * TILE;
         const fy = fillTop ? y + 24 : y;
-        if (groundKey) fills.add(scene.add.tileSprite(fx, fy, w, y + TILE - fy, groundKey).setOrigin(0).setTileScale(0.5).setTilePosition(fx * 2, fy * 2));
-        else for (let i = fillStart; i < c; i++) fills.add(scene.add.image(i * TILE, y, 'tile_fill').setOrigin(0));
+        if (!baked) {
+          if (groundKey) fills.add(scene.add.tileSprite(fx, fy, w, y + TILE - fy, groundKey).setOrigin(0).setTileScale(0.5).setTilePosition(fx * 2, fy * 2));
+          else for (let i = fillStart; i < c; i++) fills.add(scene.add.image(i * TILE, y, 'tile_fill').setOrigin(0));
+        }
         if (fillTop) {
           // sombra da grama sobre a terra logo abaixo dela
           shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0.42, 0.42, 0, 0);
@@ -478,12 +492,12 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
 
       // paredes expostas: a lateral escurece em direção à borda (volume)
       if (b && c > 0 && !filled(c - 1, r)) {
-        if (kit2 && !top) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        if (kit2 && !top && !baked) walls.add(scene.add.image(c * TILE - 5, y - 1, `${kit2}_wallL`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4, 0);
         shade.fillRect(c * TILE, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
       if (b && c < cols - 1 && !filled(c + 1, r)) {
-        if (kit2 && !top) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
+        if (kit2 && !top && !baked) walls.add(scene.add.image(c * TILE, y - 1, `${kit2}_wallR`).setOrigin(0).setDisplaySize(TILE + 5, TILE + 2));
         shade.fillGradientStyle(0x140818, 0x140818, 0x140818, 0x140818, 0, kit2 ? 0.22 : 0.4, 0, kit2 ? 0.22 : 0.4);
         shade.fillRect(c * TILE + TILE - 20, top ? y + 24 : y, 20, top ? TILE - 24 : TILE);
       }
@@ -570,6 +584,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       decals.add(img);
     }
   }
+
+  if (hero && plan) castShadow(plan.col, plan.col + 4, plan.row + 3);
 
   // ilhas também projetam sombra
   for (let r = 0; r < rows; r++) {
