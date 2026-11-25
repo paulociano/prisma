@@ -86,3 +86,74 @@ export function organicWallSegments(level:LevelData,block?:(c:number,r:number)=>
   }
   return out;
 }
+
+export interface OrganicRampPlan {col:number;row:number;up:boolean}
+/** Match complete, authored two-cell ramps. Geometry remains read-only. */
+export function organicRampPlans(level:LevelData):OrganicRampPlan[]{
+  const out:OrganicRampPlan[]=[];
+  for(let r=0;r<level.rows;r++)for(let c=0;c<level.cols-1;c++){
+    const a=level.tiles[r][c],b=level.tiles[r][c+1];
+    if(a===T.RampR1&&b===T.RampR2)out.push({col:c,row:r,up:true});
+    if(a===T.RampL2&&b===T.RampL1)out.push({col:c,row:r,up:false});
+  }
+  return out;
+}
+/** Pixel offset relative to the top of the ramp row, at a local x in [0,128]. */
+export function organicRampY(up:boolean,x:number):number{
+  const u=Math.max(0,Math.min(1,x/(2*TILE)));
+  return TILE*(up?1-u:u);
+}
+export interface OrganicCornerPlan {col:number;row:number;side:'left'|'right'}
+/** Three occupied cells around an empty concave corner; never bridge a gap. */
+export function organicCornerPlans(level:LevelData,block:(c:number,r:number)=>boolean):OrganicCornerPlan[]{
+  const out:OrganicCornerPlan[]=[];
+  for(let r=1;r<level.rows-1;r++)for(let c=1;c<level.cols-1;c++){
+    if(level.tiles[r][c]!==T.Empty||!block(c,r+1))continue;
+    for(const side of ['left','right'] as const){
+      const n=c+(side==='left'?-1:1);
+      if(block(n,r)&&block(n,r+1))out.push({col:c,row:r,side});
+    }
+  }
+  return out;
+}
+
+export interface OrganicVistaPlan {col:number;row:number;span:number}
+/** Select one calm, ground-anchored vista in the final map. The whole envelope
+ * is checked against the tile grid, not against the pre-extension layout.
+ * It is strictly decorative, with a preference for unoccupied scenery.
+ */
+export function organicVistaPlan(level:LevelData):OrganicVistaPlan|undefined {
+  if(level.arena)return;
+  const target=Math.floor(level.cols*.45);
+  const forbidden=new Set(['player','exit','checkpoint','shard','chest','guardian','colorgate','gate','portal','mover','spring']);
+  const entities=level.entities??[];
+  let best:OrganicVistaPlan|undefined,score=Infinity;
+  for(const span of [7,5]){
+    const half=Math.floor(span/2);
+    for(let r=4;r<level.rows;r++)for(let c=half+2;c<level.cols-half-2;c++){
+      let valid=true;
+      for(let x=c-half;x<=c+half;x++){
+        if(level.tiles[r][x]!==T.Solid){valid=false;break;}
+        for(let y=r-4;y<r;y++)if(level.tiles[y][x]!==T.Empty){valid=false;break;}
+        if(!valid)break;
+      }
+      if(!valid)continue;
+      if(entities.some(e=>forbidden.has(e.type)&&Math.abs(e.col-c)<=half+1&&e.row>=r-5&&e.row<=r))continue;
+      const density=entities.filter(e=>Math.abs(e.col-c)<=half+1&&e.row>=r-5&&e.row<=r).length;
+      const cost=Math.abs(c-target)+density*7+(span===5?16:0);
+      if(cost<score){best={col:c,row:r,span};score=cost;}
+    }
+  }
+  return best;
+}
+
+/** Readability guard for the decorative foreground. Coordinates are in logical
+ * screen pixels, after the camera zoom. No effect on world geometry. */
+export function foregroundVisibility(screenY:number,height:number,quality:'medium'|'high'):{top:number;bottom:number}{
+  const smooth=(v:number)=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t);};
+  const strength=quality==='high'?1:.72;
+  return {
+    top:strength*.86*smooth((screenY-96)/112),
+    bottom:strength*.78*smooth((height-screenY-72)/112)
+  };
+}

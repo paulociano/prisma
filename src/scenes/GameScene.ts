@@ -27,6 +27,10 @@ import { Ambient } from '../systems/Ambient';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
+import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
+import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
+import { composeOrganicVista } from '../gfx/OrganicVista';
+import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -228,6 +232,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.buildBackground();
     this.world = this.add.container(0, 0).setDepth(0);
     this.buildTiles();
+    this.data.set('organicLanternLights',0);
+    this.data.set('organicArchitectureContacts',0);
     if (!this.level.arena) this.buildDecor();
     const colorTotal = this.buildEntities();
     this.buildHints();
@@ -254,7 +260,23 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.player.gravityScale = this.level.gravity ?? 1;
     this.buildWater();
 
-    this.color = new ColorRestore([this.bgContainer, this.world, ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
+    // Presentation-only: insert airlight inside the background before ColorRestore.
+    this.data.set('organicAtmosphereLayers',0);
+    this.data.set('organicVista',null);
+    this.data.set('organicVistaObjects',0);
+    this.data.set('organicForeground',false);
+    const quality=getSettings().quality;
+    const vista=this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.landmark?composeOrganicVista(this,this.level,this.landmark):undefined;
+    if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);}
+    if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){
+      const count=addOrganicAtmosphere(this,this.bgContainer,this.bgMid,this.bgNear,quality);
+      this.data.set('organicAtmosphereLayers',count);
+      if(this.fgTop&&this.fgBot&&!getSettings().reduceMotion){
+        configureOrganicForeground(this.fgTop,this.fgBot);
+        this.data.set('organicForeground',true);
+      }
+    }
+    this.color = new ColorRestore([this.bgContainer, this.world, ...(vista?[vista.layer]:[]), ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
@@ -496,6 +518,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.fgContainer.setScale(inv).setPosition((GAME_W - GAME_W * inv) / 2, top);
       this.fgTop!.tilePositionX = cam.scrollX * 1.3;
       this.fgBot!.tilePositionX = cam.scrollX * 1.45 + 700;
+      const quality=getSettings().quality;
+      if(this.data.get('organicForeground')&&quality!=='low')updateOrganicForeground(this.fgTop!,this.fgBot!,cam,this.player.hit.y,quality);
     }
   }
 
@@ -629,8 +653,17 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (!decor || !has(this, this.tex('props'))) return;
     const rng = new Phaser.Math.RandomDataGenerator([this.level.id]);
     const busy = new Set(this.level.entities.map((e) => e.col));
-    const place = (c: number, r: number, frame: number, scale: number) =>
-      this.decor.add(this.add.image(c * TILE + TILE / 2, r * TILE + 16, this.tex('props'), String(frame)).setOrigin(0.5, 1).setScale(0.5 * scale));
+    const quality=getSettings().quality;
+    const organic=this.data.get('organicMode')==='organic'&&this.level.world===1&&!this.isSub;
+    let lanternLights=0,architectureContacts=0;
+    const place = (c: number, r: number, frame: number, scale: number) => {
+      const prop=this.add.image(c*TILE+TILE/2,r*TILE+16,this.tex('props'),String(frame)).setOrigin(.5,1).setScale(.5*scale);
+      if(organic&&quality!=='low'&&r>=0){
+        if(frame===F.w1Props.lantern&&addLanternLight(this,this.decor,prop,quality))lanternLights++;
+        if((frame===F.w1Props.house||frame===F.w1Props.arch)&&addArchitectureContact(this,this.decor,prop))architectureContacts++;
+      }
+      this.decor.add(prop);
+    };
 
     // marcos: casinha no início e arco antes da saída
     place(9, this.surfaceRow(9), decor.start, 0.75);
@@ -645,6 +678,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       if (r < 0) continue;
       place(c, r, rng.pick(small), rng.realInRange(0.5, 0.7));
     }
+    this.data.set('organicLanternLights',lanternLights);
+    this.data.set('organicArchitectureContacts',architectureContacts);
   }
 
   /** Linha do topo do chão numa coluna, ou -1 se não houver chão. */

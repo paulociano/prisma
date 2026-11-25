@@ -663,6 +663,23 @@ if(fs.existsSync(wallFile)){
   const entry=await processImage({key:'w1_organic_wall',src:'w1/organic/wall.png',type:'image'});
   if(entry)manifest.sprites.push(entry);
 }
+// Long illustrated path: crop has opaque interior and transparent upper margin.
+const organicGroundFile=path.join(RAW,'w1/organic/ground.png');
+if(fs.existsSync(organicGroundFile)){
+  const meta=await sharp(organicGroundFile).metadata();
+  const {data,info}=await sharp(organicGroundFile).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const alpha=(x,y)=>data[(y*info.width+x)*4+3];
+  let ok=meta.hasAlpha&&info.width===1024&&info.height===320&&info.channels===4;
+  if(ok){
+    let covered=0,total=0,clear=0;
+    for(let y=100;y<220;y++)for(let x=0;x<1024;x++){total++;if(alpha(x,y)>220)covered++;}
+    for(let x=0;x<1024;x++)if(alpha(x,0)<24)clear++;
+    ok=covered/total>=.98&&clear/1024>=.98;
+  }
+  if(!ok)throw Error('w1/organic/ground.png: expected 1024x320 RGBA, opaque core and clear top margin');
+  const entry=await processImage({key:'w1_organic_ground',src:'w1/organic/ground.png',type:'image'});
+  if(entry)manifest.sprites.push(entry);
+}
 // Otimização para a web: todo PNG vira WebP (bem menor, com transparência) e os JPG de fundo caem para qualidade 80.
 // O JSON do atlas e o manifest passam a apontar para os arquivos novos.
 let before = 0, after = 0;

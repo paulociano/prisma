@@ -54,3 +54,27 @@ O job de checks do piloto 5 passou; o job visual falhou no baseline por timeout 
 
 ## Piloto 10: paredão orgânico
 `assets/raw/w1/organic/wall.png` (256×512 RGBA) é uma face vertical ilustrada, com transparência nas junções. O núcleo validado tem 100% de amostras alfa >220. O bake desenha trechos de 2–5 células dentro da máscara sólida original, evitando sobreposição de duas faces em pilares estreitos. O CI verifica presença nas três fases de exploração, ausência no modo legado, segmentação e paridade de colisões. Não altera a silhueta física nem substitui inspeção visual e playtest.
+
+
+## Piloto 11: caminhos ilustrados contínuos
+`assets/raw/w1/organic/ground.png` é uma quarta ilustração inédita, 1024×320 RGBA, com contato em y=96 e escala de 0,5. O recorte central e remapeamento alinham o caminho à linha física. Validação local: 100% de cobertura alfa >220 em x=0..1023, y=100..219; margem superior inteiramente transparente. OrganicGround amostra a peça em coordenadas do mundo e alterna reflexão horizontal para obter junções de pixels idênticos; a reflexão pode inverter a direção da luz, uma limitação a rever visualmente. Aplica apenas a superfícies sólidas de ao menos três células, em chunks de no máximo 512×160 pixels, com máscara de profundidade por coluna e transição inferior para o bake. As colisões, rampas, ilhas, plataformas móveis e perigos mantêm o código anterior. O CI exige uso do módulo nas três fases de exploração e paridade física. Não substitui inspeção de screenshots e playtest.
+
+
+## Piloto 12: transições naturais
+OrganicTransitions reaproveita o caminho ilustrado nas rampas completas de duas células, com cisalhamento alinhado à inclinação física, margem decorativa de 24 px e sem rotação do material. Nos cantos internos, um decalque pintado de raiz é recortado à união de três células sólidas e fundido à massa por alfa radial. O vão permanece livre. Não há PNG novo nesta etapa: reutilização deliberada para manter identidade artística. O CI compara a utilização das rampas com os pares do mapa e amostra seis pontos da função física rampSurface, além da paridade dos corpos estáticos. A aprovação visual e o playtest continuam necessários.
+
+
+## Piloto 13: profundidade atmosférica
+OrganicAtmosphere cria duas texturas Canvas estáticas de 640×360, reutilizadas entre cenas (1,76 MiB de pixels RGBA estimados, não medição GPU). A luz quente fica antes do plano médio e a névoa entre a arquitetura/vegetação próxima e o fundo. Ambas entram no container de fundo antes de ColorRestore, sem cobrir jogador, perigos ou HUD. Média tem opacidade reduzida; Baixa não adiciona efeitos. Não introduz movimento nem flashes, e mantém a regra de redução de movimento da folhagem existente. A arena e subníveis não recebem o efeito. O CI exige duas camadas nas três fases orgânicas, zero na arena/legado/baixa, e compara os corpos estáticos também na qualidade baixa. Capturas não são medição de FPS nem playtest. A iluminação é atmosférica, não iluminação 3D dinâmica.
+
+
+## Piloto 14: iluminação localizada e contato arquitetônico
+OrganicLighting usa o centro luminoso estimado dos pixels quentes do frame pintado da lanterna, com fallback de âncora estática. Um halo de 128×128 compartilhado (64 KiB RGBA de pixels) é desenhado atrás de cada lanterna elegível e dentro do container que recebe ColorRestore. Casas e arcos recebem uma sombra de contato discreta. Não há luzes dinâmicas, novos colliders, flashes ou atualização por frame; qualidade média reduz a intensidade e baixa desativa o efeito. Arena, subníveis e modo legado permanecem inalterados. A suite de runtime verifica cobertura dos props, desligamento nas configurações e paridade física. Não garante precisão fotométrica nem avaliação estética sem capturas.
+
+
+## Piloto 15: marcos ancorados à paisagem
+OrganicVista seleciona um trecho de chão contínuo de 5 ou 7 células com quatro células de altura livres, evitando entidades críticas e preferindo a região central da fase. Recompõe o landmark pintado existente e quatro elementos de vegetação da mesma paleta, em coordenadas do mundo, atrás da geometria e dentro de ColorRestore. O landmark antigo é ocultado somente quando a nova composição funciona. Sem local adequado ou sem textura, conserva o original. Baixa qualidade, arena, subníveis e modo legado mantêm o comportamento anterior. A comparação captura o local selecionado, testa a presença da composição e a paridade de colisões. Não é uma nova ilustração nem uma garantia de legibilidade estética sem inspeção das capturas.
+
+
+## Piloto 16: primeiro plano legível e revisão de cenas completas
+OrganicForeground recompõe as faixas de folhagem pintadas já existentes: a faixa superior ocupa no máximo 96 px da altura lógica e a inferior 72 px. Quando Íris se aproxima das bordas, a opacidade diminui suavemente; qualidade média reduz intensidade, baixa e redução de movimento mantêm a desativação original. Não há nova ilustração nem alteração de física. A suite de geometria verifica a função de opacidade; a captura verifica configuração e limites das faixas. O novo script build-comparison-sheets.mjs gera quatro JPEGs lado a lado (original/orgânico), um por fase, com todas as posições correspondentes e índice, dentro de .debug/shots/review. A geração falha se houver pares ausentes. A revisão visual humana ainda é necessária e as capturas continuam não equivalendo a playtest.

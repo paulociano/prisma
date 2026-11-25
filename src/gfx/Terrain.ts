@@ -5,6 +5,9 @@ import { F, has } from './art';
 import { gfx } from '../systems/Settings';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
+import { paintOrganicGround } from './OrganicGround';
+import { paintOrganicRamp, paintOrganicCorner } from './OrganicTransitions';
+import { organicRampPlans, organicCornerPlans, type OrganicRampPlan, type OrganicCornerPlan } from '../levels/ArtGeometry';
 import { buildHeroCoffer } from './HeroCoffer';
 import { cofferPlan } from '../levels/ArtGeometry';
 
@@ -333,6 +336,11 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const authoredIslands: {col:number;row:number;length:number}[]=[];
   scene.data.set('organicAuthoredIslands',authoredIslands);
   scene.data.set('organicAuthoredWalls',[]);
+  const authoredGround:{col:number;row:number;length:number}[]=[];
+  scene.data.set('organicAuthoredGround',authoredGround);
+  const authoredRamps:OrganicRampPlan[]=[],authoredCorners:OrganicCornerPlan[]=[];
+  scene.data.set('organicAuthoredRamps',authoredRamps);
+  scene.data.set('organicAuthoredCorners',authoredCorners);
   const tx = (name: string) => `w${level.world}_${name}`;
   const art = has(scene, tx('tiles'));
   const fills = scene.add.container(0, 0);
@@ -458,6 +466,11 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const drawTopRun = (c0: number, c1: number, y: number) => {
     const row = Math.floor(y / TILE);
     const openL = !filled(c0 - 1, row), openR = !filled(c1 + 1, row);
+    if(baked && paintOrganicGround(scene,tops,tx('organic_ground'),c0,c1,y,rows,block)){
+      authoredGround.push({col:c0,row,length:c1-c0+1});
+      organicSurfaces++;
+      return;
+    }
     if (baked && hasStrip && buildOrganicSurface(scene,tops,stripKey,tilesKey,c0,c1,y,SINK,openL,openR)) {
       organicSurfaces++;
       return;
@@ -562,10 +575,13 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     }
   }
   scene.data.set('organicSurfaces',organicSurfaces);
+  const rampPlans=baked?organicRampPlans(level):[];
   // rampas: a peça pintada do kit 2, esticada em 2 colunas e encaixada na linha da colisão
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols - 1; c++) {
     const t = tiles[r][c];
     if (t !== T.RampR1 && t !== T.RampL2) continue;
+    const plan=rampPlans.find(q=>q.col===c&&q.row===r);
+    if(plan&&paintOrganicRamp(scene,ramps,tx('organic_ground'),plan)){authoredRamps.push(plan);continue;}
     const up = t === T.RampR1; // sobe para a direita
     const x0 = c * TILE, yb = (r + 1) * TILE, W2 = TILE * 2, wd = W2 + 8;
     const line = (x: number) => (up ? yb - ((x - x0) / W2) * TILE : yb - TILE + ((x - x0) / W2) * TILE);
@@ -587,6 +603,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     }
   }
 
+  const cornerPlans=baked?organicCornerPlans(level,block):[];
+  for(const q of cornerPlans)if(paintOrganicCorner(scene,tops,tx('decals'),q))authoredCorners.push(q);
   // cantos internos: onde o chão encontra uma parede que sobe, a peça em "L" do kit 2 leva a
   // grama do chão para cima da parede (a parte da parede fica por cima do bloco, não no ar)
   if (kit2) {
@@ -594,6 +612,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       if (tiles[r][c] !== T.Empty || !block(c, r + 1) || islet[r + 1][c]) continue;
       for (const [frame, wallC, left] of [[K2.cornerL, c - 1, c * TILE - 18], [K2.cornerR, c + 1, c * TILE + 2]] as const) {
         if (!block(wallC, r) || !block(wallC, r + 1)) continue;
+        if(authoredCorners.some(q=>q.col===c&&q.row===r&&q.side===(wallC<c?'left':'right')))continue;
         const f = scene.textures.getFrame(kit2, String(frame));
         const img = scene.add.image(left, (r + 1) * TILE - SINK, kit2, String(frame)).setOrigin(0, f.customPivot ? f.pivotY : 0.6);
         img.setScale(80 / f.width);
