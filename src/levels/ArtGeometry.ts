@@ -146,3 +146,14 @@ export function organicVistaPlan(level:LevelData):OrganicVistaPlan|undefined {
   }
   return best;
 }
+
+/** Readability guard for the decorative foreground. Coordinates are in logical
+ * screen pixels, after the camera zoom. No effect on world geometry. */
+export function foregroundVisibility(screenY:number,height:number,quality:'medium'|'high'):{top:number;bottom:number}{
+  const smooth=(v:number)=>{const t=Math.max(0,Math.min(1,v));return t*t*(3-2*t);};
+  const strength=quality==='high'?1:.72;
+  return {
+    top:strength*.86*smooth((screenY-96)/112),
+    bottom:strength*.78*smooth((height-screenY-72)/112)
+  };
+}

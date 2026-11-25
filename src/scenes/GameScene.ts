@@ -30,6 +30,7 @@ import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
+import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
 import { LESSONS, PENNANTS, lessonLines } from '../story/pennants';
 import { buildSub } from '../levels/subs';
@@ -263,15 +264,17 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.data.set('organicAtmosphereLayers',0);
     this.data.set('organicVista',null);
     this.data.set('organicVistaObjects',0);
+    this.data.set('organicForeground',false);
     const quality=getSettings().quality;
     const vista=this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.landmark?composeOrganicVista(this,this.level,this.landmark):undefined;
     if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);}
     if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){
       const count=addOrganicAtmosphere(this,this.bgContainer,this.bgMid,this.bgNear,quality);
       this.data.set('organicAtmosphereLayers',count);
-      // Existing front foliage stays at the screen edges and never receives new geometry.
-      this.fgTop?.setAlpha(.88);
-      this.fgBot?.setAlpha(.78);
+      if(this.fgTop&&this.fgBot&&!getSettings().reduceMotion){
+        configureOrganicForeground(this.fgTop,this.fgBot);
+        this.data.set('organicForeground',true);
+      }
     }
     this.color = new ColorRestore([this.bgContainer, this.world, ...(vista?[vista.layer]:[]), ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
@@ -515,6 +518,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.fgContainer.setScale(inv).setPosition((GAME_W - GAME_W * inv) / 2, top);
       this.fgTop!.tilePositionX = cam.scrollX * 1.3;
       this.fgBot!.tilePositionX = cam.scrollX * 1.45 + 700;
+      const quality=getSettings().quality;
+      if(this.data.get('organicForeground')&&quality!=='low')updateOrganicForeground(this.fgTop!,this.fgBot!,cam,this.player.hit.y,quality);
     }
   }
 
