@@ -25,3 +25,9 @@ O modo orgânico agora recompõe o interior do terreno em faixas de canvas com t
 ## Piloto 3: composição autoral do cofre
 As capturas do piloto 2 revelaram que o contorno retangular persistia. O orçamento anterior também incluía o céu vazio (238 x 22 tiles = cerca de 85,8 MB de pixels RGBA), acionando o fallback. Agora os bounds verticais são recortados por faixa antes de alocar. O script de captura falha se o modo orgânico não estiver realmente ativo. 
 HeroCoffer.ts recompõe o C do cofre como uma silhueta única com textura existente, luz e raízes pintadas por código. cofferPlan verifica os 11 blocos, a abertura, a entidade e a vizinhança antes de trocar somente a arte. Caso não haja correspondência, preserva o renderer original. Não é arte generativa final; é uma primeira composição específica para avaliação no runtime.
+
+
+## Piloto 4: materiais pintados e arte substituível
+A inspeção do piloto 3 mostrou raízes vetoriais destoantes. O cofre usa agora decalques pintados existentes (rochas, raízes, musgo) dentro da silhueta única. A composição ainda é derivada do kit, não uma ilustração inédita. Capturas esperam a mesma saturação antes de comparar e registram a origem visual.
+
+Uma ilustração refinada pode ser integrada automaticamente por `assets/raw/w1/organic/coffer.png`: PNG RGBA 832 × 704, sem personagens, UI, paisagem ou objetos dinâmicos. Origem da geometria em (96,96) na imagem, grade de 128 px (2x); roof x=96..608, floor x=96..736 a y=480, parede x=96..224. Câmara transparente, margem de 96 px. O pipeline verifica dimensões, transparência do vão, cobertura de células e cantos. Sem arquivo usa a composição existente. O filtro de cor e a física permanecem no jogo.

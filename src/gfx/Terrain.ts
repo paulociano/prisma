@@ -421,6 +421,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     }
   }
   scene.data.set('organicCoffer', false);
+  scene.data.set('organicCofferSource','legacy');
   const plan = organic ? cofferPlan(level) : undefined;
   const hero = plan && groundKey ? buildHeroCoffer(scene, plan, groundKey, tilesKey, tops) : false;
   scene.data.set('organicCoffer', !!hero);
