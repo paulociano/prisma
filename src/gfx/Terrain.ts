@@ -3,7 +3,7 @@ import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
 import { F, has } from './art';
 import { gfx } from '../systems/Settings';
-import { paintTerrainPlates } from './TerrainPlates';
+import { paintTerrainPlates, paintTerrainBlend } from './TerrainPlates';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
 import { paintOrganicGround } from './OrganicGround';
@@ -329,6 +329,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const { rows, cols, tiles } = level;
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
+  scene.data.set('terrainBlends',[]);
   scene.data.set('terrainPlateRejected',[]);
   scene.data.set('organicCoffer',false);
   scene.data.set('organicCofferSource','legacy');
@@ -679,5 +680,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     shadows.add(img);
   }
 
+  // Transitional painted plate: above the original structural artwork,
+  // below contact shadows and independently drawn hazards/entities.
+  if(baked&&new URLSearchParams(window.location.search).get('plates')==='1')paintTerrainBlend(scene,level,tops);
   return { fills, decor, tops };
 }

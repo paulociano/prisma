@@ -70,3 +70,32 @@ function validAlpha(source:CanvasImageSource,p:TerrainPlatePlan,level:LevelData)
   }
   return counts.size>0&&Array.from(counts.values()).every(([n,covered])=>covered/n>=.98);
 }
+
+/** Preview an individually authored end of a connected terrain group.
+ * Keep the original terrain beneath the new art; never suppress geometry.
+ * Only explicitly commissioned sections may use this transitional mode. */
+export function paintTerrainBlend(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container){
+  if(level.id!=='1-2')return;
+  const id='chunk_007',key='w1_plate_'+level.id+'_'+id;
+  const p=terrainPlateGroups(level).flat().find(q=>q.id===id);
+  const rejected=scene.data.get('terrainPlateRejected') as string[];
+  if(!p||p.protectedArea||!p.leftConnected||p.rightConnected||!rejected.includes(id+':missing-neighbor')||!scene.textures.exists(key))return;
+  const source=scene.textures.get(key).getSourceImage() as CanvasImageSource & {width:number;height:number};
+  const blendKey=key+'_blend_v1',fade=96;
+  try{
+    if(source.width!==p.width||source.height!==p.height||!validAlpha(source,p,level))return;
+    if(!scene.textures.exists(blendKey)){
+      const tex=scene.textures.createCanvas(blendKey,p.width,p.height);
+      if(!tex)return;
+      const g=tex.getContext();
+      g.drawImage(source,0,0);
+      g.globalCompositeOperation='destination-in';
+      const gradient=g.createLinearGradient(0,0,fade,0);
+      gradient.addColorStop(0,'rgba(0,0,0,0)');gradient.addColorStop(1,'rgba(0,0,0,1)');
+      g.fillStyle=gradient;g.fillRect(0,0,p.width,p.height);
+      g.globalCompositeOperation='source-over';tex.refresh();
+    }
+    into.add(scene.add.image(p.x,p.y,blendKey).setOrigin(0).setData('terrainBlend',id));
+    scene.data.set('terrainBlends',[{id,x:p.x,y:p.y,fade,key:blendKey}]);
+  }catch{scene.data.set('terrainBlends',[]);}
+}

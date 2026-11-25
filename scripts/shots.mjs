@@ -164,7 +164,7 @@ if(label==='organic'&&wanted.includes(1)){
     if(g.scene.isActive('Dialogue'))g.scene.stop('Dialogue');
     if(g.scene.isPaused('Game'))g.scene.resume('Game');
     s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();s.color.complete();s.color.update(1);
-    return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    const blends=s.data.get('terrainBlends');const blend=blends?.[0];const tex=blend&&g.textures.get(blend.key).getSourceImage();const ctx=tex?.getContext('2d');const alpha=ctx&&[0,48,96,320,1000].map(x=>ctx.getImageData(x,200,1,1).data[3]);return {blends,alpha,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
   fs.writeFileSync(path.join(out,'lantern-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
@@ -173,6 +173,12 @@ if(label==='organic'&&wanted.includes(1)){
     await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,20*64-46);s.cameras.main.centerOn(col*64+32,20*64-46);},col);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({path:path.join(out,'lantern-plate-c'+col+'.png')});
+  }
+  if(result.blends?.[0]?.id!=='chunk_007'||!result.alpha||result.alpha[0]>4||result.alpha[1]<100||result.alpha[1]>155||result.alpha[2]<250||result.alpha[3]<250||result.alpha[4]!==0)throw Error('Lantern blend failed: '+JSON.stringify({blends:result.blends,alpha:result.alpha}));
+  for(const col of [117,119,124,130]){
+    await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.cameras.main.centerOn(col*64+32,18*64-46);},col);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await page.screenshot({path:path.join(out,'lantern-blend-c'+col+'.png')});
   }
   if(!['chunk_001','chunk_002'].every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
 }
