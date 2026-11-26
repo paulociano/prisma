@@ -15,6 +15,7 @@
     "shots": "node scripts/shots.mjs",
     "art:import": "node scripts/import-terrain-master.mjs",
     "test:terrain-master": "node --test tests/terrain-master.test.mjs",
+    "test:camera-director": "esbuild src/world/CameraDirector.ts --bundle --platform=node --format=esm --outfile=.debug/camera-director.mjs --log-level=error && node --test tests/camera-director.test.mjs",
     "test:environmental-motion": "esbuild src/world/EnvironmentalMotion.ts --bundle --platform=node --format=esm --outfile=.debug/environmental-motion.mjs --log-level=error && node --test tests/environmental-motion.test.mjs",
     "test:material-lighting": "esbuild src/world/MaterialLighting.ts --bundle --platform=node --format=esm --outfile=.debug/material-lighting.mjs --log-level=error && node --test tests/material-lighting.test.mjs",
     "test:pictorial-material": "esbuild src/world/PictorialMaterial.ts --bundle --platform=node --format=esm --outfile=.debug/pictorial-material.mjs --log-level=error && node --test tests/pictorial-material.test.mjs",

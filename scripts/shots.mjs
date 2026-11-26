@@ -200,7 +200,19 @@ if(label==='organic'&&wanted.includes(0)){
           living.update(0,s.player.hit.x,s.color.value);
         }
       }
-      return {livingProbe,lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      let cameraProbe=null;
+      if(s.cameraDirector){
+        const d=s.cameraDirector,cam=s.cameras.main,p=s.player.hit;
+        const before=[p.x,p.y],old=d.pose;
+        const held=d.step({x:p.x,vx:340,vy:-900,grounded:false,frozen:true,reduced:false,dt:.1});
+        const accessible=d.step({x:p.x,vx:340,vy:-900,grounded:false,frozen:false,reduced:true,dt:.1});
+        d.pose=old;
+        s.updateCinematicCamera(0);
+        const actual=s.data.get('cinematicCamera');
+        cameraProbe={zones:d.zones.length,held,old,accessible,actual,zoom:cam.zoom,
+          offset:[cam.followOffset.x,cam.followOffset.y],unchanged:before[0]===p.x&&before[1]===p.y};
+      }
+      return {cameraProbe,livingProbe,lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -210,6 +222,10 @@ if(label==='organic'&&wanted.includes(0)){
     await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':materialsOff?'plate-before-materials.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(!invalid){
+      const p=result.cameraProbe;
+      if(!p||!p.zones||!p.unchanged||p.held.mode!=='held'||p.held.x!==p.old.x||p.held.y!==p.old.y||p.held.zoom!==p.old.zoom||p.accessible.zoom!==1||p.accessible.x!==0||p.actual.zoom!==p.zoom||p.actual.x!==p.offset[0]||p.actual.y!==p.offset[1])throw Error('Cinematic camera contract mismatch '+JSON.stringify(p));
+    }
     if(!invalid){const v=result.livingProbe;if(!v||!v.plants||!v.moved||v.displaced||v.unsafe||v.pollen>36||v.depth>=0)throw Error('Living Vale anchor or visibility regression '+JSON.stringify(v));}
     if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');
     if(!materialsOff&&!invalid){
