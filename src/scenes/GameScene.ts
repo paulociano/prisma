@@ -31,6 +31,7 @@ import { paintTowerBridges } from '../gfx/TerrainBridge';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
+import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
 import { composeRootSanctuary } from '../gfx/RootSanctuary';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
@@ -558,7 +559,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.landmark = undefined;
       if (!this.isSub && has(this, lm)) {
         // fica recuado: menor que o plano de jogo, com um véu da névoa do fundo, para não parecer plataforma
-        this.landmark = this.add.image(0, GAME_H - 150, lm).setOrigin(0.5, 1).setTint(0xdcd2e2).setAlpha(0.94);
+        this.landmark = this.add.image(0, GAME_H - 150, lm).setOrigin(0.5, 1).setTint(0xdcd2e2).setAlpha(this.level.world===1?1:.94);
         const tall = this.landmark.height >= this.landmark.width;
         this.landmark.setScale(tall ? 430 / this.landmark.height : 600 / this.landmark.width);
         this.bgContainer.addAt(this.landmark, 4);
@@ -612,6 +613,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const { decor, tops } = buildTerrain(this, this.level, this.world);
     this.data.set('terrainTowerBridges',[]);
     const bridgeCells=!this.isSub&&this.data.get('terrainPlatesEnabled')?paintTowerBridges(this,this.level,tops):new Set<number>();
+    this.data.set('organicOneWayCells',0);
+    const organicOneWays=!this.isSub&&this.data.get('terrainPlatesEnabled')?paintOrganicOneWays(this,this.level,tops,bridgeCells):new Set<number>();
     this.hasRamps = this.level.tiles.some((row) => row.some(isRamp));
     this.onRampLast = false;
     this.decor = decor;
@@ -624,7 +627,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         const solid = t === T.Solid;
 
         if (t === T.OneWay) {
-          if (!bridgeCells.has(r*cols+c)) {
+          if (!bridgeCells.has(r*cols+c)&&!organicOneWays.has(r*cols+c)) {
             if (art) tops.add(this.add.image(x + TILE / 2, y - 2, this.tex('tiles'), String(F.w1Tiles.plank)).setOrigin(0.5, 0).setDisplaySize(TILE + 4, 18));
             else tops.add(this.add.image(x, y, 'oneway').setOrigin(0));
           }

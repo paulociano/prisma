@@ -54,3 +54,26 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
   }
   scene.data.set('terrainFinish',stats);
 }
+
+/** One-way ledges are shallower than solid islands and retain their original
+ * collision zone. Wall-attached ledges, hazards and authored bridges stay intact. */
+export function paintOrganicOneWays(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container,excluded:Set<number>):Set<number>{
+  const cells=new Set<number>(),key='w1_organic_island';
+  if(!scene.textures.exists(key))return cells;
+  const src=scene.textures.get(key).getSourceImage();
+  if(src.width!==448||src.height!==240)return cells;
+  const at=(c:number,r:number)=>level.tiles[r]?.[c];
+  for(let r=1;r<level.rows-1;r++)for(let c=1;c<level.cols-1;){
+    if(at(c,r)!==T.OneWay){c++;continue;}
+    const start=c;
+    while(c<level.cols&&at(c,r)===T.OneWay)c++;
+    const len=c-start;
+    if(len>8||at(start-1,r)!==T.Empty||at(c,r)!==T.Empty)continue;
+    if(!Array.from({length:len},(_,i)=>at(start+i,r-1)===T.Empty&&at(start+i,r+1)===T.Empty&&!excluded.has(r*level.cols+start+i)).every(Boolean))continue;
+    const scale=len*TILE/384,h=60;
+    into.add(scene.add.image(start*TILE-32*scale,r*TILE-h*.2,key).setOrigin(0).setDisplaySize(448*scale,h).setData('organicOneWay',true));
+    for(let i=start;i<c;i++)cells.add(r*level.cols+i);
+  }
+  scene.data.set('organicOneWayCells',cells.size);
+  return cells;
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible, terrainArtChunks, towerPillarPlans, towerBridgePlans, towerMacroPlan } from '../.debug/art-geometry.mjs';
+import { artChunks, exposedWallRuns, tilePolygon, focusArtChunk, cofferPlan, organicWallSegments, organicRampPlans, organicRampY, organicCornerPlans, organicVistaPlan, foregroundVisibility, rootSanctuaryPlan, organicMacroPlans, terrainPlatePlan, terrainPlateGroups, terrainSeamCompatible, terrainArtChunks, towerPillarPlans, towerBridgePlans, towerMacroPlan, plateIslandRuns } from '../.debug/art-geometry.mjs';
 const fixture={cols:5,rows:4,tiles:[[0,0,0,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]};
 test('chunks cover each column exactly once, including a short tail',()=>{const chunks=artChunks(fixture,2);assert.deepEqual(chunks.map(c=>[c.c0,c.c1,c.x,c.width]),[[0,2,0,128],[2,4,128,128],[4,5,256,64]]);assert.equal(chunks[0].height,256);assert.throws(()=>artChunks(fixture,0));});
 test('walls form vertical runs without the top cap; deterministic and immutable',()=>{const before=JSON.stringify(fixture);assert.deepEqual(exposedWallRuns(fixture),[{col:2,r0:2,r1:3,side:'left'},{col:2,r0:2,r1:3,side:'right'}]);assert.equal(JSON.stringify(fixture),before);});
@@ -173,4 +173,14 @@ test('terrain seam allows only mask-proven cliff termination, not missing paint'
   assert.equal(terrainSeamCompatible(a,{...b,mask:a.mask}),false);
   assert.equal(terrainSeamCompatible(a,{...b,rgba:a.rgba}),false);
   assert.equal(terrainSeamCompatible({...a,mask:undefined},b),false);
+});
+
+test('plate island replacement requires full isolated solid run, not partial coverage or hazards',()=>{
+  const level={cols:6,rows:4,tiles:[[0,0,0,0,0,0],[0,1,1,0,0,0],[0,0,0,0,0,0],[1,1,1,1,1,1]]};
+  const before=JSON.stringify(level);
+  assert.deepEqual(plateIslandRuns(level,new Set([1,2])),[{col:1,row:1,length:2}]);
+  assert.deepEqual(plateIslandRuns(level,new Set([1])),[]);
+  assert.equal(JSON.stringify(level),before);
+  level.tiles[2][1]=3;
+  assert.deepEqual(plateIslandRuns(level,new Set([1,2])),[]);
 });
