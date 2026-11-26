@@ -8,7 +8,7 @@ const out='.debug/vale-play';
 fs.mkdirSync(out,{recursive:true});
 const server=await preview({preview:{port:5202,strictPort:true},logLevel:'error'});
 let browser;
-const report={scenario:'Vale opening, production bundle, fresh browser context per renderer, keyboard controls, normal physics',modes:{}};
+const report={scenario:'Vale opening and isolated regional fixtures, production bundle, fresh browser context per renderer, keyboard controls, normal physics',modes:{}};
 const save=()=>fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2));
 try{
  browser=await chromium.launch({
@@ -80,6 +80,56 @@ try{
    assert.equal(restarted.hp,initial.hp);assert.equal(restarted.mode,initial.mode);assert.equal(restarted.plates,initial.plates);
    mark('restart',restarted);
    await page.screenshot({path:out+'/'+name+'-after-restart.png'});
+   // Independent regional fixtures: only the starting location is set.
+   // Actual movement, one-way collision, overlap and persistence remain live.
+   const fixture=async(x,y)=>page.evaluate(({x,y})=>{
+    const s=window.game.scene.getScene('Game');s.player.respawn(x,y);s.player.syncView(0);
+    s.resetCinematicCamera();s.cameras.main.fadeEffect.reset();
+   },{x,y});
+   const ledge=await page.evaluate(()=>{
+    const s=window.game.scene.getScene('Game'),l=s.level;
+    for(let r=1;r<l.rows-2;r++)for(let c=2;c<l.cols-2;c++){
+      if(l.tiles[r][c]===2&&l.tiles[r][c-1]===2&&l.tiles[r][c+1]===2&&l.tiles[r+1][c]===0&&l.tiles[r+2][c]===1&&l.tiles[r-1][c]===0)
+        return {x:c*64+32,y:r*64,ground:(r+2)*64,col:c,row:r};
+    }
+    return null;
+   });
+   assert.ok(ledge,'No suitable one-way fixture');
+   await fixture(ledge.x,ledge.ground-46);
+   await grounded();
+   assert.ok(Math.abs((await state()).bottom-ledge.ground)<3);
+   await key('Space',y=>{const p=window.game.scene.getScene('Game').player;return !p.onGround&&p.body.bottom<y-10&&p.body.velocity.y>=0;},ledge.y);
+   await grounded();
+   const onLedge=await state();assert.ok(Math.abs(onLedge.bottom-ledge.y)<3,'one-way landing '+JSON.stringify(onLedge));
+   await page.keyboard.down('ArrowDown');
+   try{await key('Space',y=>window.game.scene.getScene('Game').player.body.bottom>y+20,ledge.y);}
+   finally{await page.keyboard.up('ArrowDown');}
+   await grounded();
+   const dropped=await state();assert.ok(Math.abs(dropped.bottom-ledge.ground)<3,'drop through '+JSON.stringify(dropped));
+   mark('oneway-jump-drop',{fixture:ledge,landing:onLedge.bottom,drop:dropped.bottom});
+   const checkpoint=await page.evaluate(()=>{
+    const s=window.game.scene.getScene('Game');
+    const z=s.props.getChildren().find(z=>z.getData('kind')==='checkpoint'&&!z.getData('on'));
+    return z?{x:z.x,y:z.y,ground:z.y+64}:null;
+   });
+   assert.ok(checkpoint,'Missing checkpoint fixture');
+   await fixture(checkpoint.x,checkpoint.ground-46);
+   await wait(x=>{const s=window.game.scene.getScene('Game');return s.respawnPoint.x===x&&s.props.getChildren().some(z=>z.x===x&&z.getData('kind')==='checkpoint'&&z.getData('on'));},checkpoint.x);
+   const cp=await state();assert.equal(cp.hp,initial.hp);
+   mark('checkpoint',{fixture:checkpoint,respawn:await page.evaluate(()=>{const s=window.game.scene.getScene('Game');return {x:s.respawnPoint.x,y:s.respawnPoint.y};}),...cp});
+   const shard=await page.evaluate(()=>{
+    const s=window.game.scene.getScene('Game'),p=s.pickups.getChildren().find(z=>z.active&&z.getData('kind')==='shard');
+    return p?{x:p.x,y:p.y,index:p.getData('index'),level:s.level.id}:null;
+   });
+   assert.ok(shard,'Missing shard fixture');
+   await fixture(shard.x,shard.y-40);
+   await wait(i=>window.game.scene.getScene('Game').shards[i]===true,shard.index);
+   const persistence=await page.evaluate(({index,level})=>{
+     const s=window.game.scene.getScene('Game');
+     return {memory:s.save.shards[level]?.[index]===true,stored:Object.keys(localStorage).some(k=>{try{return JSON.parse(localStorage.getItem(k))?.shards?.[level]?.[index]===true;}catch{return false;}})};
+   },shard);
+   assert.ok(persistence.memory&&persistence.stored,'shard save '+JSON.stringify(persistence));
+   mark('shard-save',{fixture:shard,persistence,...await state()});
    assert.deepEqual(result.errors,[]);
    result.passed=true;save();
   }catch(e){result.passed=false;result.error=String(e);save();await page.screenshot({path:out+'/'+name+'-failure.png'}).catch(()=>{});throw e;}
