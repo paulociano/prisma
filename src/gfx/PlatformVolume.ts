@@ -1,3 +1,4 @@
+import { organicSculpturePilot } from '../world/OrganicPilot';
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
@@ -8,7 +9,7 @@ const ASSET='w1_organic_island';
 let serial=0;
 export function platformVolumesEnabled(level:LevelData){
   const params=new URLSearchParams(window.location.search);
-  return level.id==='1-1'&&params.get('platforms')!=='0'&&params.get('organic')!=='0'&&params.get('plates')!=='0';
+  return organicSculpturePilot(level.id,params)&&params.get('platforms')!=='0'&&params.get('organic')!=='0'&&params.get('plates')!=='0';
 }
 /** Same authored stone/moss material; one continuous shaped image per run.
  * Warp only the rock below its registered contact, not the physical surface.

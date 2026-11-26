@@ -1,3 +1,4 @@
+import { organicSculpturePilot } from '../world/OrganicPilot';
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
@@ -22,7 +23,7 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
   const geometry=planVisualGeometry(level,covered,islands);
   scene.data.set('visualGeometry',geometry);
   const block=(c:number,r:number)=>covered.has(c)&&level.tiles[r]?.[c]===T.Solid&&!islands.has(r*level.cols+c);
-  const sculpt=level.id==='1-1'&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('contours')!=='0';
+  const sculpt=organicSculpturePilot(level.id,new URLSearchParams(window.location.search))&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('contours')!=='0';
   const wallCurves=sculpt?planOrganicContours(geometry).filter(q=>q.axis==='wall'):[];
   const stats={tops:0,walls:0,ramps:0,islandCells:islands.size};
   const wallKey='w1_organic_wall';

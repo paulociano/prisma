@@ -1,3 +1,4 @@
+import { organicSculpturePilot } from '../world/OrganicPilot';
 import Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, isRamp, type LevelData } from '../levels/LevelBuilder';
@@ -435,7 +436,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
     const len = c1 - c0 + 1;
     // Only freestanding solid islands, not one-way, moving platforms or hanging decoration.
     const authoredKey='w1_organic_island';
-    const sculptedWide=level.id==='1-1'&&covered.has(c0)&&len<=8&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('platforms')!=='0';
+    const sculptedWide=organicSculpturePilot(level.id,new URLSearchParams(window.location.search))&&covered.has(c0)&&len<=8&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('platforms')!=='0';
     if(organic && into===tops && drop===4 && len>=2 && (len<=4||sculptedWide) && has(scene,authoredKey)){
       // Source contract: 448x240 at 2x, 384px playable core, y=48 contact.
       // Horizontal scaling matches the actual run; vertical scale remains fixed.

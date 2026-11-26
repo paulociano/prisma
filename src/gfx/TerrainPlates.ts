@@ -1,3 +1,4 @@
+import { organicSculpturePilot } from '../world/OrganicPilot';
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { planVisualGeometry } from '../world/VisualGeometry';
@@ -14,7 +15,9 @@ let finishSerial=0;
 export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
   const islandCells=new Set<number>();
-  const curved=level.id==='1-1'&&new URLSearchParams(window.location.search).get('contours')!=='0';
+  const params=new URLSearchParams(window.location.search);
+  const pilot=organicSculpturePilot(level.id,params);
+  const curved=pilot&&params.get('contours')!=='0';
   const sculpt=curved&&new URLSearchParams(window.location.search).get('sculpt')!=='0';
   const contourStats={enabled:curved,sculpt,plates:0,pixels:0,recessed:0,curves:0,failures:0};
   const islandTexture=scene.textures.exists('w1_organic_island')?scene.textures.get('w1_organic_island').getSourceImage():undefined;
@@ -37,7 +40,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       }
       const groupCols=new Set<number>();
       for(const {p} of entries)for(let c=p.c0;c<p.c1;c++)groupCols.add(c);
-      const wide=level.id==='1-1'&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('platforms')!=='0';
+      const wide=pilot&&params.get('sculpt')!=='0'&&params.get('platforms')!=='0';
       const islands=canReplace?plateIslandRuns(level,groupCols,wide?8:4):[];
       const cutCells=new Set<number>();
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)cutCells.add(q.row*level.cols+c);

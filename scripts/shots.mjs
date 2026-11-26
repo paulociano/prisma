@@ -325,8 +325,8 @@ if(label==='organic'&&wanted.includes(0)){
   }
 }
 // Opening masses and the complete connected central Lanterns master.
-if(label==='organic'&&wanted.includes(1)){
-  await page.goto('http://localhost:5199/?debug');
+if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
+  await page.goto('http://localhost:5199/?debug'+(pilot?'&lanterns=1':''));
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{
     const g=window.game;
@@ -340,23 +340,34 @@ if(label==='organic'&&wanted.includes(1)){
     if(g.scene.isActive('Dialogue'))g.scene.stop('Dialogue');
     if(g.scene.isPaused('Game'))g.scene.resume('Game');
     s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();s.color.complete();s.color.update(1);
-    const blends=s.data.get('terrainBlends');return {blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    s.syncMoverViews();
+    const flatten=o=>Array.isArray(o.list)?o.list.flatMap(flatten):[o];
+    const volumes=flatten(s.world).filter(o=>o.getData?.('platformVolume')).map(o=>({...o.getData('platformVolume'),x:o.x,y:o.y,contact:o.height*o.originY}));
+    const movers=s.movers.map(m=>({width:m.zone.body.width,volume:!!m.view.getData('platformVolume'),dx:m.view.x-m.zone.x,dy:m.view.y-(m.zone.y-10)}));
+    const blends=s.data.get('terrainBlends');return {contours:s.data.get('organicContours'),volumes,movers,blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
-  fs.writeFileSync(path.join(out,'lantern-plates-report.json'),JSON.stringify(result,null,2));
+  fs.writeFileSync(path.join(out,pilot?'lantern-pilot-report.json':'lantern-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
   if(JSON.stringify(result.geometry)!==JSON.stringify(baseline.staticGeometry))throw Error('Lantern plates physics regression');
   for(const col of [6,14,22]){
     await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,20*64-46);s.cameras.main.centerOn(col*64+32,20*64-46);},col);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await page.screenshot({path:path.join(out,'lantern-plate-c'+col+'.png')});
+    await page.screenshot({path:path.join(out,(pilot?'lantern-pilot-':'lantern-plate-')+'c'+col+'.png')});
   }
   if(result.blends?.length)throw Error('Completed Lantern master must not use transitional overlay');
   for(const col of [40,55,65,75,90,100,110,117,119,124,130]){
     await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.cameras.main.centerOn(col*64+32,18*64-46);},col);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await page.screenshot({path:path.join(out,'lantern-master-c'+col+'.png')});
+    await page.screenshot({path:path.join(out,(pilot?'lantern-pilot-master-':'lantern-master-')+'c'+col+'.png')});
   }
   if(!Array.from({length:7},(_,i)=>'chunk_'+String(i+1).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
+  if(pilot){
+    const before=JSON.parse(fs.readFileSync(path.join(out,'lantern-plates-report.json'),'utf8'));
+    if(JSON.stringify(result.accepted)!==JSON.stringify(before.accepted)||JSON.stringify(result.rejected)!==JSON.stringify(before.rejected))throw Error('Lantern pilot altered acceptance');
+    if(!result.contours?.enabled||!result.contours.pixels||result.contours.failures)throw Error('Lantern contour regression '+JSON.stringify(result.contours));
+    if(!result.volumes.some(v=>v.kind==='mover')||result.volumes.some(v=>Math.abs(v.contact-v.above)>.001))throw Error('Lantern volume contact regression');
+    if(result.movers.some(m=>m.width>=64&&m.width<=512&&Number.isInteger(m.width)&&(!m.volume||Math.abs(m.dx)>.001||Math.abs(m.dy)>.001)))throw Error('Lantern mover alignment regression');
+  }else if(result.contours?.enabled||result.volumes.length)throw Error('Lantern pilot leaked into default renderer');
 }
 // Root Bridge: an authored mass and its separated floating island.
 if(label==='organic'&&wanted.includes(2)){
