@@ -64,6 +64,10 @@ jobs:
           npm run shots -- organic-low 0
           node scripts/check-visual-parity.mjs
           node scripts/build-comparison-sheets.mjs
+      - name: Measure production-build Vale frame intervals
+        run: |
+          npm run build
+          npm run bench:vale
       - uses: actions/upload-artifact@v4
         if: always()
         with:

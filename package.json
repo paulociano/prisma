@@ -13,6 +13,7 @@
     "test:input": "esbuild src/systems/GamepadAxis.ts --bundle --platform=node --format=esm --outfile=.debug/gamepad-axis.mjs --log-level=error && node --test tests/gamepad-axis.test.mjs",
     "test:levels": "esbuild src/levels/extend.ts --bundle --platform=node --format=esm --outfile=.debug/extend.mjs --log-level=error && esbuild src/levels/index.ts --bundle --platform=node --format=esm --outfile=.debug/levels.mjs --log-level=error && node --test tests/levels.test.mjs",
     "shots": "node scripts/shots.mjs",
+    "bench:vale": "node scripts/bench-vale.mjs",
     "art:import": "node scripts/import-terrain-master.mjs",
     "test:terrain-master": "node --test tests/terrain-master.test.mjs",
     "test:decor-placement": "esbuild src/world/DecorPlacement.ts --bundle --platform=node --format=esm --outfile=.debug/decor-placement.mjs --log-level=error && node --test tests/decor-placement.test.mjs",

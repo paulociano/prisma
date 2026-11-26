@@ -261,7 +261,7 @@ if(label==='organic'&&wanted.includes(0)){
     }
     if(!materialsOff){
       const m=result.materialStats;
-      if(!m||!m.count||!m.changed||m.failures||m.pixels>10000000||m.count!==result.materialObjects.length)throw Error('Material generation failed '+JSON.stringify(m));
+      if(!m||!m.count||!m.changed||!m.graded||m.failures||m.pixels>10000000||m.count!==result.materialObjects.length)throw Error('Material generation failed '+JSON.stringify(m));
       if(!result.materialObjects.some(o=>o.kind==='terrain'&&o.changed>0))throw Error('Terrain material missing');
       if(!platformsOff&&!invalid&&!result.materialObjects.some(o=>o.kind==='solid'&&o.changed>0))throw Error('Island material missing');
     }
