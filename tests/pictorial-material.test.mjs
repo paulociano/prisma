@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deriveRelief,shadeRelief,gradePigments} from '../.debug/pictorial-material.mjs';
+import {deriveRelief,shadeRelief,gradePigments,materialBudget} from '../.debug/pictorial-material.mjs';
 const make=(w,h,fn)=>Uint8ClampedArray.from(Array.from({length:w*h},(_,i)=>fn(i%w,Math.floor(i/w))).flat());
 test('flat painted material produces neutral normals and full occlusion channel',()=>{
  const a=make(5,5,()=>[130,130,130,255]);const m=deriveRelief(a,5,5);
@@ -40,4 +40,11 @@ test('world pigment field is crop invariant and leaves alpha intact',()=>{
   assert.deepEqual(r.slice(y*64,(y+1)*64),b.slice(y*128+64,(y+1)*128));
  }
  for(let i=3;i<a.length;i+=4)assert.equal(a[i],b[i]);
+});
+
+test('Lantern relief map budget is independent of full resolution painted art',()=>{
+ assert.deepEqual(materialBudget('1-1','high'),{pixelLimit:10_000_000,mapDivisor:2});
+ assert.deepEqual(materialBudget('1-2','high'),{pixelLimit:12_000_000,mapDivisor:3});
+ assert.deepEqual(materialBudget('1-2','medium'),{pixelLimit:12_000_000,mapDivisor:4});
+ assert.ok(12_000_000/9<10_000_000/4);
 });

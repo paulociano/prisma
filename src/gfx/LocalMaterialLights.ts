@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { organicSculpturePilot } from '../world/OrganicPilot';
 import { materialOf, registeredMaterialImages } from './MaterialPreview';
 import { getSettings } from '../systems/Settings';
 import { illuminatePatch, lightRect, type MaterialLight } from '../world/MaterialLighting';
@@ -8,7 +9,8 @@ type Target={image:Image;texture:Phaser.Textures.CanvasTexture;map:NonNullable<R
 type Saved={target:Target;x:number;y:number;data:ImageData};
 const MAX_PIXELS=160000,MAX_TARGETS=4,MAX_LIGHTS=4;
 export function materialLightsEnabled(level:string){
-  return level==='1-1'&&getSettings().quality!=='low'&&new URLSearchParams(window.location.search).get('lighting')!=='0';
+  const p=new URLSearchParams(window.location.search);
+  return organicSculpturePilot(level,p)&&getSettings().quality!=='low'&&p.get('materials')!=='0'&&p.get('lighting')!=='0';
 }
 export class LocalMaterialLights{
   private targets:Target[]=[];

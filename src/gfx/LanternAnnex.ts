@@ -4,6 +4,7 @@ import type {LevelData} from '../levels/LevelBuilder';
 import {TILE} from '../config';
 import type {TerrainPlatePlan} from '../levels/ArtGeometry';
 import {annexOverhang,type LanternAnnexPlan} from '../world/LanternAnnex';
+import {bakeMaterial,registerMaterial} from './MaterialPreview';
 const PAD=40;
 let serial=0;
 type Source=CanvasImageSource;
@@ -64,7 +65,9 @@ export function buildLanternAnnex(scene:Phaser.Scene,level:LevelData,p:LanternAn
   }
   g.putImageData(pixels,0,0);
   const key='lantern_annex_'+(++serial);
-  if(!scene.textures.addCanvas(key,canvas))return;
+  const material=bakeMaterial(scene,level,canvas,0,0,[p.x-PAD,p.y-PAD]);
+  if(!scene.textures.addCanvas(key,material?.canvas??canvas))return;
   const view=scene.add.image(p.x-PAD,p.y-PAD,key).setOrigin(0).setData('lanternAnnex',true);
+  if(material)registerMaterial(scene,view,material);
   return {view,key,pad:PAD,extended,graded};
 }

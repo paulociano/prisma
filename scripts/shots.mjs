@@ -353,7 +353,31 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
       let occupied=0;for(let i=3;i<a.length;i+=4)if(a[i])occupied++;
       annexProbe={occupied,views:annexViews.length,aligned:o.x===annex.x-p&&o.y===annex.y-p,alpha:o.alpha};
     }
-    const blends=s.data.get('terrainBlends');return {annex,annexProbe,contours:s.data.get('organicContours'),volumes,movers,blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    const materials=s.data.get('pictorialMaterials');
+    const materialViews=flatten(s.world).filter(o=>o.getData?.('pictorialMaterial'));
+    let annexLight=null;
+    if(annexViews.length===1&&s.localMaterialLights&&annexViews[0].getData('pictorialMaterial')){
+      const lighting=s.localMaterialLights,o=annexViews[0],ctx=o.texture.getContext(),w=o.width,h=o.height;
+      lighting.update(0,[],0,0,true);
+      const original=ctx.getImageData(0,0,w,h).data;
+      let at=-1;
+      for(let y=annex.pad+8;y<annex.pad+56&&at<0;y++)for(let x=annex.pad+8;x<w-annex.pad-8;x++){
+        const i=(y*w+x)*4;
+        if(original[i+3]===255&&Math.min(original[i],original[i+1],original[i+2])<225){at=i/4;break;}
+      }
+      if(at>=0){
+        const x=o.x+at%w+.5,y=o.y+Math.floor(at/w)+.5;
+        lighting.update(0,[{x,y,radius:48,intensity:.5,color:[1,.68,.32]}],x,y,true);
+        const lit=ctx.getImageData(0,0,w,h).data,stats={...s.data.get('materialLighting')};
+        let changed=0,alpha=0;
+        for(let i=0;i<original.length;i+=4){if(original[i+3]!==lit[i+3])alpha++;if(original[i]!==lit[i]||original[i+1]!==lit[i+1]||original[i+2]!==lit[i+2])changed++;}
+        lighting.update(0,[],x,y,true);
+        const restored=ctx.getImageData(0,0,w,h).data;let residual=0;
+        for(let i=0;i<original.length;i++)if(original[i]!==restored[i])residual++;
+        annexLight={changed,alpha,residual,stats};
+      }
+    }
+    const blends=s.data.get('terrainBlends');return {materials,materialCount:materialViews.length,annexLight,lighting:!!s.localMaterialLights,annex,annexProbe,contours:s.data.get('organicContours'),volumes,movers,blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
   fs.writeFileSync(path.join(out,pilot?'lantern-pilot-report.json':'lantern-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
@@ -384,11 +408,14 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
   if(pilot){
     const before=JSON.parse(fs.readFileSync(path.join(out,'lantern-plates-report.json'),'utf8'));
     if(JSON.stringify(result.accepted)!==JSON.stringify(before.accepted)||JSON.stringify(result.rejected)!==JSON.stringify(before.rejected))throw Error('Lantern pilot altered acceptance');
+    const m=result.materials,l=result.annexLight;
+    if(!m||m.count!==result.materialCount||!m.changed||!m.graded||m.failures||m.budgetSkips||m.pixels>12000000||m.mapDivisor<3||!result.lighting)throw Error('Lantern material budget or registration regression '+JSON.stringify(m));
+    if(!l||!l.changed||l.alpha||l.residual||l.stats.pixels>160000)throw Error('Lantern annex local light regression '+JSON.stringify(l));
     if(!result.annex||!result.annex.extended||!result.annex.graded||result.annexProbe?.views!==1||result.annexProbe.occupied||!result.annexProbe.aligned||result.annexProbe.alpha!==1)throw Error('Lantern annex presentation regression '+JSON.stringify({annex:result.annex,probe:result.annexProbe}));
     if(!result.contours?.enabled||!result.contours.pixels||result.contours.failures)throw Error('Lantern contour regression '+JSON.stringify(result.contours));
     if(!result.volumes.some(v=>v.kind==='mover')||result.volumes.some(v=>Math.abs(v.contact-v.above)>.001))throw Error('Lantern volume contact regression');
     if(result.movers.some(m=>m.width>=64&&m.width<=512&&Number.isInteger(m.width)&&(!m.volume||Math.abs(m.dx)>.001||Math.abs(m.dy)>.001)))throw Error('Lantern mover alignment regression');
-  }else if(result.annex||result.contours?.enabled||result.volumes.length)throw Error('Lantern pilot leaked into default renderer');
+  }else if(result.materialCount||result.lighting||result.annex||result.contours?.enabled||result.volumes.length)throw Error('Lantern pilot leaked into default renderer');
 }
 // Root Bridge: an authored mass and its separated floating island.
 if(label==='organic'&&wanted.includes(2)){

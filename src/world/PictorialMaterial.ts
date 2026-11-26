@@ -71,3 +71,9 @@ export function gradePigments(data:Uint8ClampedArray,w:number,h:number,worldX:nu
   }
   return changed;
 }
+
+/** Bound the full-resolution painted copies separately from derived maps.
+ * Lanterns has taller crops; keep art resolution and reduce only relief data. */
+export function materialBudget(level:string,quality:'low'|'medium'|'high'){
+  return level==='1-2'?{pixelLimit:12_000_000,mapDivisor:quality==='high'?3:4}:{pixelLimit:10_000_000,mapDivisor:2};
+}
