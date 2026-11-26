@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
-import { organicRampPlans } from '../levels/ArtGeometry';
+import { planVisualGeometry, planVisualLedges } from '../world/VisualGeometry';
 import { paintOrganicGround } from './OrganicGround';
 import { paintOrganicRamp } from './OrganicTransitions';
 
@@ -10,19 +10,16 @@ let serial=0;
  * The masters remain intact as fallback. Decorative overhang is restricted
  * to empty neighbors; these images never create physics bodies. */
 export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container,covered:Set<number>,islands:Set<number>){
-  const at=(c:number,r:number)=>level.tiles[r]?.[c];
-  const block=(c:number,r:number)=>covered.has(c)&&at(c,r)===T.Solid&&!islands.has(r*level.cols+c);
+  const geometry=planVisualGeometry(level,covered,islands);
+  scene.data.set('visualGeometry',geometry);
+  const block=(c:number,r:number)=>covered.has(c)&&level.tiles[r]?.[c]===T.Solid&&!islands.has(r*level.cols+c);
   const stats={tops:0,walls:0,ramps:0,islandCells:islands.size};
   const wallKey='w1_organic_wall';
   if(scene.textures.exists(wallKey)){
     const src=scene.textures.get(wallKey).getSourceImage() as CanvasImageSource;
-    for(let c=0;c<level.cols;c++)for(const side of [-1,1] as const){
-      let r=1;
-      while(r<level.rows){
-        if(!block(c,r)||at(c+side,r)!==T.Empty){r++;continue;}
-        const start=r;
-        while(r<level.rows&&block(c,r)&&at(c+side,r)===T.Empty&&r-start<5)r++;
-        const h=(r-start)*TILE,w=74;
+    for(const face of geometry.walls){
+        const {col:c,side,row:start,rows}=face;
+        const h=rows*TILE,w=74;
         const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
         const g=canvas.getContext('2d');if(!g)continue;
         try{
@@ -39,18 +36,13 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
           scene.events.once('shutdown',()=>scene.textures.remove(key));
           stats.walls++;
         }catch{ /* keep the validated master */ }
-      }
     }
   }
-  for(let r=1;r<level.rows;r++)for(let c=0;c<level.cols;){
-    if(!block(c,r)||at(c,r-1)!==T.Empty){c++;continue;}
-    const start=c;
-    while(c<level.cols&&block(c,r)&&at(c,r-1)===T.Empty)c++;
-    if(paintOrganicGround(scene,into,'w1_organic_ground',start,c-1,r*TILE,level.rows,block,true))stats.tops++;
+  for(const q of geometry.surfaces){
+    if(paintOrganicGround(scene,into,'w1_organic_ground',q.c0,q.c1,q.from[1],level.rows,block,true))stats.tops++;
   }
-  for(const q of organicRampPlans(level)){
-    if(!covered.has(q.col)||!covered.has(q.col+1)||at(q.col,q.row-1)!==T.Empty||at(q.col+1,q.row-1)!==T.Empty)continue;
-    if(paintOrganicRamp(scene,into,'w1_organic_ground',q))stats.ramps++;
+  for(const q of geometry.ramps){
+    if(paintOrganicRamp(scene,into,'w1_organic_ground',q.plan))stats.ramps++;
   }
   scene.data.set('terrainFinish',stats);
 }
@@ -62,17 +54,12 @@ export function paintOrganicOneWays(scene:Phaser.Scene,level:LevelData,into:Phas
   if(!scene.textures.exists(key))return cells;
   const src=scene.textures.get(key).getSourceImage();
   if(src.width!==448||src.height!==240)return cells;
-  const at=(c:number,r:number)=>level.tiles[r]?.[c];
-  for(let r=1;r<level.rows-1;r++)for(let c=1;c<level.cols-1;){
-    if(at(c,r)!==T.OneWay){c++;continue;}
-    const start=c;
-    while(c<level.cols&&at(c,r)===T.OneWay)c++;
-    const len=c-start;
-    if(len>8||at(start-1,r)!==T.Empty||at(c,r)!==T.Empty)continue;
-    if(!Array.from({length:len},(_,i)=>at(start+i,r-1)===T.Empty&&at(start+i,r+1)===T.Empty&&!excluded.has(r*level.cols+start+i)).every(Boolean))continue;
+  const ledges=planVisualLedges(level,excluded);
+  scene.data.set('visualLedges',ledges);
+  for(const {col:start,row:r,length:len} of ledges){
     const scale=len*TILE/384,h=60;
     into.add(scene.add.image(start*TILE-32*scale,r*TILE-h*.2,key).setOrigin(0).setDisplaySize(448*scale,h).setData('organicOneWay',true));
-    for(let i=start;i<c;i++)cells.add(r*level.cols+i);
+    for(let i=start;i<start+len;i++)cells.add(r*level.cols+i);
   }
   scene.data.set('organicOneWayCells',cells.size);
   return cells;
