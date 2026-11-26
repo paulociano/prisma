@@ -112,8 +112,8 @@ for (const index of wanted) {
 // Test the real plate and a rejected blank texture in the existing visual CI.
 if(label==='organic'&&wanted.includes(0)){
   const report=[];
-  for(const {invalid,flat,platformsOff} of [{invalid:false,flat:false,platformsOff:false},{invalid:true,flat:false,platformsOff:false},{invalid:false,flat:true,platformsOff:false},{invalid:false,flat:false,platformsOff:true}]){
-    await page.goto('http://localhost:5199/?debug'+(flat?'&contours=0':'')+(platformsOff?'&platforms=0':''));
+  for(const {invalid,flat,platformsOff,materialsOff=false} of [{invalid:false,flat:false,platformsOff:false},{invalid:true,flat:false,platformsOff:false},{invalid:false,flat:true,platformsOff:false},{invalid:false,flat:false,platformsOff:true},{invalid:false,flat:false,platformsOff:false,materialsOff:true}]){
+    await page.goto('http://localhost:5199/?debug'+(flat?'&contours=0':'')+(platformsOff?'&platforms=0':'')+(materialsOff?'&materials=0':''));
     await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
     await page.evaluate(invalid=>{
       const game=window.game,key='w1_plate_1-1_chunk_001';
@@ -159,16 +159,25 @@ if(label==='organic'&&wanted.includes(0)){
         cam.setScroll(old[0],old[1]);cam.setZoom(old[2]);s.updatePictorialDepth(cam);
         depthProbe={first,second,haze:!!s.haze,backgroundDepth:s.bgContainer.depth,terrainDepth:s.world.depth};
       }
-      return {depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      const materialStats=s.data.get('pictorialMaterials');
+      const materialObjects=flatten(s.world).filter(o=>o.getData?.('pictorialMaterial')).map(o=>({kind:o.getData('terrainPlate')?'terrain':o.getData('platformVolume')?.kind, ...o.getData('pictorialMaterial')}));
+      return {materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
-    report.push({invalid,flat,platformsOff,...result});
+    report.push({invalid,flat,platformsOff,materialsOff,...result});
     fs.writeFileSync(path.join(out,'terrain-plates-report.json'),JSON.stringify(report,null,2));
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':'plate-authored.png')});
+    await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':materialsOff?'plate-before-materials.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(materialsOff&&(result.materialStats||result.materialObjects.length))throw Error('Material rollback failed');
+    if(!materialsOff){
+      const m=result.materialStats;
+      if(!m||!m.count||!m.changed||m.failures||m.pixels>10000000||m.count!==result.materialObjects.length)throw Error('Material generation failed '+JSON.stringify(m));
+      if(!result.materialObjects.some(o=>o.kind==='terrain'&&o.changed>0))throw Error('Terrain material missing');
+      if(!platformsOff&&!invalid&&!result.materialObjects.some(o=>o.kind==='solid'&&o.changed>0))throw Error('Island material missing');
+    }
     if(!result.depth||!result.depthProbe)throw Error('Pictorial depth manifest missing');
     const {first,second,haze,backgroundDepth,terrainDepth}=result.depthProbe;
     const moved=second.scroll-first.scroll;
@@ -198,13 +207,13 @@ if(label==='organic'&&wanted.includes(0)){
     if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
     if(!Array.from({length:11},(_,i)=>'chunk_'+String(i+2).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Continuous Vale masters rejected: '+JSON.stringify(result.rejected));
     if(!invalid&&!platformsOff){
-      for(const col of (flat?[35,80,138,201]:[35,65,80,100,125,138,140,170,190,201,218,222])){
+      for(const col of (materialsOff?[35,80]:flat?[35,80,138,201]:[35,65,80,100,125,138,140,170,190,201,218,222])){
         await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,10*64-46);s.cameras.main.centerOn(col*64+32,10*64-46);},col);
         await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-        await page.screenshot({path:path.join(out,(flat?'vale-before-contours-c':'vale-master-c')+col+'.png')});
+        await page.screenshot({path:path.join(out,(materialsOff?'vale-before-materials-c':flat?'vale-before-contours-c':'vale-master-c')+col+'.png')});
       }
     }
-    if(!invalid&&!flat){
+    if(!invalid&&!flat&&!materialsOff){
       const anchors=platformsOff?report[0].volumes:result.volumes;
       for(const kind of ['solid','ledge','mover']){
         const v=anchors.find(q=>q.kind===kind);if(!v)continue;
