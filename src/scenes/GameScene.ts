@@ -21,6 +21,8 @@ import { isMuted, musicForLevel, playMusic, playSfx, toggleMute } from '../syste
 import { ColorMechanics } from '../systems/ColorMechanics';
 import { Storm } from '../systems/Storm';
 import { ColorRestore } from '../systems/ColorRestore';
+import { LocalMaterialLights, materialLightsEnabled } from '../gfx/LocalMaterialLights';
+import type { MaterialLight } from '../world/MaterialLighting';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
@@ -123,6 +125,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private bgMid?: Phaser.GameObjects.TileSprite;
   private bgNear?: Phaser.GameObjects.TileSprite;
   private pictorialDepth=false;
+  private localMaterialLights?:LocalMaterialLights;
+  private materialLanterns:Phaser.GameObjects.Image[]=[];
   private spark!: Phaser.GameObjects.Sprite;
 
   private solids!: Phaser.Physics.Arcade.StaticGroup;
@@ -237,6 +241,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bgFar = this.bgMid = this.bgNear = undefined;
     this.landmark=undefined;
     this.pictorialDepth=false;
+    this.localMaterialLights=undefined;
+    this.materialLanterns=[];
+    this.data.set('materialLighting',null);
     this.data.set('pictorialDepth',null);
     this.data.set('pictorialDepthFrame',null);
     this.ambient = new Ambient(this, BEHIND_FX);
@@ -300,6 +307,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     }
     this.color = new ColorRestore([this.bgContainer, this.world, ...(vista?[vista.layer]:[]), ...(this.fgContainer ? [this.fgContainer] : [])], Math.max(1, colorTotal));
     this.buildDepth();
+    if(!this.isSub&&materialLightsEnabled(this.level.id)&&this.data.get('pictorialMaterials')?.count){
+      this.localMaterialLights=new LocalMaterialLights(this,this.world);
+      this.materialLanterns=this.decor.list.filter(o=>o.getData('organicLight')) as Phaser.GameObjects.Image[];
+    }
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
     else if (this.bgFarFx && this.bgMidFx) levelFx(this.ambient, this.level.world, { far: this.bgFar, mid: this.bgMid, farInto: this.bgFarFx, midInto: this.bgMidFx });
@@ -546,6 +557,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       const quality=getSettings().quality;
       if(!this.pictorialDepth&&this.data.get('organicForeground')&&quality!=='low')updateOrganicForeground(this.fgTop!,this.fgBot!,cam,this.player.hit.y,quality);
     }
+  }
+
+  private updateMaterialLights(dt:number){
+    if(!this.localMaterialLights)return;
+    const p=this.player.hit;
+    const lights:MaterialLight[]=[{x:this.spark.x,y:this.spark.y,radius:148,intensity:.27,color:[1,.84,.62]}];
+    for(const l of this.materialLanterns)if(l.active)lights.push({x:l.x,y:l.y,radius:132,intensity:.23,color:[1,.68,.32]});
+    for(const s of this.pickups.getChildren() as Phaser.Physics.Arcade.Sprite[])if(s.active&&s.visible&&s.getData('kind')==='shard')lights.push({x:s.x,y:s.y,radius:108,intensity:.25,color:[.82,.66,1]});
+    for(const s of this.pshots.getChildren() as Phaser.Physics.Arcade.Sprite[])if(s.active)lights.push({x:s.x,y:s.y,radius:88,intensity:.28,color:[.72,.55,1]});
+    this.localMaterialLights.update(dt,lights,p.x,p.y);
   }
 
   private updatePictorialDepth(cam:Phaser.Cameras.Scene2D.Camera){
@@ -2572,5 +2593,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.spark.x += (tx - this.spark.x) * Math.min(1, dt * 5);
     this.spark.y += (ty - this.spark.y) * Math.min(1, dt * 5);
     this.spark.setFlipX(this.player.facing < 0);
+    this.updateMaterialLights(dt);
   }
 }
