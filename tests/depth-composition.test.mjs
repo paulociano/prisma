@@ -22,3 +22,12 @@ test('foreground hides at player and hazard bands rather than becoming transpare
  assert.equal(depthFrame({...base,protectedPoints:[[3000,690]]}).showBottom,true);
  assert.equal(depthFrame({...base,zoom:2,playerY:230}).showTop,false);
 });
+
+test('large interactive bounds protect visible tips and bases even with centres outside the band',()=>{
+ const b={x:600,y:25,width:80,height:140};
+ assert.equal(depthFrame({...base,protectedBounds:[b]}).showTop,false);
+ assert.equal(depthFrame({...base,protectedBounds:[{x:600,y:570,width:90,height:130}]}).showBottom,false);
+ assert.equal(depthFrame({...base,protectedBounds:[{x:1290,y:25,width:80,height:140}]}).showTop,true);
+ assert.equal(depthFrame({...base,protectedBounds:[{x:600,y:-200,width:80,height:120}]}).showTop,true);
+ assert.equal(depthFrame({...base,zoom:1.2,protectedBounds:[{x:600,y:100,width:60,height:100}]}).showTop,false);
+});

@@ -160,7 +160,14 @@ if(label==='organic'&&wanted.includes(0)){
         cam.setScroll(cam.scrollX+160,cam.scrollY);cam.setZoom(1.2);
         const second=sample();
         cam.setScroll(old[0],old[1]);cam.setZoom(old[2]);s.updatePictorialDepth(cam);
-        depthProbe={first,second,haze:!!s.haze,backgroundDepth:s.bgContainer.depth,terrainDepth:s.world.depth};
+        const allBounds=s.protectedDepthBounds(0,s.level.cols*64);
+        const spikeCount=s.level.tiles.flat().filter(t=>t===3).length;
+        const shard=s.pickups.getChildren().find(o=>o.getData('kind')==='shard');
+        const shardBounds=shard?.getBounds();
+        const shardProtected=!!shardBounds&&allBounds.some(b=>b.x===shardBounds.x&&b.y===shardBounds.y&&b.width===shardBounds.width&&b.height===shardBounds.height);
+        depthProbe={first,second,haze:!!s.haze,backgroundDepth:s.bgContainer.depth,terrainDepth:s.world.depth,
+          readability:{...s.data.get('valeReadability'),spikeCount,shardProtected,totalBounds:allBounds.length}};
+
       }
       const materialStats=s.data.get('pictorialMaterials');
       const materialObjects=flatten(s.world).filter(o=>o.getData?.('pictorialMaterial')).map(o=>({kind:o.getData('terrainPlate')?'terrain':o.getData('platformVolume')?.kind, ...o.getData('pictorialMaterial')}));
@@ -270,7 +277,8 @@ if(label==='organic'&&wanted.includes(0)){
       if(!platformsOff&&!invalid&&!result.materialObjects.some(o=>o.kind==='solid'&&o.changed>0))throw Error('Island material missing');
     }
     if(!result.depth||!result.depthProbe)throw Error('Pictorial depth manifest missing');
-    const {first,second,haze,backgroundDepth,terrainDepth}=result.depthProbe;
+    const {first,second,haze,backgroundDepth,terrainDepth,readability}=result.depthProbe;
+    if(!readability?.enabled||readability.spikes!==readability.spikeCount||!readability.shardProtected||readability.totalBounds<=readability.spikes)throw Error('Interactive foreground protection regression '+JSON.stringify(readability));
     const moved=second.scroll-first.scroll;
     if(haze||backgroundDepth>=terrainDepth||moved!==160)throw Error('Pictorial depth ordering or redundant haze');
     for(const key of ['far','mid','near']){

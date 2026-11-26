@@ -35,7 +35,7 @@ import { paintTowerBridges } from '../gfx/TerrainBridge';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
-import { depthFrame, VALE_DEPTH } from '../world/DepthComposition';
+import { depthFrame, VALE_DEPTH, type DepthBounds } from '../world/DepthComposition';
 import { CameraDirector, cameraZones } from '../world/CameraDirector';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { createPlatformVolume } from '../gfx/PlatformVolume';
@@ -128,6 +128,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private bgMid?: Phaser.GameObjects.TileSprite;
   private bgNear?: Phaser.GameObjects.TileSprite;
   private pictorialDepth=false;
+  private readability=false;
+  private spikeArtBounds:DepthBounds[]=[];
   private livingVale?:LivingVale;
   private localMaterialLights?:LocalMaterialLights;
   private materialLanterns:Phaser.GameObjects.Image[]=[];
@@ -246,6 +248,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bgFar = this.bgMid = this.bgNear = undefined;
     this.landmark=undefined;
     this.pictorialDepth=false;
+    this.readability=!this.isSub&&this.level.id==='1-1'&&new URLSearchParams(window.location.search).get('readability')!=='0';
+    this.spikeArtBounds=[];
     this.cameraDirector=undefined;
     this.camOffsetX=0;
     this.data.set('cinematicCamera',null);
@@ -257,6 +261,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.data.set('materialLighting',null);
     this.data.set('pictorialDepth',null);
     this.data.set('pictorialDepthFrame',null);
+    this.data.set('valeReadability',null);
     this.ambient = new Ambient(this, BEHIND_FX);
     this.buildBackground();
     this.world = this.add.container(0, 0).setDepth(0);
@@ -606,6 +611,28 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.localMaterialLights.update(dt,lights,p.x,p.y);
   }
 
+  /** Protect actual painted silhouettes and interactables, not only tile
+   * centres. No changes to zones, collisions, pickups or draw ordering. */
+  private protectedDepthBounds(left:number,right:number){
+    const bounds:DepthBounds[]=this.spikeArtBounds.filter(b=>b.x+b.width>=left&&b.x<=right);
+    const add=(o:Phaser.GameObjects.Image|Phaser.GameObjects.Sprite|Phaser.GameObjects.Zone)=>{
+      if(!o.active||!o.visible)return;
+      const b=o.getBounds();if(b.right<left||b.left>right)return;
+      bounds.push({x:b.x,y:b.y,width:b.width,height:b.height});
+    };
+    // Include the real interactive artwork, even when taller than its zone.
+    for(const z of this.props.getChildren()){
+      const kind=z.getData('kind');
+      if(kind==='checkpoint'||kind==='spring'||kind==='exit'){
+        const view=z.getData('view') as Phaser.GameObjects.Image|undefined;
+        if(view)add(view);
+      }
+    }
+    for(const o of this.pickups.getChildren() as Phaser.Physics.Arcade.Sprite[])if(o.getData('kind')==='shard')add(o);
+    for(const o of this.oneways.getChildren())add(o as Phaser.GameObjects.Zone);
+    return bounds;
+  }
+
   private updatePictorialDepth(cam:Phaser.Cameras.Scene2D.Camera){
     const z=cam.zoom;
     const left=cam.scrollX+GAME_W/2-GAME_W/(2*z);
@@ -615,14 +642,19 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // Only visible static hazards; the foreground remains restricted to
     // shallow screen bands and never receives collision bodies.
     for(let c=c0;c<=c1;c++)for(let r=0;r<this.level.rows;r++)if(this.level.tiles[r][c]===T.Spike)protectedPoints.push([c*TILE+TILE/2,r*TILE+TILE/2]);
+    const protectedBounds=this.readability?this.protectedDepthBounds(left,right):[];
     const frame=depthFrame({scrollX:cam.scrollX,scrollY:cam.scrollY,zoom:z,width:GAME_W,height:GAME_H,
-      playerX:this.player.hit.x,playerY:this.player.hit.y,protectedPoints});
+      playerX:this.player.hit.x,playerY:this.player.hit.y,protectedPoints,protectedBounds});
     if(this.bgFar)this.bgFar.tilePositionX=frame.far;
     if(this.bgMid)this.bgMid.tilePositionX=frame.mid;
     if(this.bgNear)this.bgNear.tilePositionX=frame.near;
-    if(this.fgTop)this.fgTop.setVisible(frame.showTop).setAlpha(1).tilePositionX=frame.foregroundTop;
-    if(this.fgBot)this.fgBot.setVisible(frame.showBottom).setAlpha(1).tilePositionX=frame.foregroundBottom;
-    if(new URLSearchParams(window.location.search).has('debug'))this.data.set('pictorialDepthFrame',frame);
+    const reduced=getSettings().reduceMotion;
+    if(this.fgTop)this.fgTop.setVisible(!reduced&&frame.showTop).setAlpha(1).tilePositionX=frame.foregroundTop;
+    if(this.fgBot)this.fgBot.setVisible(!reduced&&frame.showBottom).setAlpha(1).tilePositionX=frame.foregroundBottom;
+    if(new URLSearchParams(window.location.search).has('debug')){
+      this.data.set('pictorialDepthFrame',frame);
+      this.data.set('valeReadability',{enabled:this.readability,spikes:this.spikeArtBounds.length,protected:protectedBounds.length,reduced});
+    }
   }
 
   private buildBackground() {
@@ -731,14 +763,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
           body.checkCollision.down = body.checkCollision.left = body.checkCollision.right = false;
         } else if (t === T.Spike) {
           // perigos ficam fora do filtro de cor: precisam ser legíveis desde o início
+          let spikeView:Phaser.GameObjects.Image;
           if (this.textures.exists('spikes')) {
             // arte própria dos espinhos: uma variação por mundo (0 ferro, 1 cristal, 2 espinhos-vivos, 3 osso/pedra)
             const img = this.add.image(x + TILE / 2, y + TILE + 2, 'spikes', String((this.level.world - 1) % 4)).setOrigin(0.5, 1);
-            img.setScale((TILE + 10) / img.width).setDepth(2);
+            spikeView=img.setScale((TILE + 10) / img.width).setDepth(2);
           } else if (art) {
             const img = this.add.image(x + TILE / 2, y + TILE + 4, this.tex('tiles'), String(F.w1Tiles.thorns)).setOrigin(0.5, 1);
-            img.setScale((TILE + 8) / img.width).setDepth(2);
-          } else this.add.image(x, y, 'spike').setOrigin(0).setDepth(2);
+            spikeView=img.setScale((TILE + 8) / img.width).setDepth(2);
+          } else spikeView=this.add.image(x, y, 'spike').setOrigin(0).setDepth(2);
+          if(this.readability){const b=spikeView.getBounds();this.spikeArtBounds.push({x:b.x,y:b.y,width:b.width,height:b.height});}
           this.hazards.add(this.add.zone(x + TILE / 2, y + 44, TILE - 8, 36));
         }
 
