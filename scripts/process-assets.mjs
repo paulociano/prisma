@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { ISLAND_SEEDS, renderIsland, validateIsland } from './prerender-islands.mjs';
 
 const RAW = 'assets/raw';
 const OUT_DIR = 'public/assets';
@@ -607,6 +608,16 @@ for (const sheet of SHEETS) {
   if (entry) manifest.sprites.push(entry);
 }
 manifest.sprites.push(...extraImages);
+// Offline mesh renders: independent sprite keys, never overwrite commissioned artwork.
+for(let i=0;i<ISLAND_SEEDS.length;i++){
+  const rendered=renderIsland(ISLAND_SEEDS[i]);
+  const qa=validateIsland(rendered);
+  const key='w1_prerender_island_'+i,file='sprites/'+key+'.png';
+  await sharp(rendered.pixels,{raw:{width:rendered.width,height:rendered.height,channels:4}}).png().toFile(path.join(OUT_DIR,file));
+  manifest.sprites.push({key,type:'image',file});
+  console.log('  ✔ '+key+': '+qa.triangles+' triangles, '+Math.round(qa.coverage*100)+'% core');
+}
+
 // Optional bespoke illustration: exact canvas and alpha contract, no manual slicing.
 // Do not register invalid art; the runtime keeps the painted-atlas composition.
 const cofferFile=path.join(RAW,'w1/organic/coffer.png');

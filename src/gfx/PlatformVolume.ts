@@ -17,10 +17,16 @@ export function platformVolumesEnabled(level:LevelData){
  * from all other occupied cells and hazards. */
 export function createPlatformVolume(scene:Phaser.Scene,level:LevelData,kind:PlatformKind,
   cx:number,contactY:number,width:number):Phaser.GameObjects.Image|undefined{
-  if(!platformVolumesEnabled(level)||!scene.textures.exists(ASSET)||width<64||width>512||!Number.isInteger(width))return;
-  const src=scene.textures.get(ASSET).getSourceImage() as CanvasImageSource & {width:number;height:number};
-  if(src.width!==448||src.height!==240)return;
+  if(!platformVolumesEnabled(level)||width<64||width>512||!Number.isInteger(width))return;
   const left=cx-width/2,seed=Math.round(left/TILE)*31+Math.round(contactY/TILE)*17;
+  const params=new URLSearchParams(window.location.search);
+  // Explicit pilot; do not silently replace approved art before visual QA.
+  const candidate='w1_prerender_island_'+((seed%3+3)%3);
+  const usePrerender=level.id==='1-1'&&params.get('prerender')==='1'&&scene.textures.exists(candidate);
+  const selected=usePrerender?candidate:ASSET;
+  if(!scene.textures.exists(selected))return;
+  const src=scene.textures.get(selected).getSourceImage() as CanvasImageSource & {width:number;height:number};
+  if(src.width!==448||src.height!==240)return;
   // A second row below a solid island can be occupied. Do not let the
   // visual volume extend into it, even if a previous asset did.
   let clearance=Infinity;
@@ -69,7 +75,7 @@ export function createPlatformVolume(scene:Phaser.Scene,level:LevelData,kind:Pla
     const material=bakeMaterial(scene,level,canvas,0,0,[left-p.margin,contactY-p.above]);
     if(!scene.textures.addCanvas(key,material?.canvas??canvas))return;
     const view=scene.add.image(cx,contactY,key).setOrigin(.5,p.above/h)
-      .setData('platformVolume',{kind,width,above:p.above,below:p.below,seed,flip:p.flip});
+      .setData('platformVolume',{kind,width,above:p.above,below:p.below,seed,flip:p.flip,source:selected,prerendered:usePrerender});
     if(material)registerMaterial(scene,view,material);
     scene.events.once('shutdown',()=>scene.textures.remove(key));
     return view;
