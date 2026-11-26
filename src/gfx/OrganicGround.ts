@@ -9,8 +9,8 @@ const clamp=(v:number)=>Math.max(0,Math.min(1,v));
  * is painted, and the depth mask is derived from contiguous solid cells.
  */
 export function paintOrganicGround(scene:Phaser.Scene,into:Phaser.GameObjects.Container,
-  key:string,c0:number,c1:number,y:number,rows:number,block:(c:number,r:number)=>boolean):boolean {
-  if(!scene.textures.exists(key)||c1-c0+1<3)return false;
+  key:string,c0:number,c1:number,y:number,rows:number,block:(c:number,r:number)=>boolean,surfaceOnly=false):boolean {
+  if(!scene.textures.exists(key)||(!surfaceOnly&&c1-c0+1<3))return false;
   const src=scene.textures.get(key).getSourceImage() as HTMLImageElement|HTMLCanvasElement;
   if(src.width!==1024||src.height!==320)return false;
   const width=(c1-c0+1)*TILE,start=c0*TILE,row=Math.floor(y/TILE);
@@ -38,7 +38,7 @@ export function paintOrganicGround(scene:Phaser.Scene,into:Phaser.GameObjects.Co
       const data=g.getImageData(0,0,w,HEIGHT);
       for(let x=0;x<w;x++){
         const offset=off+x,depth=depths[Math.min(depths.length-1,Math.floor(offset/TILE))];
-        const fadeEnd=Math.min(HEIGHT-CONTACT-1,depth);
+        const fadeEnd=Math.min(surfaceOnly?52:HEIGHT-CONTACT-1,depth);
         const fadeStart=Math.max(14,fadeEnd-28);
         const edge=Math.min(offset,width-1-offset);
         for(let py=0;py<HEIGHT;py++){

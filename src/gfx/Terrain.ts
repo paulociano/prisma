@@ -6,6 +6,7 @@ import { gfx } from '../systems/Settings';
 import { paintTowerMacro } from './TerrainMacro';
 import { paintTowerPillars } from './TerrainTower';
 import { paintTerrainPlates, paintTerrainBlend } from './TerrainPlates';
+import { paintPlateEdges } from './PlateFinish';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
 import { paintOrganicGround } from './OrganicGround';
@@ -331,6 +332,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   const { rows, cols, tiles } = level;
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
+  scene.data.set('terrainPlateIslandCells',new Set<number>());
+  scene.data.set('terrainFinish',null);
   scene.data.set('terrainPlatesEnabled',false);
   scene.data.set('terrainTowerPillars',[]);
   scene.data.set('terrainTowerMacro',null);
@@ -454,10 +457,11 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       into.add(img);
     }
   };
+  const plateIslands=scene.data.get('terrainPlateIslandCells') as Set<number>;
   for (let r = 0; r < rows; r++) {
     let start = -1;
     for (let c = 0; c <= cols; c++) {
-      const lone = c < cols && !covered.has(c) && !towerCells.has(r*cols+c) && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
+      const lone = c < cols && (!covered.has(c)||plateIslands.has(r*cols+c)) && !towerCells.has(r*cols+c) && tiles[r][c] === T.Solid && !solid(c, r - 1) && !solid(c, r + 1);
       if (lone && start < 0) start = c;
       if (!lone && start >= 0) {
         const c0 = start, c1 = c - 1;
@@ -696,6 +700,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Transitional painted plate: above the original structural artwork,
   // below contact shadows and independently drawn hazards/entities.
   if(baked&&plates)paintTerrainBlend(scene,level,tops);
+  if(plates&&covered.size)paintPlateEdges(scene,level,tops,covered,plateIslands);
   if(macro)tops.bringToTop(macro.image);
   return { fills, decor, tops };
 }

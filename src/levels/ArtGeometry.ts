@@ -313,3 +313,18 @@ export function towerMacroPlan(level:LevelData){
   }
   return {x:c0*TILE,y:r0*TILE,width:17*TILE,height:21*TILE,c0,c1,r0,r1,pillars,bridges,solids,oneways};
 }
+
+/** Only complete isolated solid runs are replaced by painted island silhouettes. */
+export function plateIslandRuns(level:LevelData,covered:Set<number>){
+  const out:{col:number;row:number;length:number}[]=[];
+  const at=(c:number,r:number)=>level.tiles[r]?.[c];
+  for(let r=1;r<level.rows-1;r++)for(let c=1;c<level.cols-1;){
+    if(at(c,r)!==T.Solid||at(c,r-1)!==T.Empty||at(c,r+1)!==T.Empty){c++;continue;}
+    const start=c;
+    while(c<level.cols&&at(c,r)===T.Solid&&at(c,r-1)===T.Empty&&at(c,r+1)===T.Empty)c++;
+    const length=c-start;
+    if(length>=2&&length<=4&&at(start-1,r)===T.Empty&&at(c,r)===T.Empty&&
+      Array.from({length},(_,i)=>covered.has(start+i)).every(Boolean))out.push({col:start,row:r,length});
+  }
+  return out;
+}

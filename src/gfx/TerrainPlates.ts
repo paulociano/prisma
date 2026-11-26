@@ -1,12 +1,17 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
-import { terrainPlateGroups, terrainSeamCompatible, type TerrainPlatePlan } from '../levels/ArtGeometry';
+import { terrainPlateGroups, terrainSeamCompatible, plateIslandRuns, type TerrainPlatePlan } from '../levels/ArtGeometry';
+
+let finishSerial=0;
 
 /** Only accepted plates replace the legacy presentation; physics still uses LevelData.
  * Runtime rejection leaves the previous organic renderer untouched. */
 export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
+  const islandCells=new Set<number>();
+  const islandTexture=scene.textures.exists('w1_organic_island')?scene.textures.get('w1_organic_island').getSourceImage():undefined;
+  const canReplace=!!islandTexture&&islandTexture.width===448&&islandTexture.height===240;
   for(const group of terrainPlateGroups(level)){
     const entries=group.map(p=>({p,key:'w1_plate_'+level.id+'_'+p.id}));
     const present=entries.filter(e=>scene.textures.exists(e.key));
@@ -14,7 +19,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
     const reject=(reason:string)=>present.forEach(e=>rejected.push(e.p.id+':'+reason));
     if(group.some(p=>p.protectedArea)){reject('geometry');continue;}
     if(present.length!==entries.length){reject('missing-neighbor');continue;}
-    const added:Phaser.GameObjects.Image[]=[];
+    const added:Phaser.GameObjects.Image[]=[];const generated:string[]=[];
     try{
       const sources=entries.map(e=>scene.textures.get(e.key).getSourceImage() as CanvasImageSource & {width:number;height:number});
       if(entries.some(({p},i)=>sources[i].width!==p.width||sources[i].height!==p.height||!validAlpha(sources[i],p,level))){
@@ -23,16 +28,33 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       if(entries.some(({p},i)=>i>0&&!terrainSeamCompatible(readEdge(sources[i-1],entries[i-1].p,true),readEdge(sources[i],p,false)))){
         reject('seam');continue;
       }
+      const groupCols=new Set<number>();
+      for(const {p} of entries)for(let c=p.c0;c<p.c1;c++)groupCols.add(c);
+      const islands=canReplace?plateIslandRuns(level,groupCols):[];
       for(const {p,key} of entries){
-        const image=scene.add.image(p.x,p.y,key).setOrigin(0).setData('terrainPlate',p.id);
+        const cuts=islands.filter(q=>q.col<p.c1&&q.col+q.length>p.c0);
+        let renderKey=key;
+        if(cuts.length){
+          const canvas=document.createElement('canvas');canvas.width=p.width;canvas.height=p.height;
+          const g=canvas.getContext('2d');if(!g)throw Error('island canvas unavailable');
+          g.drawImage(scene.textures.get(key).getSourceImage() as CanvasImageSource,0,0);
+          for(const q of cuts)g.clearRect(q.col*TILE-p.x,q.row*TILE-p.y,q.length*TILE,TILE);
+          renderKey='terrain_plate_finish_'+(++finishSerial);
+          if(!scene.textures.addCanvas(renderKey,canvas))throw Error('island texture unavailable');
+          generated.push(renderKey);
+        }
+        const image=scene.add.image(p.x,p.y,renderKey).setOrigin(0).setData('terrainPlate',p.id);
         added.push(image);into.add(image);
       }
+      for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)islandCells.add(q.row*level.cols+c);
+      if(generated.length)scene.events.once('shutdown',()=>{for(const key of generated)scene.textures.remove(key);});
       for(const {p} of entries){
         for(let c=p.c0;c<p.c1;c++)columns.add(c);
         accepted.push(p.id);
       }
-    }catch{added.forEach(image=>image.destroy());reject('render');}
+    }catch{added.forEach(image=>image.destroy());generated.forEach(key=>scene.textures.remove(key));reject('render');}
   }
+  scene.data.set('terrainPlateIslandCells',islandCells);
   scene.data.set('terrainPlates',accepted);scene.data.set('terrainPlateRejected',rejected);
   return columns;
 }
