@@ -330,7 +330,7 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{
     const g=window.game;
-    for(const id of Array.from({length:7},(_,i)=>String(i+1).padStart(3,'0')))if(!g.textures.exists('w1_plate_1-2_chunk_'+id))throw Error('Lantern terrain plate missing '+id);
+    for(const id of Array.from({length:13},(_,i)=>String(i+1).padStart(3,'0')))if(!g.textures.exists('w1_plate_1-2_chunk_'+id))throw Error('Lantern terrain plate missing '+id);
     g.scene.getScenes(true).forEach(s=>g.scene.stop(s.scene.key));
     g.scene.start('Game',{level:1});
   });
@@ -360,7 +360,18 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({path:path.join(out,(pilot?'lantern-pilot-master-':'lantern-master-')+'c'+col+'.png')});
   }
-  if(!Array.from({length:7},(_,i)=>'chunk_'+String(i+1).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
+  // Full remaining master: capture both ground and elevated structure.
+  for(const [col,row] of [[145,20],[169,20],[184,17],[193,3],[198,8],[205,17],[223,20],[245,20]]){
+    await page.evaluate(([col,row])=>{
+      const s=window.game.scene.getScene('Game'),x=col*64+32;
+      const y=row*64-46;
+      s.player.body.allowGravity=false;s.player.body.reset(x,y);s.player.syncView(0);
+      s.cameras.main.centerOn(x,y);s.cameras.main.fadeEffect.reset();
+    },[col,row]);
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    await page.screenshot({path:path.join(out,(pilot?'lantern-pilot-final-':'lantern-final-')+'c'+col+'-r'+row+'.png')});
+  }
+  if(result.rejected?.length||result.accepted.length!==13||!Array.from({length:13},(_,i)=>'chunk_'+String(i+1).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
   if(pilot){
     const before=JSON.parse(fs.readFileSync(path.join(out,'lantern-plates-report.json'),'utf8'));
     if(JSON.stringify(result.accepted)!==JSON.stringify(before.accepted)||JSON.stringify(result.rejected)!==JSON.stringify(before.rejected))throw Error('Lantern pilot altered acceptance');
