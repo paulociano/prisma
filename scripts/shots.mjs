@@ -185,7 +185,22 @@ if(label==='organic'&&wanted.includes(0)){
           }
         }
       }
-      return {lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      let livingProbe=null;
+      if(s.livingVale){
+        const living=s.livingVale,plants=living.plants;
+        if(plants.length){
+          const focus=plants[0].x;
+          living.update(0,focus,1);
+          const before=plants.map(p=>p.image.angle);
+          for(let i=0;i<15;i++)living.update(.1,focus,1);
+          const moved=plants.filter((p,i)=>Math.abs(p.image.angle-before[i])>.05).length;
+          const displaced=plants.filter(p=>p.image.x!==p.x||p.image.y!==p.y||p.image.alpha!==1||p.image.originY!==1).length;
+          const unsafe=living.pollen.filter(p=>p.image.visible&&s.level.tiles[Math.floor(p.image.y/64)]?.[Math.floor(p.image.x/64)]!==0).length;
+          livingProbe={...s.data.get('livingVale'),moved,displaced,unsafe,frame:s.data.get('livingValeFrame')};
+          living.update(0,s.player.hit.x,s.color.value);
+        }
+      }
+      return {livingProbe,lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -195,6 +210,7 @@ if(label==='organic'&&wanted.includes(0)){
     await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':materialsOff?'plate-before-materials.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(!invalid){const v=result.livingProbe;if(!v||!v.plants||!v.moved||v.displaced||v.unsafe||v.pollen>36||v.depth>=0)throw Error('Living Vale anchor or visibility regression '+JSON.stringify(v));}
     if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');
     if(!materialsOff&&!invalid){
       const p=result.lightingProbe;
