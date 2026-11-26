@@ -26,6 +26,7 @@ import type { MaterialLight } from '../world/MaterialLighting';
 import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
+import { LivingVale, livingValeEnabled } from '../gfx/LivingVale';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
@@ -125,6 +126,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private bgMid?: Phaser.GameObjects.TileSprite;
   private bgNear?: Phaser.GameObjects.TileSprite;
   private pictorialDepth=false;
+  private livingVale?:LivingVale;
   private localMaterialLights?:LocalMaterialLights;
   private materialLanterns:Phaser.GameObjects.Image[]=[];
   private spark!: Phaser.GameObjects.Sprite;
@@ -241,6 +243,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bgFar = this.bgMid = this.bgNear = undefined;
     this.landmark=undefined;
     this.pictorialDepth=false;
+    this.livingVale=undefined;
+    this.data.set('livingVale',null);
+    this.data.set('livingValeFrame',null);
     this.localMaterialLights=undefined;
     this.materialLanterns=[];
     this.data.set('materialLighting',null);
@@ -311,9 +316,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       this.localMaterialLights=new LocalMaterialLights(this,this.world);
       this.materialLanterns=this.decor.list.filter(o=>o.getData('organicLight')) as Phaser.GameObjects.Image[];
     }
+    if(!this.isSub&&this.ambient.on&&livingValeEnabled(this.level.id)&&this.data.get('terrainPlatesEnabled'))this.livingVale=new LivingVale(this,this.level,this.decor);
     // fundo vivo: água, cachoeiras, névoa, fumaça… (as cachoeiras ficam presas à arte do fundo)
     if (this.arenaRect) arenaFx(this.ambient, this.level.world, this.arenaRect, this.bgContainer);
-    else if (this.bgFarFx && this.bgMidFx) levelFx(this.ambient, this.level.world, { far: this.bgFar, mid: this.bgMid, farInto: this.bgFarFx, midInto: this.bgMidFx });
+    else if (this.bgFarFx && this.bgMidFx) levelFx(this.ambient, this.level.world, { far: this.bgFar, mid: this.bgMid, farInto: this.bgFarFx, midInto: this.bgMidFx },!!this.livingVale);
 
     this.setupCollisions();
     this.setupEvents();
@@ -733,6 +739,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         if(frame===F.w1Props.lantern&&addLanternLight(this,this.decor,prop,quality))lanternLights++;
         if((frame===F.w1Props.house||frame===F.w1Props.arch)&&addArchitectureContact(this,this.decor,prop))architectureContacts++;
       }
+      if(organic&&r>=0&&(frame===F.w1Props.heartFlower||frame===F.w1Props.berries))prop.setData('livingPlant',true);
       this.decor.add(prop);
     };
 
@@ -2582,6 +2589,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.updateDepth(cam, dt);
     this.colorMech.update();
     this.ambient.update(dt, cam.scrollX, this.color.value);
+    this.livingVale?.update(dt,this.player.hit.x,this.color.value);
     for (const w of this.waves) {
       w.ts.x = cam.scrollX - 32;
       w.ts.tilePositionX = (cam.scrollX - 32 + (this.time.now / 1000) * w.speed) / w.sc;

@@ -315,8 +315,19 @@ const LEVEL: Record<number, (a: Ambient, bg: LevelBg) => void> = {
 };
 
 /** Efeitos do fundo de uma fase comum (paralaxe). */
-export function levelFx(a: Ambient, world: number, bg: LevelBg) {
+export function levelFx(a: Ambient, world: number, bg: LevelBg, livingVale=false) {
   if (!a.on) return;
+  if(world===1&&livingVale){
+    // Preserve the measured waterfall anchors on the original paintings.
+    const {far,mid,farInto,midInto}=bg;
+    falls(a,far,FAR_Y,farInto,[[0.575,0.3,0.43,56],[0.5,0.4,0.49,40],[0.61,0.61,0.72,64],[0.535,0.85,0.95,56],[0.296,0.52,0.62,30]]);
+    falls(a,mid,MID_Y,midInto,[[0.42,0.7,0.92,76],[0.442,0.85,0.98,64]],.55);
+    if(mid)a.pinSteam(mid,MID_Y,.17,.38,{into:midInto,size:46,alpha:.25});
+    a.fogBand({y:470,h:210,speed:5,parallax:.18,alpha:.14,tint:0xffe8f4,depth:BEHIND});
+    a.birds({y:[90,230],count:2,depth:BEHIND,tint:0x6a2a50});
+    // No full-screen leaf or mote emitters in front of the player.
+    return;
+  }
   LEVEL[world]?.(a, bg);
 }
 
