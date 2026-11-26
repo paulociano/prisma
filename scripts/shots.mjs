@@ -28,7 +28,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-await page.goto('http://localhost:5199/?debug'+(label==='organic'||label==='organic-low'?'&organic=1&plates=0':label==='baseline'?'&organic=0':''));
+await page.goto('http://localhost:5199/?debug&zoom=legacy'+(label==='organic'||label==='organic-low'?'&organic=1&plates=0':label==='baseline'?'&organic=0':''));
 await page.waitForFunction(() => window.game?.scene.isActive('Title'), null, { timeout: 120000 });
 if(label==='organic-low')await page.evaluate(async()=>{const {setSettings}=await import('/src/systems/Settings.ts');setSettings({quality:'low',reduceMotion:true});});
 
@@ -232,7 +232,7 @@ if(label==='organic'&&wanted.includes(0)){
         s.updateCinematicCamera(0);
         const actual=s.data.get('cinematicCamera');
         cameraProbe={zones:d.zones.length,held,old,accessible,actual,zoom:cam.zoom,
-          offset:[cam.followOffset.x,cam.followOffset.y],unchanged:before[0]===p.x&&before[1]===p.y};
+          fixedZoom:d.fixedZoom??1,offset:[cam.followOffset.x,cam.followOffset.y],unchanged:before[0]===p.x&&before[1]===p.y};
       }
       const decorPlacement=s.data.get('valeDecorPlacement');
       const groundedDecor=s.decor.list.filter(o=>o.getData('valeGroundedDecor')).map(o=>{const q=o.getData('valeGroundedDecor');return {...q,anchored:o.x===q.col*64+32&&o.y===q.row*64+16&&o.alpha===1&&o.originY===1,supported:s.level.tiles[q.row]?.[q.col]===1&&s.level.tiles[q.row+1]?.[q.col]===1};});
@@ -262,7 +262,7 @@ if(label==='organic'&&wanted.includes(0)){
     if(!invalid){const p=result.decorPlacement;if(!p?.enabled||!p.startHouseOmitted||!p.grounded||p.grounded!==result.groundedDecor.length||result.groundedDecor.some(o=>!o.anchored||!o.supported||o.frame===0))throw Error('Vale decor grounding regression '+JSON.stringify({placement:p,objects:result.groundedDecor}));}
     if(!invalid){
       const p=result.cameraProbe;
-      if(!p||!p.zones||!p.unchanged||p.held.mode!=='held'||p.held.x!==p.old.x||p.held.y!==p.old.y||p.held.zoom!==p.old.zoom||p.accessible.zoom!==1||p.accessible.x!==0||p.actual.zoom!==p.zoom||p.actual.x!==p.offset[0]||p.actual.y!==p.offset[1])throw Error('Cinematic camera contract mismatch '+JSON.stringify(p));
+      if(!p||!p.zones||!p.unchanged||p.held.mode!=='held'||p.held.x!==p.old.x||p.held.y!==p.old.y||p.held.zoom!==p.old.zoom||p.accessible.zoom!==p.fixedZoom||p.accessible.x!==0||p.actual.zoom!==p.zoom||p.actual.x!==p.offset[0]||p.actual.y!==p.offset[1])throw Error('Cinematic camera contract mismatch '+JSON.stringify(p));
     }
     if(!invalid){const v=result.livingProbe;if(!v||!v.plants||!v.moved||v.displaced||v.unsafe||v.pollen>36||v.depth>=0)throw Error('Living Vale anchor or visibility regression '+JSON.stringify(v));}
     if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');

@@ -37,6 +37,7 @@ import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting'
 import { composeOrganicVista } from '../gfx/OrganicVista';
 import { depthFrame, VALE_DEPTH, type DepthBounds } from '../world/DepthComposition';
 import { CameraDirector, cameraZones } from '../world/CameraDirector';
+import { closeCameraZoom } from '../world/CloseCamera';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { createPlatformVolume } from '../gfx/PlatformVolume';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
@@ -151,6 +152,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private swingHits = new Set<object>();
   private camOffsetX = 0;
   private cameraDirector?:CameraDirector;
+  private closeFraming=true;
   private colorMech!: ColorMechanics;
   /** Campos invertidos (Ilhas do Céu): retângulos em que a gravidade vira. */
   private gravZones: Phaser.Geom.Rectangle[] = [];
@@ -339,20 +341,28 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.stepMovers(0.0001); // velocidade inicial antes do primeiro passo
 
     const cam = this.cameras.main;
-    if (this.level.arena) {
-      cam.setBounds(0, 0, worldW, GAME_H); // arena: câmera parada
+    const params=new URLSearchParams(window.location.search);
+    this.closeFraming=params.get('zoom')!=='legacy';
+    const zoom=this.closeFraming?closeCameraZoom(GAME_H):1;
+    cam.setZoom(zoom).setFollowOffset(0,0);
+    if (this.level.arena && !this.closeFraming) {
+      cam.stopFollow();
+      cam.setBounds(0, 0, worldW, GAME_H);
     } else {
-      // fase mais estreita que a tela (torres verticais): centraliza em vez de encostar na esquerda
-      const pad = Math.max(0, GAME_W - worldW) / 2;
-      cam.setBounds(-pad, 0, worldW + pad * 2, worldH);
-      cam.startFollow(this.player.hit, true, 0.12, 0.12);
-      cam.setDeadzone(60, 140);
-      this.lookAhead = true;
-      if(this.level.id==='1-1'&&!this.isSub&&this.data.get('terrainPlatesEnabled')&&new URLSearchParams(window.location.search).get('camera')!=='0'){
-        this.cameraDirector=new CameraDirector(cameraZones(this.level.cameras??[],this.level.entities));
+      // Bounds use the visible world width at the selected zoom.
+      const pad = Math.max(0, GAME_W / zoom - worldW) / 2;
+      const boundH=this.level.arena?GAME_H:worldH;
+      cam.setBounds(-pad, 0, worldW + pad * 2, boundH);
+      cam.startFollow(this.player.hit, true, this.closeFraming ? .24 : .12, this.closeFraming ? .24 : .12);
+      cam.setDeadzone(this.closeFraming?0:60,this.closeFraming?0:140);
+      this.lookAhead = !this.closeFraming;
+      if(this.closeFraming||(this.level.id==='1-1'&&!this.isSub&&this.data.get('terrainPlatesEnabled')&&params.get('camera')!=='0')){
+        this.cameraDirector=new CameraDirector(cameraZones(this.level.cameras??[],this.level.entities),this.closeFraming?zoom:undefined);
         this.resetCinematicCamera();
       }
+      if(this.level.arena&&this.closeFraming)this.bgContainer.setScrollFactor(1);
     }
+    this.data.set('closeCameraZoom',this.closeFraming?zoom:null);
     cam.fadeIn(400);
 
     if (!this.scene.isActive('Hud')) this.scene.launch('Hud');
@@ -1480,6 +1490,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const lowHp = this.player.hp <= 1 && this.player.maxHp > 1 && !this.player.dead && !this.finished;
     if (lowHp && !this.risk) this.risk = this.add.image(GAME_W / 2, GAME_H / 2, 'vig_risk').setScrollFactor(0).setDepth(60).setAlpha(0).setDisplaySize(GAME_W, GAME_H);
     if (this.risk) {
+      this.risk.setDisplaySize(GAME_W/this.cameras.main.zoom,GAME_H/this.cameras.main.zoom);
       const calm = getSettings().reduceMotion || !canFlashScreen();
       const want = lowHp ? (calm ? 0.22 : 0.2 + 0.12 * Math.sin(this.time.now / 450)) : 0;
       this.risk.alpha += (want - this.risk.alpha) * Math.min(1, dt * 4);
@@ -1737,9 +1748,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private bolt() {
     const cam = this.cameras.main;
     const g = this.add.graphics().setDepth(19).setBlendMode(Phaser.BlendModes.ADD);
-    let x = cam.scrollX + Phaser.Math.Between(120, GAME_W - 120), y = 0;
+    const vw=cam.worldView;
+    let x = vw.left + Phaser.Math.Between(Math.round(vw.width*.1), Math.round(vw.width*.9)), y = vw.top;
     g.lineStyle(5, 0xe8dcff, 1).beginPath().moveTo(x, y);
-    while (y < GAME_H * 0.8) {
+    while (y < vw.top + vw.height * 0.8) {
       x += Phaser.Math.Between(-40, 40);
       y += Phaser.Math.Between(40, 90);
       g.lineTo(x, y);
@@ -2674,8 +2686,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.ambient.update(dt, cam.scrollX, this.color.value);
     this.livingVale?.update(dt,this.player.hit.x,this.color.value);
     for (const w of this.waves) {
-      w.ts.x = cam.scrollX - 32;
-      w.ts.tilePositionX = (cam.scrollX - 32 + (this.time.now / 1000) * w.speed) / w.sc;
+      const left=cam.scrollX+GAME_W/2-GAME_W/(2*cam.zoom);
+      w.ts.x = left - 32;
+      w.ts.tilePositionX = (left - 32 + (this.time.now / 1000) * w.speed) / w.sc;
     }
 
     // Faísca segue Íris flutuando

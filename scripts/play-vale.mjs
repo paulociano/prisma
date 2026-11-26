@@ -26,7 +26,7 @@ try{
    const s=window.game.scene.getScene('Game'),p=s.player,b=p.body;
    return {x:p.hit.x,y:p.hit.y,bottom:b.bottom,vx:b.velocity.x,vy:b.velocity.y,ground:p.onGround,hp:p.hp,
     frozen:p.frozen,dead:p.dead,color:s.color.value,mode:s.data.get('organicMode'),plates:s.data.get('terrainPlates')?.length??0,
-    camera:s.data.get('cinematicCamera')??null,paused:s.physics.world.isPaused};
+    camera:s.data.get('cinematicCamera')??null,zoom:s.cameras.main.zoom,paused:s.physics.world.isPaused};
   });
   const wait=async(fn,arg)=>page.waitForFunction(fn,arg,{timeout:60000});
   const grounded=()=>wait(()=>{const s=window.game.scene.getScene('Game'),p=s.player;return p&&!p.frozen&&!p.dead&&p.onGround&&Math.abs(p.body.velocity.x)<2&&Math.abs(p.body.velocity.y)<2;});
@@ -39,6 +39,7 @@ try{
    await grounded();
    const initial=await state();
    assert.equal(initial.mode,organic?'organic':'legacy');assert.equal(initial.plates,organic?12:0);assert.equal(initial.paused,false);
+   assert.ok(Math.abs(initial.zoom*110/720-.4)<1e-6,'nominal standing height framing');
    mark('spawn',initial);
    // Keep the first smoke on the safe opening ground, before the first pit.
    await key('ArrowRight',x=>window.game.scene.getScene('Game').player.hit.x>=x,initial.x+128);
@@ -61,6 +62,7 @@ try{
    assert.ok(height>100&&height<300,'jump height '+height);
    assert.ok(trace.jumps===1&&trace.lands>=1,'jump/land events '+JSON.stringify(trace));
    assert.ok(Math.abs(landed.bottom-walked.bottom)<3);assert.equal(landed.hp,initial.hp);
+   assert.equal(landed.zoom,initial.zoom,'fixed zoom after jumping');
    mark('jump-land',{height,trace,...landed});
    await key('x',()=>window.valeTrace.attacks===1);
    mark('attack',await state());

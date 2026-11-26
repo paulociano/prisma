@@ -41,3 +41,15 @@ test('held state, accessible mode and respawn reset camera history',()=>{
  assert.deepEqual(d.reset(15*64),{x:0,y:60,zoom:.9,mode:'rest'});
  assert.deepEqual(d.reset(0,true),{x:0,y:60,zoom:1,mode:'accessible'});
 });
+
+import {closeCameraZoom,IRIS_STANDING_HEIGHT,IRIS_SCREEN_SHARE} from '../.debug/close-camera.mjs';
+test('global close framing reserves 40 percent of viewport height without animation pumping',()=>{
+ for(const h of [360,720,1080])assert.ok(Math.abs(closeCameraZoom(h)*IRIS_STANDING_HEIGHT/h-IRIS_SCREEN_SHARE)<1e-12);
+ assert.throws(()=>closeCameraZoom(0));
+ const z=closeCameraZoom(720),d=new CameraDirector([{c0:0,c1:20,zoom:.86}],z);
+ assert.equal(d.reset(0).zoom,z);
+ for(const [vx,vy,grounded,frozen,reduced] of [[340,0,true,false,false],[820,-940,false,false,false],[-340,1150,false,false,false],[0,0,true,true,false],[0,0,true,false,true]]){
+  for(let n=0;n<90;n++){const p=d.step({...input,vx,vy,grounded,frozen,reduced});assert.equal(p.zoom,z);assert.ok(Math.abs(p.x*z)<=130.001);assert.ok(p.y*z>=-24.001&&p.y*z<=122.001);}
+ }
+ assert.equal(d.reset(640,true).zoom,z);
+});
