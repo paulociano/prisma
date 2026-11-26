@@ -37,7 +37,7 @@ import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting'
 import { composeOrganicVista } from '../gfx/OrganicVista';
 import { depthFrame, VALE_DEPTH, type DepthBounds } from '../world/DepthComposition';
 import { CameraDirector, cameraZones } from '../world/CameraDirector';
-import { closeCameraZoom } from '../world/CloseCamera';
+import { closeCameraZoom, usesCloseCamera } from '../world/CloseCamera';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { createPlatformVolume } from '../gfx/PlatformVolume';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
@@ -342,17 +342,18 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
     const cam = this.cameras.main;
     const params=new URLSearchParams(window.location.search);
-    this.closeFraming=params.get('zoom')!=='legacy';
+    this.closeFraming=usesCloseCamera(!!this.level.arena,params.get('zoom'));
     const zoom=this.closeFraming?closeCameraZoom(GAME_H):1;
     cam.setZoom(zoom).setFollowOffset(0,0);
-    if (this.level.arena && !this.closeFraming) {
+    if (this.level.arena) {
       cam.stopFollow();
+      cam.setDeadzone(0,0);
       cam.setBounds(0, 0, worldW, GAME_H);
+      cam.centerOn(worldW/2,GAME_H/2);
     } else {
       // Bounds use the visible world width at the selected zoom.
       const pad = Math.max(0, GAME_W / zoom - worldW) / 2;
-      const boundH=this.level.arena?GAME_H:worldH;
-      cam.setBounds(-pad, 0, worldW + pad * 2, boundH);
+      cam.setBounds(-pad, 0, worldW + pad * 2, worldH);
       cam.startFollow(this.player.hit, true, this.closeFraming ? .24 : .12, this.closeFraming ? .24 : .12);
       cam.setDeadzone(this.closeFraming?0:60,this.closeFraming?0:140);
       this.lookAhead = !this.closeFraming;
@@ -360,7 +361,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
         this.cameraDirector=new CameraDirector(cameraZones(this.level.cameras??[],this.level.entities),this.closeFraming?zoom:undefined);
         this.resetCinematicCamera();
       }
-      if(this.level.arena&&this.closeFraming)this.bgContainer.setScrollFactor(1);
     }
     this.data.set('closeCameraZoom',this.closeFraming?zoom:null);
     cam.fadeIn(400);
@@ -2670,7 +2670,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // câmera olha um pouco à frente
     const cam = this.cameras.main;
     if(this.cameraDirector)this.updateCinematicCamera(dt);
-    else {
+    else if(!this.level.arena) {
       this.camOffsetX += (-this.player.facing * 110 - this.camOffsetX) * Math.min(1, dt * 2);
       cam.setFollowOffset(this.camOffsetX, 60);
     }

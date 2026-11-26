@@ -42,7 +42,7 @@ test('held state, accessible mode and respawn reset camera history',()=>{
  assert.deepEqual(d.reset(0,true),{x:0,y:60,zoom:1,mode:'accessible'});
 });
 
-import {closeCameraZoom,IRIS_STANDING_HEIGHT,IRIS_SCREEN_SHARE} from '../.debug/close-camera.mjs';
+import {closeCameraZoom,IRIS_STANDING_HEIGHT,IRIS_SCREEN_SHARE,usesCloseCamera} from '../.debug/close-camera.mjs';
 test('global close framing reserves 40 percent of viewport height without animation pumping',()=>{
  for(const h of [360,720,1080])assert.ok(Math.abs(closeCameraZoom(h)*IRIS_STANDING_HEIGHT/h-IRIS_SCREEN_SHARE)<1e-12);
  assert.throws(()=>closeCameraZoom(0));
@@ -52,4 +52,11 @@ test('global close framing reserves 40 percent of viewport height without animat
   for(let n=0;n<90;n++){const p=d.step({...input,vx,vy,grounded,frozen,reduced});assert.equal(p.zoom,z);assert.ok(Math.abs(p.x*z)<=130.001);assert.ok(p.y*z>=-24.001&&p.y*z<=122.001);}
  }
  assert.equal(d.reset(640,true).zoom,z);
+});
+
+test('all boss arenas retain the original camera, even with close framing requested',()=>{
+ for(const mode of [null,'legacy','close','1'])assert.equal(usesCloseCamera(true,mode),false);
+ assert.equal(usesCloseCamera(false,null),true);
+ assert.equal(usesCloseCamera(false,'close'),true);
+ assert.equal(usesCloseCamera(false,'legacy'),false);
 });
