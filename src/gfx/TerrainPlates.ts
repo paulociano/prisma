@@ -1,4 +1,6 @@
 import { organicSculpturePilot } from '../world/OrganicPilot';
+import { lanternAnnexPlan } from '../world/LanternAnnex';
+import { buildLanternAnnex } from './LanternAnnex';
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { planVisualGeometry } from '../world/VisualGeometry';
@@ -15,6 +17,9 @@ let finishSerial=0;
 export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
   const islandCells=new Set<number>();
+  const annexCells=new Set<number>();
+  scene.data.set('lanternAnnex',null);
+  scene.data.set('lanternAnnexCells',annexCells);
   const params=new URLSearchParams(window.location.search);
   const pilot=organicSculpturePilot(level.id,params);
   const curved=pilot&&params.get('contours')!=='0';
@@ -44,17 +49,23 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       const islands=canReplace?plateIslandRuns(level,groupCols,wide?8:4):[];
       const cutCells=new Set<number>();
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)cutCells.add(q.row*level.cols+c);
-      const curves=curved?planOrganicContours(planVisualGeometry(level,groupCols,cutCells)):[];
+      const plan=pilot&&level.id==='1-2'&&params.get('annex')!=='0'?lanternAnnexPlan(level):undefined;
+      const annex=plan&&Array.from({length:14},(_,i)=>groupCols.has(plan.col+i)).every(Boolean)?buildLanternAnnex(scene,level,plan,entries,sources):undefined;
+      if(annex){added.push(annex.view);generated.push(annex.key);}
+      const excluded=new Set([...cutCells,...(annex&&plan?plan.cells:[])]);
+      const curves=curved?planOrganicContours(planVisualGeometry(level,groupCols,excluded)):[];
       let groupPixels=0,groupPlates=0,groupRecessed=0;
       for(const {p,key} of entries){
         const cuts=islands.filter(q=>q.col<p.c1&&q.col+q.length>p.c0);
         let renderKey=key,offset=0;
         let source=scene.textures.get(key).getSourceImage() as CanvasImageSource;
-        if(cuts.length){
+        const annexCut=!!annex&&!!plan&&p.x<plan.x+plan.width&&p.x+p.width>plan.x;
+        if(cuts.length||annexCut){
           const canvas=document.createElement('canvas');canvas.width=p.width;canvas.height=p.height;
           const g=canvas.getContext('2d');if(!g)throw Error('island canvas unavailable');
           g.drawImage(scene.textures.get(key).getSourceImage() as CanvasImageSource,0,0);
           for(const q of cuts)g.clearRect(q.col*TILE-p.x,q.row*TILE-p.y,q.length*TILE,TILE);
+          if(annexCut&&plan)g.clearRect(plan.x-p.x,plan.y-p.y,plan.width,plan.height);
           source=canvas;
         }
         if(curved&&curves.length){
@@ -65,7 +76,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
         }
         const material=bakeMaterial(scene,level,source as CanvasImageSource & {width:number;height:number},16,offset,[p.x-offset,p.y-offset]);
         if(material)source=material.canvas;
-        if(cuts.length||offset||material){
+        if(cuts.length||annexCut||offset||material){
           renderKey='terrain_plate_finish_'+(++finishSerial);
           if(!scene.textures.addCanvas(renderKey,source as HTMLCanvasElement))throw Error('finish texture unavailable');
           generated.push(renderKey);
@@ -73,6 +84,11 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
         const image=scene.add.image(p.x-offset,p.y-offset,renderKey).setOrigin(0).setData('terrainPlate',p.id).setData('organicContour',offset>0);
         if(material)registerMaterial(scene,image,material);
         added.push(image);into.add(image);
+      }
+      if(annex&&plan){
+        into.add(annex.view);
+        for(const cell of plan.cells)annexCells.add(cell);
+        scene.data.set('lanternAnnex',{col:plan.col,row:plan.row,x:plan.x,y:plan.y,width:plan.width,height:plan.height,bottomRow:plan.bottomRow,cells:plan.cells.size,pad:annex.pad,extended:annex.extended,graded:annex.graded});
       }
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)islandCells.add(q.row*level.cols+c);
       contourStats.recessed+=groupRecessed;contourStats.pixels+=groupPixels;contourStats.plates+=groupPlates;contourStats.curves+=curves.length;

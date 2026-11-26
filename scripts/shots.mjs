@@ -344,7 +344,16 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
     const flatten=o=>Array.isArray(o.list)?o.list.flatMap(flatten):[o];
     const volumes=flatten(s.world).filter(o=>o.getData?.('platformVolume')).map(o=>({...o.getData('platformVolume'),x:o.x,y:o.y,contact:o.height*o.originY}));
     const movers=s.movers.map(m=>({width:m.zone.body.width,volume:!!m.view.getData('platformVolume'),dx:m.view.x-m.zone.x,dy:m.view.y-(m.zone.y-10)}));
-    const blends=s.data.get('terrainBlends');return {contours:s.data.get('organicContours'),volumes,movers,blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    const annex=s.data.get('lanternAnnex');
+    const annexViews=flatten(s.world).filter(o=>o.getData?.('lanternAnnex'));
+    let annexProbe=null;
+    if(annex&&annexViews.length===1){
+      const o=annexViews[0],g=o.texture.getContext(),p=annex.pad;
+      const a=g.getImageData(p+64,p+64,12*64,6*64).data;
+      let occupied=0;for(let i=3;i<a.length;i+=4)if(a[i])occupied++;
+      annexProbe={occupied,views:annexViews.length,aligned:o.x===annex.x-p&&o.y===annex.y-p,alpha:o.alpha};
+    }
+    const blends=s.data.get('terrainBlends');return {annex,annexProbe,contours:s.data.get('organicContours'),volumes,movers,blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
   fs.writeFileSync(path.join(out,pilot?'lantern-pilot-report.json':'lantern-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
@@ -375,10 +384,11 @@ if(label==='organic'&&wanted.includes(1))for(const pilot of [false,true]){
   if(pilot){
     const before=JSON.parse(fs.readFileSync(path.join(out,'lantern-plates-report.json'),'utf8'));
     if(JSON.stringify(result.accepted)!==JSON.stringify(before.accepted)||JSON.stringify(result.rejected)!==JSON.stringify(before.rejected))throw Error('Lantern pilot altered acceptance');
+    if(!result.annex||!result.annex.extended||!result.annex.graded||result.annexProbe?.views!==1||result.annexProbe.occupied||!result.annexProbe.aligned||result.annexProbe.alpha!==1)throw Error('Lantern annex presentation regression '+JSON.stringify({annex:result.annex,probe:result.annexProbe}));
     if(!result.contours?.enabled||!result.contours.pixels||result.contours.failures)throw Error('Lantern contour regression '+JSON.stringify(result.contours));
     if(!result.volumes.some(v=>v.kind==='mover')||result.volumes.some(v=>Math.abs(v.contact-v.above)>.001))throw Error('Lantern volume contact regression');
     if(result.movers.some(m=>m.width>=64&&m.width<=512&&Number.isInteger(m.width)&&(!m.volume||Math.abs(m.dx)>.001||Math.abs(m.dy)>.001)))throw Error('Lantern mover alignment regression');
-  }else if(result.contours?.enabled||result.volumes.length)throw Error('Lantern pilot leaked into default renderer');
+  }else if(result.annex||result.contours?.enabled||result.volumes.length)throw Error('Lantern pilot leaked into default renderer');
 }
 // Root Bridge: an authored mass and its separated floating island.
 if(label==='organic'&&wanted.includes(2)){

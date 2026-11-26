@@ -335,6 +335,8 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Scene instances are reused across phases; always clear presentation telemetry.
   scene.data.set('terrainPlates',[]);
   scene.data.set('terrainPlateIslandCells',new Set<number>());
+  scene.data.set('lanternAnnex',null);
+  scene.data.set('lanternAnnexCells',new Set<number>());
   scene.data.set('terrainFinish',null);
   scene.data.set('visualGeometry',null);
   scene.data.set('organicContours',null);
@@ -707,7 +709,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   // Transitional painted plate: above the original structural artwork,
   // below contact shadows and independently drawn hazards/entities.
   if(baked&&plates)paintTerrainBlend(scene,level,tops);
-  if(plates&&covered.size)paintPlateEdges(scene,level,tops,covered,plateIslands);
+  if(plates&&covered.size)paintPlateEdges(scene,level,tops,covered,new Set([...plateIslands,...(scene.data.get('lanternAnnexCells') as Set<number>)]));
   if(macro)tops.bringToTop(macro.image);
   return { fills, decor, tops };
 }

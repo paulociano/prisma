@@ -17,6 +17,7 @@
     "test:vale-play": "node scripts/play-vale.mjs",
     "art:import": "node scripts/import-terrain-master.mjs",
     "test:terrain-master": "node --test tests/terrain-master.test.mjs",
+    "test:lantern-annex": "esbuild src/world/LanternAnnex.ts --bundle --platform=node --format=esm --outfile=.debug/lantern-annex.mjs --log-level=error && node --test tests/lantern-annex.test.mjs",
     "test:decor-placement": "esbuild src/world/DecorPlacement.ts --bundle --platform=node --format=esm --outfile=.debug/decor-placement.mjs --log-level=error && node --test tests/decor-placement.test.mjs",
     "test:camera-director": "esbuild src/world/CameraDirector.ts --bundle --platform=node --format=esm --outfile=.debug/camera-director.mjs --log-level=error && node --test tests/camera-director.test.mjs",
     "test:environmental-motion": "esbuild src/world/EnvironmentalMotion.ts --bundle --platform=node --format=esm --outfile=.debug/environmental-motion.mjs --log-level=error && node --test tests/environmental-motion.test.mjs",
