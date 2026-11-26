@@ -1,20 +1,20 @@
-import { CONTOUR_PAD, contourOffset, type OrganicContour } from '../world/OrganicContours';
+import { CONTOUR_PAD, SCULPT_PAD, contourOffset, sculptWallOffset, type OrganicContour } from '../world/OrganicContours';
 import type { TerrainPlatePlan } from '../levels/ArtGeometry';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import { TILE } from '../config';
 
-export interface ContourRaster {canvas:HTMLCanvasElement;pad:number;pixels:number}
+export interface ContourRaster {canvas:HTMLCanvasElement;pad:number;pixels:number;recessed:number}
 /** Extend the painted edge into safe empty space, preserving the opaque
  * core. Source colors are sampled from the same master, never from a new
  * decorative tile. Work is restricted to narrow bands near exposed edges. */
-export function rasterCurvedPlate(source:CanvasImageSource,p:TerrainPlatePlan,level:LevelData,curves:readonly OrganicContour[]):ContourRaster{
-  const pad=CONTOUR_PAD,w=p.width+2*pad,h=p.height+2*pad;
+export function rasterCurvedPlate(source:CanvasImageSource,p:TerrainPlatePlan,level:LevelData,curves:readonly OrganicContour[],sculpt=false):ContourRaster{
+  const pad=sculpt?SCULPT_PAD:CONTOUR_PAD,w=p.width+2*pad,h=p.height+2*pad;
   const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
   const ctx=canvas.getContext('2d');if(!ctx)throw Error('contour canvas unavailable');
   ctx.drawImage(source,pad,pad);
   const img=ctx.getImageData(0,0,w,h);
   const data=img.data,original=data.slice();
-  let pixels=0;
+  let pixels=0,recessed=0;
   const write=(wx:number,wy:number,sx:number,sy:number,alpha:number)=>{
     // Do not paint over spikes, ledges, other solids or outside the level.
     if(level.tiles[Math.floor(wy/TILE)]?.[Math.floor(wx/TILE)]!==T.Empty)return;
@@ -39,7 +39,18 @@ export function rasterCurvedPlate(source:CanvasImageSource,p:TerrainPlatePlan,le
       const x=q.from[0],inside=q.side===-1?x:x-1;
       if(inside<p.x||inside>=p.x+p.width)continue;
       for(let y=Math.max(q.from[1],p.y);y<Math.min(q.to[1],p.y+p.height);y++){
-        const offset=contourOffset(q,y+.5);
+        const offset=sculpt?sculptWallOffset(q,y+.5):contourOffset(q,y+.5);
+        if(sculpt&&offset<0){
+          // Trim a narrow strip of the visual side face only. The walkable
+          // top and the physical body remain unchanged.
+          for(let d=-10;d<=Math.ceil(-offset);d++){
+            const wx=inside-q.side*d,px=wx-p.x+pad,py=y-p.y+pad;
+            if(px<0||px>=w||py<0||py>=h)continue;
+            const i=(py*w+px)*4+3;
+            const a=Math.max(0,Math.min(1,d+offset));
+            if(data[i]>0&&a<1){data[i]*=a;recessed++;}
+          }
+        }
         for(let d=1;d<=Math.ceil(offset);d++){
           const target=q.side===-1?x-d:x+d-1;
           const sample=inside-q.side*Math.min(7,Math.floor(d/2));
@@ -49,5 +60,5 @@ export function rasterCurvedPlate(source:CanvasImageSource,p:TerrainPlatePlan,le
     }
   }
   ctx.putImageData(img,0,0);
-  return {canvas,pad,pixels};
+  return {canvas,pad,pixels,recessed};
 }

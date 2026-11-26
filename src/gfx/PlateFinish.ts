@@ -5,6 +5,7 @@ import { planVisualGeometry, planVisualLedges, type Contact } from '../world/Vis
 import { paintOrganicGround } from './OrganicGround';
 import { paintOrganicRamp } from './OrganicTransitions';
 import { createPlatformVolume } from './PlatformVolume';
+import { planOrganicContours, sculptWallOffset } from '../world/OrganicContours';
 
 let serial=0;
 /** Debug-only line overlay; does not modify physics or production art. */
@@ -21,6 +22,8 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
   const geometry=planVisualGeometry(level,covered,islands);
   scene.data.set('visualGeometry',geometry);
   const block=(c:number,r:number)=>covered.has(c)&&level.tiles[r]?.[c]===T.Solid&&!islands.has(r*level.cols+c);
+  const sculpt=level.id==='1-1'&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('contours')!=='0';
+  const wallCurves=sculpt?planOrganicContours(geometry).filter(q=>q.axis==='wall'):[];
   const stats={tops:0,walls:0,ramps:0,islandCells:islands.size};
   const wallKey='w1_organic_wall';
   if(scene.textures.exists(wallKey)){
@@ -37,6 +40,21 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
           const fade=g.createLinearGradient(0,0,w,0);
           fade.addColorStop(0,'rgba(0,0,0,1)');fade.addColorStop(.42,'rgba(0,0,0,1)');fade.addColorStop(1,'rgba(0,0,0,0)');
           g.fillStyle=fade;g.fillRect(0,0,w,h);
+          if(sculpt){
+            const q=wallCurves.find(q=>q.side===side&&q.from[0]===face.from[0]&&q.from[1]<=face.from[1]&&q.to[1]>=face.to[1]);
+            if(q){
+              const pixels=g.getImageData(0,0,w,h);
+              for(let y=0;y<h;y++){
+                const offset=sculptWallOffset(q,start*TILE+y+.5);
+                if(offset>=0)continue;
+                for(let x=0;x<w;x++){
+                  const inward=side===-1?x-10:w-11-x;
+                  pixels.data[(y*w+x)*4+3]*=Math.max(0,Math.min(1,inward+offset));
+                }
+              }
+              g.putImageData(pixels,0,0);
+            }
+          }
           const key='plate_wall_finish_'+(++serial);
           if(!scene.textures.addCanvas(key,canvas))continue;
           const x=side===-1?c*TILE-10:(c+1)*TILE-w+10;

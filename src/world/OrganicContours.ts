@@ -7,6 +7,7 @@ export interface OrganicContour {
   readonly side:-1|1; readonly maxOffset:number;
 }
 export const CONTOUR_PAD=18;
+export const SCULPT_PAD=28;
 const smooth=(t:number)=>t*t*(3-2*t);
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const noise=(i:number,seed:number)=>{const v=Math.sin(i*127.1+seed*311.7)*43758.5453;return v-Math.floor(v);};
@@ -20,6 +21,16 @@ export function contourOffset(q:OrganicContour,world:number):number{
   const shape=noise(i,seed)*(1-u)+noise(i+1,seed)*u;
   const taper=smooth(clamp(Math.min(world-start,end-world)/24));
   return q.maxOffset*(.22+.78*shape)*taper;
+}
+/** Signed visual relief. Preserve 24px at both ends, including top contact.
+ * A negative offset is a shallow recess, not a change in collision. */
+export function sculptWallOffset(q:OrganicContour,worldY:number):number{
+  const distance=Math.min(worldY-q.from[1],q.to[1]-worldY);
+  if(q.axis!=='wall'||distance<=24)return 0;
+  const envelope=smooth(clamp((distance-24)/32));
+  const phase=q.from[0]*.043+q.side*1.7;
+  const wave=.62*Math.sin(worldY*.046+phase)+.38*Math.sin(worldY*.087-phase);
+  return envelope*(10+17*wave);
 }
 /** Merge wall paint budgets into a single edge. A real corner ends a curve;
  * a five-row texture budget or a chunk cut must not end it. */

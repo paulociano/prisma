@@ -15,7 +15,8 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
   const islandCells=new Set<number>();
   const curved=level.id==='1-1'&&new URLSearchParams(window.location.search).get('contours')!=='0';
-  const contourStats={enabled:curved,plates:0,pixels:0,curves:0,failures:0};
+  const sculpt=curved&&new URLSearchParams(window.location.search).get('sculpt')!=='0';
+  const contourStats={enabled:curved,sculpt,plates:0,pixels:0,recessed:0,curves:0,failures:0};
   const islandTexture=scene.textures.exists('w1_organic_island')?scene.textures.get('w1_organic_island').getSourceImage():undefined;
   const canReplace=!!islandTexture&&islandTexture.width===448&&islandTexture.height===240;
   for(const group of terrainPlateGroups(level)){
@@ -41,7 +42,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       const cutCells=new Set<number>();
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)cutCells.add(q.row*level.cols+c);
       const curves=curved?planOrganicContours(planVisualGeometry(level,groupCols,cutCells)):[];
-      let groupPixels=0,groupPlates=0;
+      let groupPixels=0,groupPlates=0,groupRecessed=0;
       for(const {p,key} of entries){
         const cuts=islands.filter(q=>q.col<p.c1&&q.col+q.length>p.c0);
         let renderKey=key,offset=0;
@@ -55,8 +56,8 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
         }
         if(curved&&curves.length){
           try{
-            const result=rasterCurvedPlate(source,p,level,curves);
-            if(result.pixels){source=result.canvas;offset=result.pad;groupPixels+=result.pixels;groupPlates++;}
+            const result=rasterCurvedPlate(source,p,level,curves,sculpt);
+            if(result.pixels||result.recessed){source=result.canvas;offset=result.pad;groupPixels+=result.pixels;groupRecessed+=result.recessed;groupPlates++;}
           }catch{contourStats.failures++;}
         }
         const material=bakeMaterial(scene,level,source as CanvasImageSource & {width:number;height:number},16,offset);
@@ -71,7 +72,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
         added.push(image);into.add(image);
       }
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)islandCells.add(q.row*level.cols+c);
-      contourStats.pixels+=groupPixels;contourStats.plates+=groupPlates;contourStats.curves+=curves.length;
+      contourStats.recessed+=groupRecessed;contourStats.pixels+=groupPixels;contourStats.plates+=groupPlates;contourStats.curves+=curves.length;
       if(generated.length)scene.events.once('shutdown',()=>{for(const key of generated)scene.textures.remove(key);});
       for(const {p} of entries){
         for(let c=p.c0;c<p.c1;c++)columns.add(c);
