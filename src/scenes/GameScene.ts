@@ -31,6 +31,7 @@ import { paintTowerBridges } from '../gfx/TerrainBridge';
 import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
+import { depthFrame, VALE_DEPTH } from '../world/DepthComposition';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { createPlatformVolume } from '../gfx/PlatformVolume';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
@@ -121,6 +122,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private bgFar?: Phaser.GameObjects.TileSprite;
   private bgMid?: Phaser.GameObjects.TileSprite;
   private bgNear?: Phaser.GameObjects.TileSprite;
+  private pictorialDepth=false;
   private spark!: Phaser.GameObjects.Sprite;
 
   private solids!: Phaser.Physics.Arcade.StaticGroup;
@@ -232,6 +234,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.controls = new Controls(this);
     this.arenaRect = undefined;
     this.bgFarFx = this.bgMidFx = undefined;
+    this.bgFar = this.bgMid = this.bgNear = undefined;
+    this.landmark=undefined;
+    this.pictorialDepth=false;
+    this.data.set('pictorialDepth',null);
+    this.data.set('pictorialDepthFrame',null);
     this.ambient = new Ambient(this, BEHIND_FX);
     this.buildBackground();
     this.world = this.add.container(0, 0).setDepth(0);
@@ -271,17 +278,23 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.data.set('organicForeground',false);
     this.data.set('organicRootSanctuary',null);
     const quality=getSettings().quality;
+    this.pictorialDepth=this.level.id==='1-1'&&!this.isSub&&!!this.data.get('terrainPlatesEnabled')&&quality!=='low'&&new URLSearchParams(window.location.search).get('depth')!=='0'&&!!this.bgNear;
+    if(this.pictorialDepth)this.data.set('pictorialDepth',VALE_DEPTH);
     if(this.data.get('organicMode')==='organic'&&!this.isSub&&quality!=='low'){
       const sanctuary=composeRootSanctuary(this,this.world,this.level);
       if(sanctuary)this.data.set('organicRootSanctuary',sanctuary);
     }
     const vista=this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.landmark?composeOrganicVista(this,this.level,this.landmark):undefined;
-    if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);}
+    if(vista){this.data.set('organicVista',vista.plan);this.data.set('organicVistaObjects',vista.objects);if(this.pictorialDepth)vista.layer.setDepth(VALE_DEPTH.architecture.depth);}
     if(this.data.get('organicMode')==='organic'&&!this.isSub&&!this.level.arena&&quality!=='low'&&this.bgMid&&this.bgNear){
       const count=addOrganicAtmosphere(this,this.bgContainer,this.bgMid,this.bgNear,quality);
       this.data.set('organicAtmosphereLayers',count);
       if(this.fgTop&&this.fgBot&&!getSettings().reduceMotion){
         configureOrganicForeground(this.fgTop,this.fgBot);
+        if(this.pictorialDepth){
+          this.fgTop.setY(VALE_DEPTH.foregroundTop.band-this.fgTop.height).setAlpha(1);
+          this.fgBot.setY(GAME_H-VALE_DEPTH.foregroundBottom.band).setAlpha(1);
+        }
         this.data.set('organicForeground',true);
       }
     }
@@ -424,7 +437,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     // tom da névoa: branco puxado para a cor do mundo
     const wc = Phaser.Display.Color.IntegerToColor(worldInfo(this.level.world).color);
     const mix = (v: number) => Math.round(255 - (255 - v) * 0.3);
-    if (gfx().haze) this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
+    if (gfx().haze&&!this.pictorialDepth) this.haze = this.add.image(GAME_W / 2, GAME_H, 'haze_band').setOrigin(0.5, 1).setDisplaySize(GAME_W, 300).setScrollFactor(0).setDepth(-6)
       .setTint(Phaser.Display.Color.GetColor(mix(wc.red), mix(wc.green), mix(wc.blue)));
 
     ensureSoftShadow(this);
@@ -522,14 +535,36 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bgContainer.setScale(S).setPosition((GAME_W - GAME_W * S) / 2, top - (GAME_H * S - GAME_H * inv) * t);
     this.haze?.setDisplaySize(GAME_W * inv + 2, 300 * inv).setY(GAME_H - top);
     // o marco anda junto com a camada do meio e aparece por volta da metade da fase
-    if (this.landmark) this.landmark.x = GAME_W / 2 + (this.level.cols * TILE * 0.45 - cam.scrollX) * 0.25;
+    if (this.landmark?.visible) this.landmark.x = GAME_W / 2 + (this.level.cols * TILE * 0.45 - cam.scrollX) * (this.pictorialDepth?VALE_DEPTH.mid.factor:0.25);
+    if(this.pictorialDepth)this.updatePictorialDepth(cam);
     if (this.fgContainer) {
       this.fgContainer.setScale(inv).setPosition((GAME_W - GAME_W * inv) / 2, top);
-      this.fgTop!.tilePositionX = cam.scrollX * 1.3;
-      this.fgBot!.tilePositionX = cam.scrollX * 1.45 + 700;
+      if(!this.pictorialDepth){
+        this.fgTop!.tilePositionX = cam.scrollX * 1.3;
+        this.fgBot!.tilePositionX = cam.scrollX * 1.45 + 700;
+      }
       const quality=getSettings().quality;
-      if(this.data.get('organicForeground')&&quality!=='low')updateOrganicForeground(this.fgTop!,this.fgBot!,cam,this.player.hit.y,quality);
+      if(!this.pictorialDepth&&this.data.get('organicForeground')&&quality!=='low')updateOrganicForeground(this.fgTop!,this.fgBot!,cam,this.player.hit.y,quality);
     }
+  }
+
+  private updatePictorialDepth(cam:Phaser.Cameras.Scene2D.Camera){
+    const z=cam.zoom;
+    const left=cam.scrollX+GAME_W/2-GAME_W/(2*z);
+    const right=cam.scrollX+GAME_W/2+GAME_W/(2*z);
+    const c0=Math.max(0,Math.floor(left/TILE)-1),c1=Math.min(this.level.cols-1,Math.ceil(right/TILE)+1);
+    const protectedPoints:[number,number][]=[];
+    // Only visible static hazards; the foreground remains restricted to
+    // shallow screen bands and never receives collision bodies.
+    for(let c=c0;c<=c1;c++)for(let r=0;r<this.level.rows;r++)if(this.level.tiles[r][c]===T.Spike)protectedPoints.push([c*TILE+TILE/2,r*TILE+TILE/2]);
+    const frame=depthFrame({scrollX:cam.scrollX,scrollY:cam.scrollY,zoom:z,width:GAME_W,height:GAME_H,
+      playerX:this.player.hit.x,playerY:this.player.hit.y,protectedPoints});
+    if(this.bgFar)this.bgFar.tilePositionX=frame.far;
+    if(this.bgMid)this.bgMid.tilePositionX=frame.mid;
+    if(this.bgNear)this.bgNear.tilePositionX=frame.near;
+    if(this.fgTop)this.fgTop.setVisible(frame.showTop).setAlpha(1).tilePositionX=frame.foregroundTop;
+    if(this.fgBot)this.fgBot.setVisible(frame.showBottom).setAlpha(1).tilePositionX=frame.foregroundBottom;
+    if(new URLSearchParams(window.location.search).has('debug'))this.data.set('pictorialDepthFrame',frame);
   }
 
   private buildBackground() {
@@ -2518,9 +2553,11 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     cam.setFollowOffset(this.camOffsetX, 60);
 
     // parallax
-    if (this.bgFar) this.bgFar.tilePositionX = cam.scrollX * 0.08;
-    if (this.bgMid) this.bgMid.tilePositionX = cam.scrollX * 0.25;
-    if (this.bgNear) this.bgNear.tilePositionX = cam.scrollX * 0.5;
+    if(!this.pictorialDepth){
+      if (this.bgFar) this.bgFar.tilePositionX = cam.scrollX * 0.08;
+      if (this.bgMid) this.bgMid.tilePositionX = cam.scrollX * 0.25;
+      if (this.bgNear) this.bgNear.tilePositionX = cam.scrollX * 0.5;
+    }
     this.updateDepth(cam, dt);
     this.colorMech.update();
     this.ambient.update(dt, cam.scrollX, this.color.value);
