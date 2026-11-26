@@ -156,13 +156,13 @@ if(label==='organic'&&wanted.includes(0)){
     }
   }
 }
-// Two independent authored opening masses in Trilha das Lanternas.
+// Opening masses and the complete connected central Lanterns master.
 if(label==='organic'&&wanted.includes(1)){
   await page.goto('http://localhost:5199/?debug');
   await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
   await page.evaluate(()=>{
     const g=window.game;
-    for(const id of ['001','002'])if(!g.textures.exists('w1_plate_1-2_chunk_'+id))throw Error('Lantern terrain plate missing '+id);
+    for(const id of Array.from({length:7},(_,i)=>String(i+1).padStart(3,'0')))if(!g.textures.exists('w1_plate_1-2_chunk_'+id))throw Error('Lantern terrain plate missing '+id);
     g.scene.getScenes(true).forEach(s=>g.scene.stop(s.scene.key));
     g.scene.start('Game',{level:1});
   });
@@ -172,7 +172,7 @@ if(label==='organic'&&wanted.includes(1)){
     if(g.scene.isActive('Dialogue'))g.scene.stop('Dialogue');
     if(g.scene.isPaused('Game'))g.scene.resume('Game');
     s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();s.color.complete();s.color.update(1);
-    const blends=s.data.get('terrainBlends');const blend=blends?.[0];const tex=blend&&g.textures.get(blend.key).getSourceImage();const ctx=tex?.getContext('2d');const alpha=ctx&&[0,48,96,320,1000].map(x=>ctx.getImageData(x,200,1,1).data[3]);return {blends,alpha,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
+    const blends=s.data.get('terrainBlends');return {blends,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
   });
   fs.writeFileSync(path.join(out,'lantern-plates-report.json'),JSON.stringify(result,null,2));
   const baseline=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-2_renderer.json','utf8'));
@@ -182,13 +182,13 @@ if(label==='organic'&&wanted.includes(1)){
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({path:path.join(out,'lantern-plate-c'+col+'.png')});
   }
-  if(result.blends?.[0]?.id!=='chunk_007'||!result.alpha||result.alpha[0]>4||result.alpha[1]<100||result.alpha[1]>155||result.alpha[2]<250||result.alpha[3]<250||result.alpha[4]!==0)throw Error('Lantern blend failed: '+JSON.stringify({blends:result.blends,alpha:result.alpha}));
-  for(const col of [117,119,124,130]){
+  if(result.blends?.length)throw Error('Completed Lantern master must not use transitional overlay');
+  for(const col of [40,55,65,75,90,100,110,117,119,124,130]){
     await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.cameras.main.centerOn(col*64+32,18*64-46);},col);
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await page.screenshot({path:path.join(out,'lantern-blend-c'+col+'.png')});
+    await page.screenshot({path:path.join(out,'lantern-master-c'+col+'.png')});
   }
-  if(!['chunk_001','chunk_002'].every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
+  if(!Array.from({length:7},(_,i)=>'chunk_'+String(i+1).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Lantern plates rejected: '+JSON.stringify(result.rejected));
 }
 // Root Bridge: an authored mass and its separated floating island.
 if(label==='organic'&&wanted.includes(2)){
