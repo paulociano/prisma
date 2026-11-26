@@ -43,7 +43,8 @@ test('held state, accessible mode and respawn reset camera history',()=>{
 });
 
 import {closeCameraZoom,IRIS_STANDING_HEIGHT,IRIS_SCREEN_SHARE,usesCloseCamera} from '../.debug/close-camera.mjs';
-test('global close framing reserves 40 percent of viewport height without animation pumping',()=>{
+test('global close framing reserves 25 percent of viewport height without animation pumping',()=>{
+ assert.equal(IRIS_SCREEN_SHARE,.25);
  for(const h of [360,720,1080])assert.ok(Math.abs(closeCameraZoom(h)*IRIS_STANDING_HEIGHT/h-IRIS_SCREEN_SHARE)<1e-12);
  assert.throws(()=>closeCameraZoom(0));
  const z=closeCameraZoom(720),d=new CameraDirector([{c0:0,c1:20,zoom:.86}],z);

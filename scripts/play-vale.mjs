@@ -39,7 +39,7 @@ try{
    await grounded();
    const initial=await state();
    assert.equal(initial.mode,organic?'organic':'legacy');assert.equal(initial.plates,organic?12:0);assert.equal(initial.paused,false);
-   assert.ok(Math.abs(initial.zoom*110/720-.4)<1e-6,'nominal standing height framing');
+   assert.ok(Math.abs(initial.zoom*110/720-.25)<1e-6,'nominal standing height framing');
    mark('spawn',initial);
    // Keep the first smoke on the safe opening ground, before the first pit.
    await key('ArrowRight',x=>window.game.scene.getScene('Game').player.hit.x>=x,initial.x+128);
