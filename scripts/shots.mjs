@@ -148,7 +148,18 @@ if(label==='organic'&&wanted.includes(0)){
       });
       s.syncMoverViews();
       const moverContacts=s.movers.map(m=>({volume:!!m.view.getData('platformVolume'),width:m.zone.body.width,dx:m.view.x-m.zone.x,dy:m.view.y-(m.zone.y-10)}));
-      return {volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      const depth=s.data.get('pictorialDepth');
+      let depthProbe=null;
+      if(depth){
+        const cam=s.cameras.main,old=[cam.scrollX,cam.scrollY,cam.zoom];
+        const sample=()=>{s.updatePictorialDepth(cam);return {scroll:cam.scrollX,frame:s.data.get('pictorialDepthFrame'),far:s.bgFar.tilePositionX,mid:s.bgMid.tilePositionX,near:s.bgNear.tilePositionX,top:s.fgTop?{alpha:s.fgTop.alpha,visible:s.fgTop.visible,offset:s.fgTop.tilePositionX,edge:s.fgTop.y+s.fgTop.height}:null,bottom:s.fgBot?{alpha:s.fgBot.alpha,visible:s.fgBot.visible,offset:s.fgBot.tilePositionX,edge:s.fgBot.y}:null};};
+        const first=sample();
+        cam.setScroll(cam.scrollX+160,cam.scrollY);cam.setZoom(1.2);
+        const second=sample();
+        cam.setScroll(old[0],old[1]);cam.setZoom(old[2]);s.updatePictorialDepth(cam);
+        depthProbe={first,second,haze:!!s.haze,backgroundDepth:s.bgContainer.depth,terrainDepth:s.world.depth};
+      }
+      return {depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -158,6 +169,17 @@ if(label==='organic'&&wanted.includes(0)){
     await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(!result.depth||!result.depthProbe)throw Error('Pictorial depth manifest missing');
+    const {first,second,haze,backgroundDepth,terrainDepth}=result.depthProbe;
+    const moved=second.scroll-first.scroll;
+    if(haze||backgroundDepth>=terrainDepth||moved!==160)throw Error('Pictorial depth ordering or redundant haze');
+    for(const key of ['far','mid','near']){
+      if(Math.abs(second[key]-first[key]-moved*result.depth[key].factor)>.001)throw Error('Parallax mismatch '+key);
+    }
+    for(const a of [first,second]){
+      if(a.top&&(a.top.alpha!==1||a.top.edge!==48||a.top.visible!==a.frame.showTop))throw Error('Top foreground occlusion mismatch');
+      if(a.bottom&&(a.bottom.alpha!==1||a.bottom.edge!==676||a.bottom.visible!==a.frame.showBottom))throw Error('Bottom foreground occlusion mismatch');
+    }
     if(!flat&&(!result.contours?.enabled||!result.contours.pixels||!result.contours.plates||result.contours.failures))throw Error('Curved plate raster missing: '+JSON.stringify(result.contours));
     if(flat&&(result.contours?.enabled||result.contours?.pixels||result.contours?.plates))throw Error('Contour rollback failed');
     if(platformsOff&&result.volumes.length)throw Error('Platform volume rollback failed');

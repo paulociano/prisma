@@ -15,6 +15,7 @@
     "shots": "node scripts/shots.mjs",
     "art:import": "node scripts/import-terrain-master.mjs",
     "test:terrain-master": "node --test tests/terrain-master.test.mjs",
+    "test:depth-composition": "esbuild src/world/DepthComposition.ts --bundle --platform=node --format=esm --outfile=.debug/depth-composition.mjs --log-level=error && node --test tests/depth-composition.test.mjs",
     "test:platform-profile": "esbuild src/world/PlatformProfile.ts --bundle --platform=node --format=esm --outfile=.debug/platform-profile.mjs --log-level=error && node --test tests/platform-profile.test.mjs",
     "test:organic-contours": "esbuild src/world/OrganicContours.ts --bundle --platform=node --format=esm --outfile=.debug/organic-contours.mjs --log-level=error && node --test tests/organic-contours.test.mjs",
     "test:visual-geometry": "esbuild src/world/VisualGeometry.ts --bundle --platform=node --format=esm --outfile=.debug/visual-geometry.mjs --log-level=error && node --test tests/visual-geometry.test.mjs",
