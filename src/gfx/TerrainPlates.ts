@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { planVisualGeometry } from '../world/VisualGeometry';
 import { planOrganicContours } from '../world/OrganicContours';
 import { rasterCurvedPlate } from './CurvedPlate';
+import { bakeMaterial, registerMaterial } from './MaterialPreview';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import { terrainPlateGroups, terrainSeamCompatible, plateIslandRuns, type TerrainPlatePlan } from '../levels/ArtGeometry';
 
@@ -57,12 +58,15 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
             if(result.pixels){source=result.canvas;offset=result.pad;groupPixels+=result.pixels;groupPlates++;}
           }catch{contourStats.failures++;}
         }
-        if(cuts.length||offset){
+        const material=bakeMaterial(scene,level,source as CanvasImageSource & {width:number;height:number},16,offset);
+        if(material)source=material.canvas;
+        if(cuts.length||offset||material){
           renderKey='terrain_plate_finish_'+(++finishSerial);
           if(!scene.textures.addCanvas(renderKey,source as HTMLCanvasElement))throw Error('finish texture unavailable');
           generated.push(renderKey);
         }
         const image=scene.add.image(p.x-offset,p.y-offset,renderKey).setOrigin(0).setData('terrainPlate',p.id).setData('organicContour',offset>0);
+        if(material)registerMaterial(scene,image,material);
         added.push(image);into.add(image);
       }
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)islandCells.add(q.row*level.cols+c);

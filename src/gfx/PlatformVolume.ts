@@ -2,6 +2,7 @@ import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import { platformDepth, platformProfile, type PlatformKind } from '../world/PlatformProfile';
+import { bakeMaterial, registerMaterial } from './MaterialPreview';
 
 const ASSET='w1_organic_island';
 let serial=0;
@@ -64,9 +65,11 @@ export function createPlatformVolume(scene:Phaser.Scene,level:LevelData,kind:Pla
       g.putImageData(image,0,0);
     }
     key='organic_platform_volume_'+(++serial);
-    if(!scene.textures.addCanvas(key,canvas))return;
+    const material=bakeMaterial(scene,level,canvas);
+    if(!scene.textures.addCanvas(key,material?.canvas??canvas))return;
     const view=scene.add.image(cx,contactY,key).setOrigin(.5,p.above/h)
       .setData('platformVolume',{kind,width,above:p.above,below:p.below,seed,flip:p.flip});
+    if(material)registerMaterial(scene,view,material);
     scene.events.once('shutdown',()=>scene.textures.remove(key));
     return view;
   }catch{
