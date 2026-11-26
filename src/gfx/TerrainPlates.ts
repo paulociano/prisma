@@ -1,5 +1,8 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
+import { planVisualGeometry } from '../world/VisualGeometry';
+import { planOrganicContours } from '../world/OrganicContours';
+import { rasterCurvedPlate } from './CurvedPlate';
 import { T, type LevelData } from '../levels/LevelBuilder';
 import { terrainPlateGroups, terrainSeamCompatible, plateIslandRuns, type TerrainPlatePlan } from '../levels/ArtGeometry';
 
@@ -10,6 +13,8 @@ let finishSerial=0;
 export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phaser.GameObjects.Container):Set<number>{
   const columns=new Set<number>();const accepted:string[]=[];const rejected:string[]=[];
   const islandCells=new Set<number>();
+  const curved=level.id==='1-1'&&new URLSearchParams(window.location.search).get('contours')!=='0';
+  const contourStats={enabled:curved,plates:0,pixels:0,curves:0,failures:0};
   const islandTexture=scene.textures.exists('w1_organic_island')?scene.textures.get('w1_organic_island').getSourceImage():undefined;
   const canReplace=!!islandTexture&&islandTexture.width===448&&islandTexture.height===240;
   for(const group of terrainPlateGroups(level)){
@@ -31,22 +36,37 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       const groupCols=new Set<number>();
       for(const {p} of entries)for(let c=p.c0;c<p.c1;c++)groupCols.add(c);
       const islands=canReplace?plateIslandRuns(level,groupCols):[];
+      const cutCells=new Set<number>();
+      for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)cutCells.add(q.row*level.cols+c);
+      const curves=curved?planOrganicContours(planVisualGeometry(level,groupCols,cutCells)):[];
+      let groupPixels=0,groupPlates=0;
       for(const {p,key} of entries){
         const cuts=islands.filter(q=>q.col<p.c1&&q.col+q.length>p.c0);
-        let renderKey=key;
+        let renderKey=key,offset=0;
+        let source=scene.textures.get(key).getSourceImage() as CanvasImageSource;
         if(cuts.length){
           const canvas=document.createElement('canvas');canvas.width=p.width;canvas.height=p.height;
           const g=canvas.getContext('2d');if(!g)throw Error('island canvas unavailable');
           g.drawImage(scene.textures.get(key).getSourceImage() as CanvasImageSource,0,0);
           for(const q of cuts)g.clearRect(q.col*TILE-p.x,q.row*TILE-p.y,q.length*TILE,TILE);
+          source=canvas;
+        }
+        if(curved&&curves.length){
+          try{
+            const result=rasterCurvedPlate(source,p,level,curves);
+            if(result.pixels){source=result.canvas;offset=result.pad;groupPixels+=result.pixels;groupPlates++;}
+          }catch{contourStats.failures++;}
+        }
+        if(cuts.length||offset){
           renderKey='terrain_plate_finish_'+(++finishSerial);
-          if(!scene.textures.addCanvas(renderKey,canvas))throw Error('island texture unavailable');
+          if(!scene.textures.addCanvas(renderKey,source as HTMLCanvasElement))throw Error('finish texture unavailable');
           generated.push(renderKey);
         }
-        const image=scene.add.image(p.x,p.y,renderKey).setOrigin(0).setData('terrainPlate',p.id);
+        const image=scene.add.image(p.x-offset,p.y-offset,renderKey).setOrigin(0).setData('terrainPlate',p.id).setData('organicContour',offset>0);
         added.push(image);into.add(image);
       }
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)islandCells.add(q.row*level.cols+c);
+      contourStats.pixels+=groupPixels;contourStats.plates+=groupPlates;contourStats.curves+=curves.length;
       if(generated.length)scene.events.once('shutdown',()=>{for(const key of generated)scene.textures.remove(key);});
       for(const {p} of entries){
         for(let c=p.c0;c<p.c1;c++)columns.add(c);
@@ -54,6 +74,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       }
     }catch{added.forEach(image=>image.destroy());generated.forEach(key=>scene.textures.remove(key));reject('render');}
   }
+  scene.data.set('organicContours',contourStats);
   scene.data.set('terrainPlateIslandCells',islandCells);
   scene.data.set('terrainPlates',accepted);scene.data.set('terrainPlateRejected',rejected);
   return columns;

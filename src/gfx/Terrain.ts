@@ -335,6 +335,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
   scene.data.set('terrainPlateIslandCells',new Set<number>());
   scene.data.set('terrainFinish',null);
   scene.data.set('visualGeometry',null);
+  scene.data.set('organicContours',null);
   scene.data.set('visualLedges',[]);
   scene.data.set('terrainPlatesEnabled',false);
   scene.data.set('terrainTowerPillars',[]);
