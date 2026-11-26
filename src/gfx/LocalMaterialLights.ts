@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { materialOf } from './MaterialPreview';
+import { materialOf, registeredMaterialImages } from './MaterialPreview';
 import { getSettings } from '../systems/Settings';
 import { illuminatePatch, lightRect, type MaterialLight } from '../world/MaterialLighting';
 
@@ -16,13 +16,13 @@ export class LocalMaterialLights{
   private elapsed=1;
   private stopped=false;
   constructor(private scene:Phaser.Scene,world:Phaser.GameObjects.Container){
-    const visit=(obj:Phaser.GameObjects.GameObject)=>{
-      if('list' in obj&&Array.isArray(obj.list)){for(const o of obj.list)visit(o);return;}
-      if(!obj.getData('pictorialMaterial'))return;
-      const image=obj as Image,map=materialOf(image),texture=image.texture as Phaser.Textures.CanvasTexture;
-      if(map&&typeof texture.getContext==='function'&&typeof texture.refresh==='function')this.targets.push({image,texture,map});
-    };
-    visit(world);
+    // Use the explicit scene registration rather than inferring material
+    // ownership from nested display lists (moving views may live outside world).
+    for(const image of registeredMaterialImages(scene)){
+      const map=materialOf(image),texture=image.texture as Phaser.Textures.CanvasTexture;
+      if(image.active&&map&&typeof texture.getContext==='function'&&typeof texture.refresh==='function')this.targets.push({image,texture,map});
+    }
+    void world;
     scene.data.set('materialLighting',{targets:this.targets.length,lights:0,changed:0,pixels:0,uploads:0});
     scene.events.once('shutdown',()=>{this.stopped=true;this.saved=[];this.targets=[];});
   }

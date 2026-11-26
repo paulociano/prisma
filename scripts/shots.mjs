@@ -132,8 +132,11 @@ if(label==='organic'&&wanted.includes(0)){
       if(game.scene.isPaused('Game'))game.scene.resume('Game');
       s.player.frozen=true;s.physics.world.pause();s.cameras.main.stopFollow();
       s.color.complete();s.color.update(1);
-      s.player.hit.body.allowGravity=false;s.player.hit.body.reset(8*64+32,10*64-46);
-      s.cameras.main.centerOn(8*64+32,10*64-46);
+      s.player.hit.body.allowGravity=false;
+      const x=8*64+32,ground=s.surfaceBelow(x,0),y=ground>=0?ground-s.player.body.height/2:10*64-46;
+      s.player.hit.body.reset(x,y);s.player.syncView(0);
+      s.cameras.main.centerOn(x,y);
+      s.cameras.main.fadeEffect.reset();
       const flatten=o=>[o,...(Array.isArray(o.list)?o.list.flatMap(flatten):[])];
       const volumes=flatten(s.world).filter(o=>o.getData?.('platformVolume')).map(o=>{
         const p=o.getData('platformVolume'),src=o.texture.getSourceImage(),g=src.getContext('2d');
@@ -162,16 +165,23 @@ if(label==='organic'&&wanted.includes(0)){
       const materialStats=s.data.get('pictorialMaterials');
       const materialObjects=flatten(s.world).filter(o=>o.getData?.('pictorialMaterial')).map(o=>({kind:o.getData('terrainPlate')?'terrain':o.getData('platformVolume')?.kind, ...o.getData('pictorialMaterial')}));
       let lightingProbe=null;
+      const lightingDiagnostic={initialized:!!s.localMaterialLights,stats:s.data.get('materialLighting'),registered:materialObjects.length,scanned:0,eligible:0};
       if(s.localMaterialLights){
         const lighting=s.localMaterialLights;
         lighting.update(0,[],0,0,true);
-        const target=flatten(s.world).find(o=>o.getData?.('pictorialMaterial')&&o.getData('terrainPlate'));
-        if(target){
+        // Search a real opaque, non-saturated sample across all registered
+        // terrain plates. Do not assume the first crop has such a pixel.
+        for(const target of flatten(s.world).filter(o=>o.getData?.('pictorialMaterial')&&o.getData('terrainPlate'))){
           const ctx=target.texture.getContext(),w=target.width,h=target.height;
           const base=ctx.getImageData(0,0,w,h).data;
+          lightingDiagnostic.scanned++;
           let at=-1;
-          for(let i=0;i<base.length;i+=4)if(base[i+3]===255&&base[i]<225&&base[i+1]<225&&base[i+2]<225){at=i/4;break;}
+          for(let y=8;y<h-8&&at<0;y++)for(let x=8;x<w-8;x++){
+            const i=(y*w+x)*4;
+            if(base[i+3]===255&&Math.min(base[i],base[i+1],base[i+2])<225){at=i/4;break;}
+          }
           if(at>=0){
+            lightingDiagnostic.eligible++;
             const x=target.x-target.originX*w+at%w+.5,y=target.y-target.originY*h+Math.floor(at/w)+.5;
             lighting.update(0,[{x,y,radius:48,intensity:.5,color:[1,.8,.6]}],x,y,true);
             const stats={...s.data.get('materialLighting')};
@@ -182,6 +192,7 @@ if(label==='organic'&&wanted.includes(0)){
             const restored=ctx.getImageData(0,0,w,h).data;
             let residual=0;for(let i=0;i<base.length;i++)if(base[i]!==restored[i])residual++;
             lightingProbe={stats,changed,alpha,residual};
+            if(changed)break;
           }
         }
       }
@@ -212,7 +223,7 @@ if(label==='organic'&&wanted.includes(0)){
         cameraProbe={zones:d.zones.length,held,old,accessible,actual,zoom:cam.zoom,
           offset:[cam.followOffset.x,cam.followOffset.y],unchanged:before[0]===p.x&&before[1]===p.y};
       }
-      return {cameraProbe,livingProbe,lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      return {cameraProbe,livingProbe,lightingProbe,lightingDiagnostic,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -220,6 +231,19 @@ if(label==='organic'&&wanted.includes(0)){
     fs.writeFileSync(path.join(out,'terrain-plates-report.json'),JSON.stringify(report,null,2));
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':materialsOff?'plate-before-materials.png':'plate-authored.png')});
+    if(!invalid&&!flat&&!platformsOff&&!materialsOff){
+      for(const col of [35,55,58,62,80,100,125,138,140,170,190,201,218,222]){
+        await page.evaluate(col=>{
+          const s=window.game.scene.getScene('Game'),x=col*64+32;
+          const ground=s.surfaceBelow(x,0);
+          const y=ground>=0?ground-s.player.body.height/2:10*64-46;
+          s.player.hit.body.reset(x,y);s.player.syncView(0);
+          s.cameras.main.centerOn(x,y);s.cameras.main.fadeEffect.reset();
+        },col);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        await page.screenshot({path:path.join(out,'vale-audit-c'+col+'.png')});
+      }
+    }
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
     if(!invalid){
@@ -230,7 +254,7 @@ if(label==='organic'&&wanted.includes(0)){
     if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');
     if(!materialsOff&&!invalid){
       const p=result.lightingProbe;
-      if(!p||!p.changed||p.alpha||p.residual||p.stats.pixels>160000||p.stats.lights!==1)throw Error('Local material lighting probe failed '+JSON.stringify(p));
+      if(!p||!p.changed||p.alpha||p.residual||p.stats.pixels>160000||p.stats.lights!==1)throw Error('Local material lighting probe failed '+JSON.stringify({probe:p,diagnostic:result.lightingDiagnostic}));
     }
     if(!materialsOff){
       const m=result.materialStats;

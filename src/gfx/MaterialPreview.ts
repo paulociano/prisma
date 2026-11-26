@@ -6,6 +6,8 @@ import { deriveRelief, shadeRelief, type ReliefMap } from '../world/PictorialMat
 interface MaterialStats {count:number;pixels:number;mapBytes:number;changed:number;failures:number;budgetSkips:number}
 interface MaterialPreview {canvas:HTMLCanvasElement;map:ReliefMap;changed:number}
 const materials=new WeakMap<Phaser.GameObjects.Image,ReliefMap>();
+const sceneMaterials=new WeakMap<Phaser.Scene,Set<Phaser.GameObjects.Image>>();
+export const registeredMaterialImages=(scene:Phaser.Scene)=>Array.from(sceneMaterials.get(scene)??[]);
 const LIMIT=10_000_000;
 export const materialOf=(image:Phaser.GameObjects.Image)=>materials.get(image);
 export function materialEnabled(level:LevelData){
@@ -40,6 +42,10 @@ export function bakeMaterial(scene:Phaser.Scene,level:LevelData,source:CanvasIma
 }
 export function registerMaterial(scene:Phaser.Scene,image:Phaser.GameObjects.Image,p:MaterialPreview){
   const s=stats(scene);materials.set(image,p.map);
+  let images=sceneMaterials.get(scene);
+  if(!images){images=new Set();sceneMaterials.set(scene,images);scene.events.once('shutdown',()=>sceneMaterials.delete(scene));}
+  images.add(image);
+  image.once('destroy',()=>images?.delete(image));
   image.setData('pictorialMaterial',{width:p.map.width,height:p.map.height,changed:p.changed,encoding:'normal-rgb/occlusion-a'});
   s.count++;s.pixels+=p.canvas.width*p.canvas.height;s.mapBytes+=p.map.normals.byteLength+p.map.elevation.byteLength;s.changed+=p.changed;
   scene.events.once('shutdown',()=>materials.delete(image));
