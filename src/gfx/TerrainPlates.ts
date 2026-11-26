@@ -60,7 +60,7 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
             if(result.pixels||result.recessed){source=result.canvas;offset=result.pad;groupPixels+=result.pixels;groupRecessed+=result.recessed;groupPlates++;}
           }catch{contourStats.failures++;}
         }
-        const material=bakeMaterial(scene,level,source as CanvasImageSource & {width:number;height:number},16,offset);
+        const material=bakeMaterial(scene,level,source as CanvasImageSource & {width:number;height:number},16,offset,[p.x-offset,p.y-offset]);
         if(material)source=material.canvas;
         if(cuts.length||offset||material){
           renderKey='terrain_plate_finish_'+(++finishSerial);

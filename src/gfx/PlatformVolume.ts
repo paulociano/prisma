@@ -65,7 +65,7 @@ export function createPlatformVolume(scene:Phaser.Scene,level:LevelData,kind:Pla
       g.putImageData(image,0,0);
     }
     key='organic_platform_volume_'+(++serial);
-    const material=bakeMaterial(scene,level,canvas);
+    const material=bakeMaterial(scene,level,canvas,0,0,[left-p.margin,contactY-p.above]);
     if(!scene.textures.addCanvas(key,material?.canvas??canvas))return;
     const view=scene.add.image(cx,contactY,key).setOrigin(.5,p.above/h)
       .setData('platformVolume',{kind,width,above:p.above,below:p.below,seed,flip:p.flip});

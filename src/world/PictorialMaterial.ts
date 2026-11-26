@@ -44,3 +44,30 @@ export function shadeRelief(rgba:Uint8ClampedArray,w:number,h:number,map:ReliefM
   }
   return out;
 }
+
+/** Broad mineral/temperature variation in world coordinates, independent of
+ * crop boundaries. Modulate existing pigment; never invent rock geometry. */
+export function gradePigments(data:Uint8ClampedArray,w:number,h:number,worldX:number,worldY:number):number{
+  if(data.length!==w*h*4)throw Error('Invalid pigment target');
+  const horizontal=new Float32Array(w),vertical=new Float32Array(h),warmth=new Float32Array(w);
+  for(let x=0;x<w;x++){
+    const wx=worldX+x+.5;
+    horizontal[x]=.033*Math.sin(wx*.0031)+.022*Math.sin(wx*.0073+1.7);
+    warmth[x]=.018*Math.sin(wx*.0019+.9);
+  }
+  for(let y=0;y<h;y++)vertical[y]=.013*Math.sin((worldY+y+.5)*.021);
+  let changed=0;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=(y*w+x)*4;if(data[i+3]<220)continue;
+    const r=data[i],g=data[i+1],b=data[i+2],l=.2126*r+.7152*g+.0722*b;
+    // Keep red foliage distinctive; tame only the strongest chroma slightly.
+    const saturation=(Math.max(r,g,b)-Math.min(r,g,b))/255;
+    const mix=Math.max(0,(saturation-.60))*.11;
+    const tone=horizontal[x]+vertical[y],t=warmth[x];
+    data[i]=(r+(l-r)*mix)*(1+tone+t);
+    data[i+1]=(g+(l-g)*mix)*(1+tone);
+    data[i+2]=(b+(l-b)*mix)*(1+tone-t);
+    if(data[i]!==r||data[i+1]!==g||data[i+2]!==b)changed++;
+  }
+  return changed;
+}

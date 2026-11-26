@@ -15,6 +15,8 @@ export class LocalMaterialLights{
   private saved:Saved[]=[];
   private elapsed=1;
   private stopped=false;
+  private debug=new URLSearchParams(window.location.search).has('debug');
+  private samples={updates:0,totalMs:0,maxMs:0,pixels:0,uploadBytes:0};
   constructor(private scene:Phaser.Scene,world:Phaser.GameObjects.Container){
     // Use the explicit scene registration rather than inferring material
     // ownership from nested display lists (moving views may live outside world).
@@ -31,6 +33,7 @@ export class LocalMaterialLights{
     this.elapsed+=dt;
     if(!force&&this.elapsed<.1)return;
     this.elapsed=0;
+    const started=this.debug?performance.now():0;
     const dirty=new Set<Target>();
     // Reverse order matters when two light patches overlap.
     for(let i=this.saved.length-1;i>=0;i--){const p=this.saved[i];if(p.target.image.active){p.target.texture.getContext().putImageData(p.data,p.x,p.y);dirty.add(p.target);}}
@@ -58,7 +61,13 @@ export class LocalMaterialLights{
       }
       if(used)applied++;
     }
-    for(const t of dirty)t.texture.refresh();
+    let uploadBytes=0;
+    for(const t of dirty){t.texture.refresh();uploadBytes+=t.image.width*t.image.height*4;}
+    if(this.debug){
+      const ms=performance.now()-started,s=this.samples;
+      s.updates++;s.totalMs+=ms;s.maxMs=Math.max(s.maxMs,ms);s.pixels+=pixels;s.uploadBytes+=uploadBytes;
+      this.scene.data.set('materialLightingPerf',{...s});
+    }
     this.scene.data.set('materialLighting',{targets:this.targets.length,lights:applied,changed,pixels,uploads:dirty.size});
   }
 }
