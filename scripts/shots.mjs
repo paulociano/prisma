@@ -112,8 +112,8 @@ for (const index of wanted) {
 // Test the real plate and a rejected blank texture in the existing visual CI.
 if(label==='organic'&&wanted.includes(0)){
   const report=[];
-  for(const invalid of [false,true]){
-    await page.goto('http://localhost:5199/?debug');
+  for(const {invalid,flat} of [{invalid:false,flat:false},{invalid:true,flat:false},{invalid:false,flat:true}]){
+    await page.goto('http://localhost:5199/?debug'+(flat?'&contours=0':''));
     await page.waitForFunction(()=>window.game?.scene.isActive('Title'),null,{timeout:120000});
     await page.evaluate(invalid=>{
       const game=window.game,key='w1_plate_1-1_chunk_001';
@@ -134,16 +134,18 @@ if(label==='organic'&&wanted.includes(0)){
       s.color.complete();s.color.update(1);
       s.player.hit.body.allowGravity=false;s.player.hit.body.reset(8*64+32,10*64-46);
       s.cameras.main.centerOn(8*64+32,10*64-46);
-      return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
-    report.push({invalid,...result});
+    report.push({invalid,flat,...result});
     fs.writeFileSync(path.join(out,'terrain-plates-report.json'),JSON.stringify(report,null,2));
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':'plate-authored.png')});
+    await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
+    if(!flat&&(!result.contours?.enabled||!result.contours.pixels||!result.contours.plates||result.contours.failures))throw Error('Curved plate raster missing: '+JSON.stringify(result.contours));
+    if(flat&&(result.contours?.enabled||result.contours?.pixels||result.contours?.plates))throw Error('Contour rollback failed');
     if(!invalid&&!result.accepted.includes('chunk_001'))throw Error('Authored plate rejected: '+JSON.stringify(result.rejected));
     if(!invalid&&(!result.finish?.tops||!result.finish?.walls||!result.finish?.islandCells))throw Error('Organic silhouette finish missing: '+JSON.stringify(result.finish));
     if(!invalid&&(result.visualGeometry?.schema!==1||result.visualGeometry.level!=='1-1'||!result.visualGeometry.surfaces.length||!result.visualGeometry.walls.length))throw Error('Visual geometry contract missing');
@@ -153,10 +155,10 @@ if(label==='organic'&&wanted.includes(0)){
     if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
     if(!Array.from({length:11},(_,i)=>'chunk_'+String(i+2).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Continuous Vale masters rejected: '+JSON.stringify(result.rejected));
     if(!invalid){
-      for(const col of [35,65,80,100,125,138,140,170,190,201,218,222]){
+      for(const col of (flat?[35,80,138,201]:[35,65,80,100,125,138,140,170,190,201,218,222])){
         await page.evaluate(col=>{const s=window.game.scene.getScene('Game');s.player.hit.body.allowGravity=false;s.player.hit.body.reset(col*64+32,10*64-46);s.cameras.main.centerOn(col*64+32,10*64-46);},col);
         await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-        await page.screenshot({path:path.join(out,'vale-master-c'+col+'.png')});
+        await page.screenshot({path:path.join(out,(flat?'vale-before-contours-c':'vale-master-c')+col+'.png')});
       }
     }
   }

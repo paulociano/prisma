@@ -1,6 +1,6 @@
 # PRISMA 2.0 — Organic World Engine
 
-Status: fase 01 iniciada na main; aprovação visual e CI do novo commit pendentes.
+Status: fase 01 implementada, checks puros e build aprovados no run 45833152944; gate visual ainda em curso na última consulta. Fase 02 iniciada na main, com protótipo de curvas no Vale do Coração; aprovação visual pendente.
 Motor: Phaser 3.90, TypeScript, Vite, Arcade Physics. Alvo inicial: navegador desktop e controles existentes. Não migrar engine, saves, LevelData ou hitboxes durante o piloto. A referência aprovada pelo jogador é a paisagem pictórica lateral com rocha, raízes, musgo, ilhas naturais e ausência de props fantasma, não um screenshot a ser simplesmente sobreposto.
 
 ## Decisão de arquitetura
@@ -34,3 +34,7 @@ src/world/VisualGeometry.ts é módulo puro, sem Phaser, com coordenadas em pixe
 - Usar desenhos opacos ancorados; transparência apenas em efeitos ou elementos atmosféricos intencionais.
 - Commit pequeno e reversível por intervenção; registrar decisões e limitações.
 - Ativar tecnologias de materiais e luz somente após protótipo, medição e fallback.
+
+## Fase 02 — primeiro renderer de contorno (piloto 1-1)
+
+OrganicContours planeja curvas de topo e parede em pixels globais com interpolação cúbica determinística, união de trechos de paredão contíguos e taper em extremidades reais. CurvedPlate altera a silhueta da pintura validada (não uma nova camada decorativa independente): cria um canvas com margem de 18 px, preserva o núcleo e amostra a pintura para prolongar a borda até 7 px no topo e 18 px nos lados. Só escreve em células Empty, nunca em espinhos, plataformas, outros sólidos ou fora do mapa. Ilhas já substituídas são excluídas. O perfil de um grupo permanece igual em todos os recortes; se o raster falhar, usa a pintura original e registra falha. Não modifica colisão nem altera PNGs originais. Ativo por padrão apenas em 1-1 com plates; `?contours=0` compara com fase 01. Rampas ainda usam a arte existente; não há curva física, recorte interno dos cantos ou malha 3D. A etapa 02 ainda requer inspeção de continuidade real, acabamento de materiais e aprovação estética. Testes puros cobrem continuidade, limites, merge e determinismo; CI exige raster ativo, rollback e paridade física e gera capturas A/B em quatro posições.

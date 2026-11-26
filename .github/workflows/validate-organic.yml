@@ -29,6 +29,7 @@ jobs:
       - run: npm run test:art-geometry
       - run: npm run test:terrain-master
       - run: npm run test:visual-geometry
+      - run: npm run test:organic-contours
       - run: npm run test:levels
       - run: npm run check-levels
       - run: npm run build
