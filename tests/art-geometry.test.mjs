@@ -184,3 +184,13 @@ test('plate island replacement requires full isolated solid run, not partial cov
   level.tiles[2][1]=3;
   assert.deepEqual(plateIslandRuns(level,new Set([1,2])),[]);
 });
+
+test('wide isolated islands opt in only with full coverage and clear surroundings',()=>{
+  const tiles=Array.from({length:5},()=>Array(12).fill(0));
+  for(let c=2;c<8;c++)tiles[2][c]=1;
+  const l={cols:12,rows:5,tiles},covered=new Set([2,3,4,5,6,7]);
+  assert.deepEqual(plateIslandRuns(l,covered),[]);
+  assert.deepEqual(plateIslandRuns(l,covered,8),[{col:2,row:2,length:6}]);
+  covered.delete(4);assert.deepEqual(plateIslandRuns(l,covered,8),[]);
+  covered.add(4);tiles[3][4]=3;assert.deepEqual(plateIslandRuns(l,covered,8),[]);
+});

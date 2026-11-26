@@ -281,6 +281,7 @@ if(label==='organic'&&wanted.includes(0)){
     if(platformsOff&&result.volumes.length)throw Error('Platform volume rollback failed');
     if(!platformsOff&&!invalid){
       if(!result.volumes.some(v=>v.kind==='solid'))throw Error('Solid island volumes missing');
+      if(!result.volumes.some(v=>v.kind==='solid'&&v.width>256))throw Error('Wide sculpted solid island missing');
       if(result.volumes.filter(v=>v.kind==='ledge').length!==(result.visualLedges??[]).length)throw Error('Free ledge volumes missing');
       if(result.volumes.some(v=>!v.registered||!v.visible||v.hazard))throw Error('Platform volume alpha or pivot regression');
       if(result.moverContacts.some(m=>m.width>=64&&m.width<=512&&Number.isInteger(m.width)&&(!m.volume||Math.abs(m.dx)>.001||Math.abs(m.dy)>.001)))throw Error('Mover volume contact regression');

@@ -36,7 +36,8 @@ export function paintTerrainPlates(scene:Phaser.Scene,level:LevelData,into:Phase
       }
       const groupCols=new Set<number>();
       for(const {p} of entries)for(let c=p.c0;c<p.c1;c++)groupCols.add(c);
-      const islands=canReplace?plateIslandRuns(level,groupCols):[];
+      const wide=level.id==='1-1'&&new URLSearchParams(window.location.search).get('sculpt')!=='0'&&new URLSearchParams(window.location.search).get('platforms')!=='0';
+      const islands=canReplace?plateIslandRuns(level,groupCols,wide?8:4):[];
       const cutCells=new Set<number>();
       for(const q of islands)for(let c=q.col;c<q.col+q.length;c++)cutCells.add(q.row*level.cols+c);
       const curves=curved?planOrganicContours(planVisualGeometry(level,groupCols,cutCells)):[];
