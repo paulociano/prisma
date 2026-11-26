@@ -16,7 +16,9 @@ export class LocalMaterialLights{
   private elapsed=1;
   private stopped=false;
   private debug=new URLSearchParams(window.location.search).has('debug');
-  private samples={updates:0,totalMs:0,maxMs:0,pixels:0,uploadBytes:0};
+  private cacheEnabled=new URLSearchParams(window.location.search).get('lightcache')!=='0';
+  private previousSignature:string|undefined;
+  private samples={updates:0,totalMs:0,maxMs:0,pixels:0,uploadBytes:0,skipped:0};
   constructor(private scene:Phaser.Scene,world:Phaser.GameObjects.Container){
     // Use the explicit scene registration rather than inferring material
     // ownership from nested display lists (moving views may live outside world).
@@ -34,12 +36,24 @@ export class LocalMaterialLights{
     if(!force&&this.elapsed<.1)return;
     this.elapsed=0;
     const started=this.debug?performance.now():0;
+    const sources=lights.filter(l=>Math.hypot(l.x-focusX,l.y-focusY)<520&&l.radius>0&&l.radius<=180).slice().sort((a,b)=>Math.hypot(a.x-focusX,a.y-focusY)-Math.hypot(b.x-focusX,b.y-focusY)).slice(0,MAX_LIGHTS);
+    // Exact reuse only: all effective lights, target transforms, active and
+    // visible state must match. No quantization of moving lights or colors.
+    const signature=this.cacheEnabled?JSON.stringify([
+      sources.map(l=>[l.x,l.y,l.radius,l.intensity,...l.color]),
+      this.targets.map(({image:o})=>[o.active,o.visible,o.x,o.y,o.width,o.height,o.originX,o.originY,o.scaleX,o.scaleY,o.texture.key])
+    ]):undefined;
+    if(signature!==undefined&&signature===this.previousSignature){
+      if(this.debug){this.samples.skipped++;this.scene.data.set('materialLightingPerf',{...this.samples});}
+      return;
+    }
+    this.previousSignature=signature;
     const dirty=new Set<Target>();
     // Reverse order matters when two light patches overlap.
     for(let i=this.saved.length-1;i>=0;i--){const p=this.saved[i];if(p.target.image.active){p.target.texture.getContext().putImageData(p.data,p.x,p.y);dirty.add(p.target);}}
     this.saved=[];
     let pixels=0,changed=0,applied=0;
-    const sources=lights.filter(l=>Math.hypot(l.x-focusX,l.y-focusY)<520&&l.radius>0&&l.radius<=180).slice().sort((a,b)=>Math.hypot(a.x-focusX,a.y-focusY)-Math.hypot(b.x-focusX,b.y-focusY)).slice(0,MAX_LIGHTS);
+
     const active=new Set<Target>();
     for(const light of sources){
       let used=false;

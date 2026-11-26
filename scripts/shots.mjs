@@ -185,13 +185,17 @@ if(label==='organic'&&wanted.includes(0)){
             const x=target.x-target.originX*w+at%w+.5,y=target.y-target.originY*h+Math.floor(at/w)+.5;
             lighting.update(0,[{x,y,radius:48,intensity:.5,color:[1,.8,.6]}],x,y,true);
             const stats={...s.data.get('materialLighting')};
+            const perfBefore={...s.data.get('materialLightingPerf')};
+            lighting.update(0,[{x,y,radius:48,intensity:.5,color:[1,.8,.6]}],x,y,true);
+            const perfAfter={...s.data.get('materialLightingPerf')};
+            const cacheProbe={skipped:perfAfter.skipped-perfBefore.skipped,uploadBytes:perfAfter.uploadBytes-perfBefore.uploadBytes,updates:perfAfter.updates-perfBefore.updates};
             const lit=ctx.getImageData(0,0,w,h).data;
             let changed=0,alpha=0;
             for(let i=0;i<base.length;i+=4){if(base[i+3]!==lit[i+3])alpha++;if(base[i]!==lit[i]||base[i+1]!==lit[i+1]||base[i+2]!==lit[i+2])changed++;}
             lighting.update(0,[],x,y,true);
             const restored=ctx.getImageData(0,0,w,h).data;
             let residual=0;for(let i=0;i<base.length;i++)if(base[i]!==restored[i])residual++;
-            lightingProbe={stats,changed,alpha,residual};
+            lightingProbe={stats,changed,alpha,residual,cacheProbe};
             if(changed)break;
           }
         }
@@ -257,7 +261,7 @@ if(label==='organic'&&wanted.includes(0)){
     if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');
     if(!materialsOff&&!invalid){
       const p=result.lightingProbe;
-      if(!p||!p.changed||p.alpha||p.residual||p.stats.pixels>160000||p.stats.lights!==1)throw Error('Local material lighting probe failed '+JSON.stringify({probe:p,diagnostic:result.lightingDiagnostic}));
+      if(!p||!p.changed||p.alpha||p.residual||p.stats.pixels>160000||p.stats.lights!==1||p.cacheProbe?.skipped!==1||p.cacheProbe?.updates!==0||p.cacheProbe?.uploadBytes!==0)throw Error('Local material lighting probe failed '+JSON.stringify({probe:p,diagnostic:result.lightingDiagnostic}));
     }
     if(!materialsOff){
       const m=result.materialStats;
