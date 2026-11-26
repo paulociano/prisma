@@ -7,6 +7,7 @@ import { paintTowerMacro } from './TerrainMacro';
 import { paintTowerPillars } from './TerrainTower';
 import { paintTerrainPlates, paintTerrainBlend } from './TerrainPlates';
 import { paintPlateEdges } from './PlateFinish';
+import { createPlatformVolume } from './PlatformVolume';
 import { bakeOrganicFaces } from './OrganicFaces';
 import { buildOrganicSurface } from './OrganicSurface';
 import { paintOrganicGround } from './OrganicGround';
@@ -437,7 +438,7 @@ export function buildTerrain(scene: Phaser.Scene, level: LevelData, world: Phase
       // Source contract: 448x240 at 2x, 384px playable core, y=48 contact.
       // Horizontal scaling matches the actual run; vertical scale remains fixed.
       const core=len*TILE, scale=core/384;
-      const img=scene.add.image(c0*TILE-32*scale,y-24,authoredKey).setOrigin(0).setDisplaySize(448*scale,120);
+      const img=createPlatformVolume(scene,level,'solid',c0*TILE+core/2,y,core)??scene.add.image(c0*TILE-32*scale,y-24,authoredKey).setOrigin(0).setDisplaySize(448*scale,120);
       into.add(img);
       authoredIslands.push({col:c0,row:y/TILE,length:len});
       return;

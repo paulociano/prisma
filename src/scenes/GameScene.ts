@@ -32,6 +32,7 @@ import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
+import { createPlatformVolume } from '../gfx/PlatformVolume';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
 import { composeRootSanctuary } from '../gfx/RootSanctuary';
 import { ensureBlockTextures, PORTAL_FRAMES } from '../gfx/blocks';
@@ -953,7 +954,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     body.checkCollision.down = body.checkCollision.left = body.checkCollision.right = false;
 
     let view: Phaser.GameObjects.Image;
-    if (has(this, this.tex('tiles'))) {
+    const volume=!this.isSub?createPlatformVolume(this,this.level,'mover',x0,y0-10,w):undefined;
+    if(volume)view=volume;
+    else if (has(this, this.tex('tiles'))) {
       // alinha pela linha da superfície da peça (pivô medido no pipeline), não pela borda da imagem:
       // a folhagem acima da superfície faria Íris parecer flutuar
       view = this.add.image(x0, y0, this.tex('tiles'), String(F.w1Tiles.floatMid));
@@ -981,7 +984,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   private syncMoverViews() {
     // topo físico = zone.y - 10; a superfície desenhada fica 4 px abaixo para os pés "afundarem" de leve
-    for (const m of this.movers) m.view.setPosition(m.zone.x, m.view.originY > 0 ? m.zone.y - 6 : m.zone.y - 10);
+    for (const m of this.movers) m.view.setPosition(m.zone.x, m.view.getData('platformVolume') ? m.zone.y - 10 : m.view.originY > 0 ? m.zone.y - 6 : m.zone.y - 10);
   }
 
   // ---------- gêiseres e vento ----------

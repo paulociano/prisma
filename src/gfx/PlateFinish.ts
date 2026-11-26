@@ -4,6 +4,7 @@ import { T, type LevelData } from '../levels/LevelBuilder';
 import { planVisualGeometry, planVisualLedges, type Contact } from '../world/VisualGeometry';
 import { paintOrganicGround } from './OrganicGround';
 import { paintOrganicRamp } from './OrganicTransitions';
+import { createPlatformVolume } from './PlatformVolume';
 
 let serial=0;
 /** Debug-only line overlay; does not modify physics or production art. */
@@ -68,7 +69,8 @@ export function paintOrganicOneWays(scene:Phaser.Scene,level:LevelData,into:Phas
   scene.data.set('visualLedges',ledges);
   for(const {col:start,row:r,length:len} of ledges){
     const scale=len*TILE/384,h=60;
-    into.add(scene.add.image(start*TILE-32*scale,r*TILE-h*.2,key).setOrigin(0).setDisplaySize(448*scale,h).setData('organicOneWay',true));
+    const image=createPlatformVolume(scene,level,'ledge',start*TILE+len*TILE/2,r*TILE,len*TILE)??scene.add.image(start*TILE-32*scale,r*TILE-h*.2,key).setOrigin(0).setDisplaySize(448*scale,h);
+    into.add(image.setData('organicOneWay',true));
     for(let i=start;i<start+len;i++)cells.add(r*level.cols+i);
   }
   scene.data.set('organicOneWayCells',cells.size);
