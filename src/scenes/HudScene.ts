@@ -15,6 +15,7 @@ interface Result {
   enemies: number;
   boss: boolean;
   worldDone: number;
+  wardrobeReward?:string;
   worldName: string;
   nextWorld: string;
 }
@@ -155,7 +156,7 @@ export class HudScene extends Phaser.Scene {
     const titleText = r.worldDone ? `Mundo ${r.worldDone} restaurado!` : 'A cor voltou!';
     const title = this.add.text(GAME_W / 2, GAME_H / 2 - 90, titleText, this.style(48)).setOrigin(0.5);
     const lines = r.boss
-      ? [`A cor voltou ao ${r.worldName}!`, `Próximo destino: ${r.nextWorld}`]
+      ? [`A cor voltou ao ${r.worldName}!`, ...(r.wardrobeReward?['Item conquistado: '+r.wardrobeReward]:[]), `Próximo destino: ${r.nextWorld}`]
       : [`Faíscas: ${r.coins}`, `Fragmentos: ${r.shards} / 3`, `Desbotados restaurados: ${r.restored} / ${r.enemies}`];
     const body = this.add.text(GAME_W / 2, GAME_H / 2 + 5, lines.join('\n'), { ...this.style(26), align: 'center', lineSpacing: 8 }).setOrigin(0.5);
     const hint = this.add.text(GAME_W / 2, GAME_H / 2 + 110, 'Pressione uma tecla para voltar ao mapa', this.style(22)).setOrigin(0.5);

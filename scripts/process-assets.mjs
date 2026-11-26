@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { decorateAtlas } from './wardrobe-art.mjs';
 import { ISLAND_SEEDS, renderIsland, validateIsland } from './prerender-islands.mjs';
 
 const RAW = 'assets/raw';
@@ -608,6 +609,38 @@ for (const sheet of SHEETS) {
   if (entry) manifest.sprites.push(entry);
 }
 manifest.sprites.push(...extraImages);
+ // Wardrobe variants use the exact existing frame registration. The complete
+ // optional authoring pack takes priority, never a mix of outfits mid-animation.
+ const outfitSheets=SHEETS.filter(s=>s.key.startsWith('iris_')&&s.key!=='iris_portraits');
+ for(let stage=1;stage<=7;stage++){
+   const prefix=stage===7?'w7_final_':'w'+(stage+1)+'_';
+   const folder='personagens/figurinos/stage_'+stage;
+   const originals=outfitSheets.filter(s=>manifest.sprites.some(e=>e.key===s.key));
+   const complete=originals.length===outfitSheets.length&&originals.every(s=>fs.existsSync(path.join(RAW,folder,path.basename(s.src))));
+   const authored=[];
+   if(complete){
+     for(const s of originals){
+       const e=await processSheet({...s,key:prefix+s.key,src:folder+'/'+path.basename(s.src)});
+       if(e)authored.push(e);
+     }
+   }
+   if(complete&&authored.length===originals.length&&authored.every(e=>e.frames===manifest.sprites.find(b=>prefix+b.key===e.key)?.frames)){
+     manifest.sprites.push(...authored);continue;
+   }
+   for(const s of originals){
+     const e=manifest.sprites.find(b=>b.key===s.key);
+     const j=JSON.parse(fs.readFileSync(path.join(OUT_DIR,e.json),'utf8'));
+     const {data,info}=await sharp(path.join(OUT_DIR,e.file)).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+     const result=decorateAtlas(data,info.width,info.height,j.frames,stage);
+     const key=prefix+s.key,file='sprites/'+key+'.png',json='sprites/'+key+'.json';
+     await sharp(result.pixels,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(path.join(OUT_DIR,file));
+     j.meta.image=path.basename(file);
+     fs.writeFileSync(path.join(OUT_DIR,json),JSON.stringify(j));
+     manifest.sprites.push({...e,key,file,json});
+     if(!result.changed)console.warn('  ⚠ '+key+': no confident yellow garment region; original pixels retained');
+   }
+ }
+
 // Offline mesh renders: independent sprite keys, never overwrite commissioned artwork.
 for(let i=0;i<ISLAND_SEEDS.length;i++){
   const rendered=renderIsland(ISLAND_SEEDS[i]);

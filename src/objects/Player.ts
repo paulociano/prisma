@@ -74,17 +74,17 @@ export class Player {
   slowTime = 0;
   private baseScale: number;
 
-  constructor(private scene: Phaser.Scene, x: number, y: number) {
+  constructor(private scene: Phaser.Scene, x: number, y: number, private outfitPrefix='') {
     this.hit = scene.physics.add.sprite(x, y, 'pixel').setVisible(false);
     const body = this.body;
     body.setSize(40, 92);
     body.setCollideWorldBounds(true);
 
     this.drawn = has(scene, 'iris_idle');
-    const tex = this.drawn ? 'iris_idle' : 'iris';
+    const tex = this.drawn ? this.outfitTexture('iris_idle') : 'iris';
     this.baseScale = 1 / texRes(scene, tex);
     this.view = scene.add.sprite(x, y, tex, 0).setOrigin(0.5, 1).setScale(this.baseScale).setDepth(10);
-    if (this.drawn) this.view.play('iris-idle');
+    if (this.drawn) this.view.play(this.outfitAnimation('iris-idle'));
   }
 
   /** true quando as animações desenhadas (Lote 2) estão disponíveis. */
@@ -365,7 +365,7 @@ export class Player {
       const sx = 1 + (this.squash.x - 1) * 0.4, sy = 1 + (this.squash.y - 1) * 0.4;
       // a pirueta gira em torno do centro do corpo; as demais poses apoiam nos pés
       // poses centradas no corpo (giram ou ficam na horizontal); as demais apoiam nos pés
-      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key);
+      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key.replace(/^w[2-7]_(?:final_)?/,''));
       const up = this.gdir < 0; // de cabeça para baixo: os pés apoiam no teto
       this.view.setPosition(this.hit.x, spinning ? this.hit.y : up ? b.top - 2 : b.bottom + 2);
       this.view.setScale(this.baseScale * sx, this.baseScale * sy);
@@ -385,13 +385,29 @@ export class Player {
     this.syncProcedural();
   }
 
+  private outfitTexture(key:string){
+    const candidate=this.outfitPrefix+key;
+    return this.outfitPrefix&&has(this.scene,candidate)?candidate:key;
+  }
+
+  private outfitAnimation(key:string){
+    const candidate=this.outfitPrefix+key;
+    return this.outfitPrefix&&this.scene.anims.exists(candidate)?candidate:key;
+  }
+
+  private playOnce(key:string){
+    const resolved=this.outfitAnimation(key);
+    if(this.view.anims.currentAnim?.key!==resolved)this.view.play(resolved);
+  }
+
   private play(key: string, ignoreIfPlaying = true) {
-    if (this.view.anims.currentAnim?.key !== key || !this.view.anims.isPlaying) this.view.play(key, ignoreIfPlaying);
+    const resolved=this.outfitAnimation(key);
+    if (this.view.anims.currentAnim?.key !== resolved || !this.view.anims.isPlaying) this.view.play(resolved, ignoreIfPlaying);
   }
 
   private still(tex: string, frame: number) {
     this.view.anims.stop();
-    this.view.setTexture(tex, String(frame));
+    this.view.setTexture(this.outfitTexture(tex), String(frame));
   }
 
   private pickFrame() {
@@ -405,13 +421,13 @@ export class Player {
     }
     if (this.poundLand > 0 && has(this.scene, 'iris_pound_land')) return this.still('iris_pound_land', this.poundLand > 0.12 ? 0 : 1);
     if (this.shootTime > 0 && has(this.scene, 'iris_shoot')) {
-      if (this.view.anims.currentAnim?.key !== 'iris-shoot') this.view.play('iris-shoot');
+      this.playOnce('iris-shoot');
       return;
     }
     if (this.inWater && !this.onGround && has(this.scene, 'iris_swim')) return this.play('iris-swim');
     if (this.dashTime > 0) {
       if (!has(this.scene, 'iris_dash')) return this.still('iris_run', 0); // pose de passada longa
-      if (this.view.anims.currentAnim?.key !== 'iris-dash') this.view.play('iris-dash');
+      this.playOnce('iris-dash');
       return;
     }
     if (this.wallSlide && has(this.scene, 'iris_wall')) {
@@ -421,16 +437,16 @@ export class Player {
       return;
     }
     if (this.wallKickTime > 0 && !this.onGround && has(this.scene, 'iris_wall')) {
-      if (this.view.anims.currentAnim?.key !== 'iris-wallkick') this.view.play('iris-wallkick');
+      this.playOnce('iris-wallkick');
       return;
     }
     if (this.gliding && has(this.scene, 'iris_glide')) return this.play('iris-glide');
     if (this.flipTime > 0 && !this.onGround) {
-      if (this.view.anims.currentAnim?.key !== 'iris-doublejump') this.view.play('iris-doublejump');
+      this.playOnce('iris-doublejump');
       return;
     }
     if (this.attackTime > 0) {
-      if (this.view.anims.currentAnim?.key !== 'iris-attack') this.view.play('iris-attack');
+      this.playOnce('iris-attack');
       return;
     }
     if (!this.onGround) {

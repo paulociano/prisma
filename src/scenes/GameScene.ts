@@ -7,6 +7,7 @@ import { LEVELS } from '../levels';
 import { T, type LevelData, isRamp, rampHeights } from '../levels/LevelBuilder';
 import { Enemy, type EnemyHost, type EnemyKind } from '../objects/Enemy';
 import { Player } from '../objects/Player';
+import { wardrobeStage, wardrobePrefix, wardrobeReward } from '../world/Wardrobe';
 import type { Boss, BossHost } from '../objects/Boss';
 import { ColdSpotlight } from '../objects/ColdSpotlight';
 import { Eclipse } from '../objects/Eclipse';
@@ -917,7 +918,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
       switch (e.type) {
         case 'player':
-          this.player = new Player(this, cx, bottom - 46);
+          const stage=wardrobeStage(this.level.world,this.save.completed);
+          this.player = new Player(this, cx, bottom - 46,wardrobePrefix(stage));
+          this.data.set('wardrobeStage',stage);
           this.respawnPoint.set(cx, bottom - 46);
           break;
         case 'coin': {
@@ -1800,6 +1803,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   /** Fim do jogo: salva como concluído e vai para a tela final. */
   private toEnding() {
+    const reward=wardrobeReward(7,this.save.completed);
+    if(reward)this.events.emit('toast','Figurino conquistado: '+reward);
     if (!this.save.completed.includes(this.level.id)) this.save.completed.push(this.level.id);
     this.save.finished = true;
     this.persistProgress();
@@ -2491,6 +2496,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (prismHearts(this.save) > heartsBefore) {
       this.time.delayedCall(900, () => this.events.emit('toast', `Coração de Prisma! +1 coração máximo\n(${totalShards(this.save)} fragmentos)`));
     }
+    const reward=this.boss?wardrobeReward(this.level.world,this.save.completed):undefined;
     if (!this.save.completed.includes(this.level.id)) this.save.completed.push(this.level.id);
     const next = this.levelIndex + 1;
     this.save.level = next < LEVELS.length ? next : this.levelIndex;
@@ -2503,6 +2509,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       enemies: this.enemies.length,
       boss: !!this.boss,
       worldDone: this.boss ? this.level.world : 0,
+      wardrobeReward:reward,
       worldName: worldInfo(this.level.world).name,
       nextWorld: STORY[this.level.world]?.nextWorld ?? '',
     });

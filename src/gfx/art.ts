@@ -16,8 +16,14 @@ export const F = {
 export const has = (scene: Phaser.Scene, key: string) => scene.textures.exists(key);
 
 function anim(scene: Phaser.Scene, key: string, tex: string, frames: readonly number[], frameRate: number, repeat = -1, yoyo = false) {
-  if (!has(scene, tex) || scene.anims.exists(key)) return;
-  scene.anims.create({ key, frames: frames.map((f) => ({ key: tex, frame: String(f) })), frameRate, repeat, yoyo });
+  const register=(name:string,texture:string)=>{
+    if(!has(scene,texture)||scene.anims.exists(name)||!frames.every(f=>scene.textures.get(texture).has(String(f))))return;
+    scene.anims.create({key:name,frames:frames.map(f=>({key:texture,frame:String(f)})),frameRate,repeat,yoyo});
+  };
+  register(key,tex);
+  if(key.startsWith('iris-')){
+    for(const prefix of ['w2_','w3_','w4_','w5_','w6_','w7_','w7_final_'])register(prefix+key,prefix+tex);
+  }
 }
 
 export function createAnims(scene: Phaser.Scene) {
