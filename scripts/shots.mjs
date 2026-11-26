@@ -134,7 +134,7 @@ if(label==='organic'&&wanted.includes(0)){
       s.color.complete();s.color.update(1);
       s.player.hit.body.allowGravity=false;s.player.hit.body.reset(8*64+32,10*64-46);
       s.cameras.main.centerOn(8*64+32,10*64-46);
-      return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      return {accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -146,6 +146,9 @@ if(label==='organic'&&wanted.includes(0)){
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
     if(!invalid&&!result.accepted.includes('chunk_001'))throw Error('Authored plate rejected: '+JSON.stringify(result.rejected));
     if(!invalid&&(!result.finish?.tops||!result.finish?.walls||!result.finish?.islandCells))throw Error('Organic silhouette finish missing: '+JSON.stringify(result.finish));
+    if(!invalid&&(result.visualGeometry?.schema!==1||result.visualGeometry.level!=='1-1'||!result.visualGeometry.surfaces.length||!result.visualGeometry.walls.length))throw Error('Visual geometry contract missing');
+    if(!invalid&&(result.finish.tops>result.visualGeometry.surfaces.length||result.finish.walls>result.visualGeometry.walls.length||result.finish.ramps>result.visualGeometry.ramps.length))throw Error('Visual finish exceeds spatial plan');
+    if(!invalid&&result.onewayArt!==(result.visualLedges??[]).reduce((n,q)=>n+q.length,0))throw Error('One-way visual contract mismatch');
     if(result.vistaCount&&(result.vistaCount!==1||result.landmarks.length!==1||result.landmarks.some(a=>a!==1)))throw Error('Duplicate or translucent organic landmark');
     if(invalid&&(result.accepted.includes('chunk_001')||!result.rejected.includes('chunk_001:alpha-or-size')))throw Error('Invalid plate did not fall back');
     if(!Array.from({length:11},(_,i)=>'chunk_'+String(i+2).padStart(3,'0')).every(id=>result.accepted.includes(id)))throw Error('Continuous Vale masters rejected: '+JSON.stringify(result.rejected));

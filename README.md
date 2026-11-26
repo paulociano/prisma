@@ -27,6 +27,8 @@
 
 ## O jogo
 
+[Roadmap técnico PRISMA 2.0: Organic World Engine](docs/ORGANIC-WORLD-ENGINE.md)
+
 **PRISMA** é um jogo de plataforma 2D com visual 3D estilizado, exploração, combate não letal e progressão de habilidades. A aventura atravessa sete regiões inspiradas nas cores do arco-íris. Em cada uma delas, Íris enfrenta desafios, descobre histórias, encontra novos aliados e recupera partes de um mundo que está perdendo suas cores.
 
 A ideia central é simples: **ninguém precisa perder sua identidade para que outra pessoa possa brilhar.** Aqui, os Desbotados não são inimigos a eliminar, mas seres que podem recuperar suas cores.

@@ -1,11 +1,18 @@
 import type Phaser from 'phaser';
 import { TILE } from '../config';
 import { T, type LevelData } from '../levels/LevelBuilder';
-import { planVisualGeometry, planVisualLedges } from '../world/VisualGeometry';
+import { planVisualGeometry, planVisualLedges, type Contact } from '../world/VisualGeometry';
 import { paintOrganicGround } from './OrganicGround';
 import { paintOrganicRamp } from './OrganicTransitions';
 
 let serial=0;
+/** Debug-only line overlay; does not modify physics or production art. */
+function drawContacts(scene:Phaser.Scene,into:Phaser.GameObjects.Container,lines:readonly {from:Contact;to:Contact}[],color:number){
+  if(new URLSearchParams(window.location.search).get('geometry')!=='1'||!lines.length)return;
+  const g=scene.add.graphics().lineStyle(2,color,1);
+  for(const q of lines){g.beginPath();g.moveTo(...q.from);g.lineTo(...q.to);g.strokePath();}
+  into.add(g);
+}
 /** Add illustrated caps and exposed root silhouettes over accepted plates.
  * The masters remain intact as fallback. Decorative overhang is restricted
  * to empty neighbors; these images never create physics bodies. */
@@ -45,6 +52,9 @@ export function paintPlateEdges(scene:Phaser.Scene,level:LevelData,into:Phaser.G
     if(paintOrganicRamp(scene,into,'w1_organic_ground',q.plan))stats.ramps++;
   }
   scene.data.set('terrainFinish',stats);
+  drawContacts(scene,into,geometry.surfaces,0x55ff99);
+  drawContacts(scene,into,geometry.walls,0xffb45c);
+  drawContacts(scene,into,geometry.ramps,0x66c8ff);
 }
 
 /** One-way ledges are shallower than solid islands and retain their original
@@ -62,5 +72,6 @@ export function paintOrganicOneWays(scene:Phaser.Scene,level:LevelData,into:Phas
     for(let i=start;i<start+len;i++)cells.add(r*level.cols+i);
   }
   scene.data.set('organicOneWayCells',cells.size);
+  drawContacts(scene,into,ledges,0xe8aaff);
   return cells;
 }
