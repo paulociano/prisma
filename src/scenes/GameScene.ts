@@ -27,6 +27,7 @@ import { BossDamage } from '../systems/BossDamage';
 import { Controls } from '../systems/Controls';
 import { Ambient } from '../systems/Ambient';
 import { LivingVale, livingValeEnabled } from '../gfx/LivingVale';
+import { groundedDecorRow } from '../world/DecorPlacement';
 import { recordDeath } from '../systems/Stats';
 import { isTouchDevice } from '../systems/Touch';
 import { buildTerrain, ensureSoftShadow } from '../gfx/Terrain';
@@ -262,6 +263,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.buildTiles();
     this.data.set('organicLanternLights',0);
     this.data.set('organicArchitectureContacts',0);
+    this.data.set('valeDecorPlacement',null);
     if (!this.level.arena) this.buildDecor();
     const colorTotal = this.buildEntities();
     this.buildHints();
@@ -762,18 +764,31 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     const quality=getSettings().quality;
     const organic=this.data.get('organicMode')==='organic'&&this.level.world===1&&!this.isSub;
     let lanternLights=0,architectureContacts=0;
+    const authoredVale=this.level.id==='1-1'&&organic&&this.data.get('terrainPlates')?.includes('chunk_001')&&new URLSearchParams(window.location.search).get('decor')!=='0';
+    const placement={enabled:!!authoredVale,grounded:0,skipped:0,startHouseOmitted:false};
+    this.data.set('valeDecorPlacement',placement);
     const place = (c: number, r: number, frame: number, scale: number) => {
+      if(authoredVale){
+        const wide=frame===F.w1Props.house||frame===F.w1Props.arch||frame===F.w1Props.fence||frame===F.w1Props.log;
+        r=groundedDecorRow(this.level,c,wide);
+        if(r<0){placement.skipped++;return;}
+        placement.grounded++;
+      }
       const prop=this.add.image(c*TILE+TILE/2,r*TILE+16,this.tex('props'),String(frame)).setOrigin(.5,1).setScale(.5*scale);
       if(organic&&quality!=='low'&&r>=0){
         if(frame===F.w1Props.lantern&&addLanternLight(this,this.decor,prop,quality))lanternLights++;
         if((frame===F.w1Props.house||frame===F.w1Props.arch)&&addArchitectureContact(this,this.decor,prop))architectureContacts++;
       }
+      if(authoredVale)prop.setData('valeGroundedDecor',{col:c,row:r,frame});
       if(organic&&r>=0&&(frame===F.w1Props.heartFlower||frame===F.w1Props.berries))prop.setData('livingPlant',true);
       this.decor.add(prop);
     };
 
     // marcos: casinha no início e arco antes da saída
-    place(9, this.surfaceRow(9), decor.start, 0.75);
+    // The opening mid-plane painting already contains the large heart house.
+    // Do not place a second miniature of the same motif on the contact plane.
+    if(authoredVale)placement.startHouseOmitted=true;
+    else place(9, this.surfaceRow(9), decor.start, 0.75);
     const exit = this.level.entities.find((e) => e.type === 'exit');
     if (exit) place(exit.col - 4, this.surfaceRow(exit.col - 4), decor.end, 0.7);
     const small = decor.small;

@@ -36,6 +36,7 @@ jobs:
       - run: npm run test:material-lighting
       - run: npm run test:environmental-motion
       - run: npm run test:camera-director
+      - run: npm run test:decor-placement
       - run: npm run test:levels
       - run: npm run check-levels
       - run: npm run build
