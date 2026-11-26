@@ -161,7 +161,31 @@ if(label==='organic'&&wanted.includes(0)){
       }
       const materialStats=s.data.get('pictorialMaterials');
       const materialObjects=flatten(s.world).filter(o=>o.getData?.('pictorialMaterial')).map(o=>({kind:o.getData('terrainPlate')?'terrain':o.getData('platformVolume')?.kind, ...o.getData('pictorialMaterial')}));
-      return {materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
+      let lightingProbe=null;
+      if(s.localMaterialLights){
+        const lighting=s.localMaterialLights;
+        lighting.update(0,[],0,0,true);
+        const target=flatten(s.world).find(o=>o.getData?.('pictorialMaterial')&&o.getData('terrainPlate'));
+        if(target){
+          const ctx=target.texture.getContext(),w=target.width,h=target.height;
+          const base=ctx.getImageData(0,0,w,h).data;
+          let at=-1;
+          for(let i=0;i<base.length;i+=4)if(base[i+3]===255&&base[i]<225&&base[i+1]<225&&base[i+2]<225){at=i/4;break;}
+          if(at>=0){
+            const x=target.x-target.originX*w+at%w+.5,y=target.y-target.originY*h+Math.floor(at/w)+.5;
+            lighting.update(0,[{x,y,radius:48,intensity:.5,color:[1,.8,.6]}],x,y,true);
+            const stats={...s.data.get('materialLighting')};
+            const lit=ctx.getImageData(0,0,w,h).data;
+            let changed=0,alpha=0;
+            for(let i=0;i<base.length;i+=4){if(base[i+3]!==lit[i+3])alpha++;if(base[i]!==lit[i]||base[i+1]!==lit[i+1]||base[i+2]!==lit[i+2])changed++;}
+            lighting.update(0,[],x,y,true);
+            const restored=ctx.getImageData(0,0,w,h).data;
+            let residual=0;for(let i=0;i<base.length;i++)if(base[i]!==restored[i])residual++;
+            lightingProbe={stats,changed,alpha,residual};
+          }
+        }
+      }
+      return {lightingProbe,materialStats,materialObjects,depth,depthProbe,volumes,moverContacts,accepted:s.data.get('terrainPlates'),rejected:s.data.get('terrainPlateRejected'),mode:s.data.get('organicMode'),finish:s.data.get('terrainFinish'),contours:s.data.get('organicContours'),visualGeometry:s.data.get('visualGeometry'),visualLedges:s.data.get('visualLedges'),onewayArt:s.data.get('organicOneWayCells'),vistaCount:s.data.get('organicVistaObjects'),landmarks:s.children.list.flatMap(o=>Array.isArray(o.list)?o.list:[]).filter(o=>o.getData?.('organicLandmark')).map(o=>o.alpha),
         geometry:['solids','oneways','hazards'].map(key=>s[key].getChildren().map(z=>[z.body.x,z.body.y,z.body.width,z.body.height]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]||a[3]-b[3]))};
     });
     const base=JSON.parse(fs.readFileSync('.debug/shots/baseline/1-1_renderer.json','utf8'));
@@ -171,7 +195,11 @@ if(label==='organic'&&wanted.includes(0)){
     await page.screenshot({path:path.join(out,invalid?'plate-invalid.png':flat?'plate-before-contours.png':platformsOff?'plate-before-platforms.png':materialsOff?'plate-before-materials.png':'plate-authored.png')});
     if(JSON.stringify(result.geometry)!==JSON.stringify(base.staticGeometry))throw Error('Terrain plate physics regression');
     if(result.mode!=='organic')throw Error('Organic renderer missing in plate mode');
-    if(materialsOff&&(result.materialStats||result.materialObjects.length))throw Error('Material rollback failed');
+    if(materialsOff&&(result.materialStats||result.materialObjects.length||result.lightingProbe))throw Error('Material rollback failed');
+    if(!materialsOff&&!invalid){
+      const p=result.lightingProbe;
+      if(!p||!p.changed||p.alpha||p.residual||p.stats.pixels>160000||p.stats.lights!==1)throw Error('Local material lighting probe failed '+JSON.stringify(p));
+    }
     if(!materialsOff){
       const m=result.materialStats;
       if(!m||!m.count||!m.changed||m.failures||m.pixels>10000000||m.count!==result.materialObjects.length)throw Error('Material generation failed '+JSON.stringify(m));

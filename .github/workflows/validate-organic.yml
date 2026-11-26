@@ -33,6 +33,7 @@ jobs:
       - run: npm run test:platform-profile
       - run: npm run test:depth-composition
       - run: npm run test:pictorial-material
+      - run: npm run test:material-lighting
       - run: npm run test:levels
       - run: npm run check-levels
       - run: npm run build
