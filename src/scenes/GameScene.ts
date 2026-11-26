@@ -35,6 +35,7 @@ import { addOrganicAtmosphere } from '../gfx/OrganicAtmosphere';
 import { addLanternLight, addArchitectureContact } from '../gfx/OrganicLighting';
 import { composeOrganicVista } from '../gfx/OrganicVista';
 import { depthFrame, VALE_DEPTH } from '../world/DepthComposition';
+import { CameraDirector, cameraZones } from '../world/CameraDirector';
 import { paintOrganicOneWays } from '../gfx/PlateFinish';
 import { createPlatformVolume } from '../gfx/PlatformVolume';
 import { configureOrganicForeground, updateOrganicForeground } from '../gfx/OrganicForeground';
@@ -146,6 +147,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
   private finished = false;
   private swingHits = new Set<object>();
   private camOffsetX = 0;
+  private cameraDirector?:CameraDirector;
   private colorMech!: ColorMechanics;
   /** Campos invertidos (Ilhas do Céu): retângulos em que a gravidade vira. */
   private gravZones: Phaser.Geom.Rectangle[] = [];
@@ -243,6 +245,9 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.bgFar = this.bgMid = this.bgNear = undefined;
     this.landmark=undefined;
     this.pictorialDepth=false;
+    this.cameraDirector=undefined;
+    this.camOffsetX=0;
+    this.data.set('cinematicCamera',null);
     this.livingVale=undefined;
     this.data.set('livingVale',null);
     this.data.set('livingValeFrame',null);
@@ -336,6 +341,10 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
       cam.startFollow(this.player.hit, true, 0.12, 0.12);
       cam.setDeadzone(60, 140);
       this.lookAhead = true;
+      if(this.level.id==='1-1'&&!this.isSub&&this.data.get('terrainPlatesEnabled')&&new URLSearchParams(window.location.search).get('camera')!=='0'){
+        this.cameraDirector=new CameraDirector(cameraZones(this.level.cameras??[],this.level.entities));
+        this.resetCinematicCamera();
+      }
     }
     cam.fadeIn(400);
 
@@ -519,6 +528,24 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     return -1;
   }
 
+  private resetCinematicCamera(){
+    if(!this.cameraDirector)return;
+    const cam=this.cameras.main,p=this.player.hit;
+    const pose=this.cameraDirector.reset(p.x,getSettings().reduceMotion);
+    cam.setZoom(pose.zoom).setFollowOffset(pose.x,pose.y);
+    cam.centerOn(p.x-pose.x,p.y-pose.y);
+    this.data.set('cinematicCamera',pose);
+  }
+
+  private updateCinematicCamera(dt:number){
+    const director=this.cameraDirector;if(!director)return;
+    const p=this.player,cam=this.cameras.main;
+    const pose=director.step({x:p.hit.x,vx:p.body.velocity.x,vy:p.body.velocity.y,grounded:p.onGround,
+      frozen:p.frozen||p.dead,reduced:getSettings().reduceMotion,dt});
+    cam.setFollowOffset(pose.x,pose.y).setZoom(pose.zoom);
+    this.data.set('cinematicCamera',pose);
+  }
+
   private updateDepth(cam: Phaser.Cameras.Scene2D.Camera, dt: number) {
     for (const s of this.contactShadows) {
       const body = s.of.body as Phaser.Physics.Arcade.Body | null;
@@ -531,7 +558,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     }
     if (this.level.arena) return;
 
-    // zonas de câmera da fase: afasta em vistas e torres, aproxima em salas
+    // The director owns zoom for the Vale pilot; legacy zones elsewhere.
+    if(!this.cameraDirector){
     let want = 1;
     if (!getSettings().reduceMotion && !this.isSub) {
       const col = this.player.hit.x / TILE;
@@ -539,6 +567,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     }
     if (Math.abs(cam.zoom - want) > 0.0005) cam.setZoom(cam.zoom + (want - cam.zoom) * Math.min(1, dt * 1.6));
     else if (cam.zoom !== want) cam.setZoom(want);
+    }
 
     // O fundo é preso à tela e o zoom da câmera o encolheria junto: compensa a escala
     // para ele sempre cobrir o quadro. Nas fases altas ele ainda fica um pouco maior e
@@ -1596,7 +1625,8 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.time.delayedCall(200, () => {
       this.player.hit.setPosition(to.x, to.y - this.player.body.height / 2);
       this.player.body.setVelocity(0, 0);
-      this.cameras.main.centerOn(to.x, to.y - 60);
+      if(this.cameraDirector)this.resetCinematicCamera();
+      else this.cameras.main.centerOn(to.x, to.y - 60);
       this.cameras.main.fadeIn(220, 20, 12, 40);
       this.player.frozen = false;
       this.burst(to.x, to.y - 40, 14, [0xb9a8ff, 0xffffff]);
@@ -2371,6 +2401,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     this.time.delayedCall(600, () => {
       this.player.hp = this.player.maxHp;
       this.player.respawn(this.respawnPoint.x, this.respawnPoint.y);
+      this.resetCinematicCamera();
       this.cameras.main.fadeIn(400);
       this.pushHud();
     });
@@ -2572,13 +2603,16 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
     if (!this.player.dead && this.player.hit.y > worldH + 80) {
       this.player.hp--;
       this.feedbackHurt();
-      if (this.player.hp > 0) this.player.respawn(this.respawnPoint.x, this.respawnPoint.y);
+      if (this.player.hp > 0) {this.player.respawn(this.respawnPoint.x, this.respawnPoint.y);this.resetCinematicCamera();}
     }
 
     // câmera olha um pouco à frente
     const cam = this.cameras.main;
-    this.camOffsetX += (-this.player.facing * 110 - this.camOffsetX) * Math.min(1, dt * 2);
-    cam.setFollowOffset(this.camOffsetX, 60);
+    if(this.cameraDirector)this.updateCinematicCamera(dt);
+    else {
+      this.camOffsetX += (-this.player.facing * 110 - this.camOffsetX) * Math.min(1, dt * 2);
+      cam.setFollowOffset(this.camOffsetX, 60);
+    }
 
     // parallax
     if(!this.pictorialDepth){
