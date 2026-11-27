@@ -100,3 +100,19 @@
 - Ao completar um chefão dos mundos 1–6, o jogo reproduz epílogo e viagem antes de voltar ao mapa; no mundo 7, o epílogo entra antes do final existente.
 - Se alguma imagem ainda não foi gerada, o jogo mantém a sequência com o mapa oficial do mundo (fallback), sem bloquear gameplay.
 - O enquadramento padrão usa **contain**, sem zoom progressivo e com legenda inferior sobreposta; nunca colocar detalhes principais na área de legenda.
+
+## Continuidade dos figurinos e recompensas (atualização)
+
+As novas imagens substituem os originais pelos trajes ambientais aprovados. Ordem dos mundos 1–6: `wN_outro.png` (traje atual), `wN_reward.png` (entrega do item integrado ao traje seguinte), `wN_transition.png` (partida com o traje seguinte). No mundo 7, `w7_outro.png` e `w7_reward.png` precedem o final existente; a cena de Ás representa o escudo já recebido, sem novo traje. Todas as legendas são exibidas pelo jogo, não impressas nas imagens.
+
+| Imagem | Legenda |
+|---|---|
+| `w1_reward.png` | Mãe Rubi entregou a Íris um pequeno coração de cristal, para lembrar que, mesmo nos caminhos mais difíceis, ninguém precisa deixar de ser quem é. |
+| `w2_reward.png` | Sol e Luna ofereceram uma faixa tecida nas cores do entardecer. Íris levaria consigo a certeza de que o amor nunca precisa se esconder. |
+| `w3_reward.png` | Aurora entregou uma insígnia dourada, feita para brilhar sem medo. A luz não existia para vigiar, mas para revelar a beleza de cada pessoa. |
+| `w4_reward.png` | Ramo preparou um manto com fibras mágicas da floresta, leves como sementes e resistentes às águas. Íris descobriu que proteger também significa permitir que a vida siga livre. |
+| `w5_reward.png` | Marina moldou um bracelete com a luz das marés. Dentro dele, viajavam as histórias e as vozes que o silêncio nunca mais conseguiria apagar. |
+| `w6_reward.png` | Bix presenteou Íris com botas que carregavam o brilho das constelações. Não importava quantas estrelas existissem: todas tinham seu lugar no céu. |
+| `w7_reward.png` | Ás mostrou a Íris que nenhuma proteção era maior do que a força de seguir sendo quem se é. Cada presente carregava a memória de alguém que havia aprendido a brilhar novamente. |
+
+Se uma imagem de recompensa estiver ausente, a legenda aparece sobre a restauração do próprio mundo (ou seu mapa). Em 27/11/2026, `w7_reward.png` ainda não constava no repositório. Ao receber o arquivo com esse nome, o pipeline o registra automaticamente. `npm run test:cutscenes` verifica a sequência e os fallbacks; `node scripts/check-cutscene-assets.mjs` verifica o manifest após `npm run assets`.
