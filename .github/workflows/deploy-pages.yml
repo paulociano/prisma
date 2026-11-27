@@ -31,7 +31,9 @@ jobs:
           npm run test:levels
           npm run check-levels
       - name: Process game assets
-        run: npm run assets
+        run: |
+          npm run assets
+          node scripts/check-wardrobe-assets.mjs
       - name: Build game
         run: npm run build
       - name: Check deployment artifacts

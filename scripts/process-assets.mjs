@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { wardrobeSheetPlan } from './wardrobe-plan.mjs';
+import { wardrobeGrid } from './wardrobe-grid.mjs';
 import { ISLAND_SEEDS, renderIsland, validateIsland } from './prerender-islands.mjs';
 
 const RAW = 'assets/raw';
@@ -52,7 +53,7 @@ const SHEETS = [
   { key: 'iris_glide', src: 'personagens/iris_glide.png', expect: 6, height: 130, grid: [3, 2], cut: true, largest: true, anchor: 'head' },
   // quadros 0-2: deslizando na parede (mão à direita); 3-5: saltando para longe dela
   { key: 'iris_wall', src: 'personagens/iris_wall.png', expect: 6, height: 115, grid: [3, 2], cut: true, largest: true, anchor: 'head' },
-  { key: 'iris_swim', src: 'personagens/iris_swim.png', expect: 6, height: 62, grid: [3, 2], cut: true, largest: true, align: 'center', anchor: 'cell' },
+  { key: 'iris_swim', src: 'personagens/iris_swim.png', expect: 6, height: 110, grid: [3, 2], cut: true, largest: true, align: 'center', anchor: 'cell' },
   { key: 'iris_shoot', src: 'personagens/iris_shoot.png', expect: 6, height: 115, grid: [3, 2], cut: true, largest: true },
   // mergulho estelar: no ar (giro, mergulho) centrado; pouso agachado apoiado no chão
   { key: 'iris_pound_air', src: 'personagens/iris_pound.png', expect: 4, height: 112, largest: true, align: 'center', anchor: 'cell', cells: [[0, 0, 1 / 3, 0.5], [1 / 3, 0, 2 / 3, 0.5], [2 / 3, 0, 1, 0.5], [0, 0.5, 1 / 3, 1]] },
@@ -439,7 +440,39 @@ async function processSheet(sheet) {
   const lab = findIslands(img, sheet.dilate ?? DEFAULT_DILATE);
   let crops;
   const align = sheet.align ?? 'bottom';
-  if (sheet.cells || (sheet.grid && sheet.cut)) {
+  // For the authored idle/jump sheets, use individual alpha islands when
+  // all poses are separate; otherwise cut each occupied cell independently.
+  // This also accepts a horizontal four-frame idle instead of a 2x2 sheet.
+  if(sheet.authoredWardrobe&&sheet.grid&&/_(idle|jump)$/.test(sheet.key)){
+    const fine=findIslands(img,1);
+    const largest=Math.max(0,...fine.islands.map(c=>c.area));
+    const main=fine.islands.filter(c=>c.area>=largest*.18);
+    const grid=wardrobeGrid(img,sheet.grid,sheet.expect);
+    console.log('  wardrobe layout '+sheet.key+': '+img.w+'x'+img.h+', islands='+main.length+', grid='+(grid?grid.cols+'x'+grid.rows+', seam='+grid.seam.toFixed(3):'none'));
+    if(main.length===sheet.expect&&(!grid||grid.seam>.18)){
+      // Retain full figures when one crosses a nominal grid boundary.
+      crops=readingOrder(main).map(isl=>extractIslands(img,fine,[isl]));
+    }else if(grid&&grid.seam<1.2){
+      crops=grid.cells.map(([x0,y0,x1,y1])=>{
+        const c=extractRect(img,x0*img.w,y0*img.h,x1*img.w,y1*img.h);
+        if(!c)return null;
+        const sub={data:c.buf,w:c.w,h:c.h},subLab=findIslands(sub,1);
+        const big=subLab.islands.sort((a,b)=>b.area-a.area)[0];
+        if(!big)return null;
+        // Preserve costume and attached scarf; reject small edge spill from neighbours.
+        return extractIslands(sub,subLab,[big]);
+      }).filter(Boolean);
+    }else if(/_idle$/.test(sheet.key)&&main.length>=2&&main.length<4){
+      // A source with fewer genuine idle poses can still breathe in a loop;
+      // reuse its own whole poses, never crop a character in half.
+      const poses=readingOrder(main).map(isl=>extractIslands(img,fine,[isl]));
+      crops=Array.from({length:4},(_,i)=>poses[Math.min(i,poses.length-1)]);
+      console.warn('  ⚠ '+sheet.src+': '+poses.length+' distinct idle poses; repeats used to preserve the four-frame contract');
+    }else{
+      console.warn('  ⚠ '+sheet.src+': unable to separate complete poses; using base animation');
+      return null;
+    }
+  } else if (sheet.cells || (sheet.grid && sheet.cut)) {
     // corte por célula: para sheets em que as figuras encostam umas nas outras
     const cells = sheet.cells ?? gridCells(sheet.grid);
     crops = cells

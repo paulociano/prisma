@@ -22,3 +22,6 @@ O build processa cada sheet válido independentemente. Exige região transparent
 Em 27/11/2026 foram localizados 65/67 arquivos; faltavam apenas stage_7/iris_hurt_win.png e stage_7/iris_wall.png. Quando incluídos, entram no próximo build automaticamente se válidos.
 
 Testes: npm run test:wardrobe; npm run assets; npm run build; playtest dos sete mundos.
+
+## Ajuste de recorte e escala
+Idle e pulo autorais usam leitura por células ocupadas e detecção de grades alternativas; ilhas separadas podem ser recuperadas quando cruzam uma divisão nominal. Idle com duas ou três poses separadas pode repetir poses para manter quatro frames; não inventa uma animação. O recorte registra a grade e contagem no log. Natação tem altura nominal de 110 px (antes 62), mantendo zoom normal de 1,636× e câmera original nas arenas. `node scripts/check-wardrobe-assets.mjs` verifica que os atlas idle/jump de todos os mundos e swim normalizado foram publicados; impede deploy silencioso com fallback nesses estados. Revisão visual e jogo real ainda necessários.
