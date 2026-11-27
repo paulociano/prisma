@@ -918,7 +918,7 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
       switch (e.type) {
         case 'player':
-          const stage=wardrobeStage(this.level.world,this.save.completed);
+          const stage=wardrobeStage(this.level.world);
           this.player = new Player(this, cx, bottom - 46,wardrobePrefix(stage));
           this.data.set('wardrobeStage',stage);
           this.respawnPoint.set(cx, bottom - 46);
@@ -1803,8 +1803,6 @@ export class GameScene extends Phaser.Scene implements EnemyHost {
 
   /** Fim do jogo: salva como concluído e vai para a tela final. */
   private toEnding() {
-    const reward=wardrobeReward(7,this.save.completed);
-    if(reward)this.events.emit('toast','Figurino conquistado: '+reward);
     if (!this.save.completed.includes(this.level.id)) this.save.completed.push(this.level.id);
     this.save.finished = true;
     this.persistProgress();

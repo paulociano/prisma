@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { decorateAtlas } from './wardrobe-art.mjs';
+import { wardrobeSheetPlan } from './wardrobe-plan.mjs';
 import { ISLAND_SEEDS, renderIsland, validateIsland } from './prerender-islands.mjs';
 
 const RAW = 'assets/raw';
@@ -424,6 +424,17 @@ async function processSheet(sheet) {
   if (!fs.existsSync(file)) return null;
 
   const img = await loadRaw(file);
+  if(sheet.authoredWardrobe){
+    let transparent=0,opaque=0;
+    for(let i=3;i<img.data.length;i+=4){
+      if(img.data[i]<ALPHA_MIN)transparent++;
+      if(img.data[i]>=200)opaque++;
+    }
+    if(transparent<img.w*img.h*.02||opaque<img.w*img.h*.005){
+      console.warn('  ⚠ '+sheet.src+': expected nontrivial real alpha and visible art; using base animation');
+      return null;
+    }
+  }
   cleanAlpha(img);
   const lab = findIslands(img, sheet.dilate ?? DEFAULT_DILATE);
   let crops;
@@ -474,6 +485,7 @@ async function processSheet(sheet) {
 
   if (sheet.expect && crops.length !== sheet.expect) {
     console.warn(`  ⚠ ${sheet.src}: esperava ${sheet.expect} figuras, encontrei ${crops.length}. Confira se alguma está encostando em outra.`);
+    if(sheet.authoredWardrobe)return null;
   }
   if (sheet.pick) crops = sheet.pick.map((i) => crops[i]).filter(Boolean);
   if (!crops.length) {
@@ -609,37 +621,21 @@ for (const sheet of SHEETS) {
   if (entry) manifest.sprites.push(entry);
 }
 manifest.sprites.push(...extraImages);
- // Wardrobe variants use the exact existing frame registration. The complete
- // optional authoring pack takes priority, never a mix of outfits mid-animation.
- const outfitSheets=SHEETS.filter(s=>s.key.startsWith('iris_')&&s.key!=='iris_portraits');
- for(let stage=1;stage<=7;stage++){
-   const prefix=stage===7?'w7_final_':'w'+(stage+1)+'_';
-   const folder='personagens/figurinos/stage_'+stage;
-   const originals=outfitSheets.filter(s=>manifest.sprites.some(e=>e.key===s.key));
-   const complete=originals.length===outfitSheets.length&&originals.every(s=>fs.existsSync(path.join(RAW,folder,path.basename(s.src))));
-   const authored=[];
-   if(complete){
-     for(const s of originals){
-       const e=await processSheet({...s,key:prefix+s.key,src:folder+'/'+path.basename(s.src)});
-       if(e)authored.push(e);
-     }
-   }
-   if(complete&&authored.length===originals.length&&authored.every(e=>e.frames===manifest.sprites.find(b=>prefix+b.key===e.key)?.frames)){
-     manifest.sprites.push(...authored);continue;
-   }
-   for(const s of originals){
-     const e=manifest.sprites.find(b=>b.key===s.key);
-     const j=JSON.parse(fs.readFileSync(path.join(OUT_DIR,e.json),'utf8'));
-     const {data,info}=await sharp(path.join(OUT_DIR,e.file)).ensureAlpha().raw().toBuffer({resolveWithObject:true});
-     const result=decorateAtlas(data,info.width,info.height,j.frames,stage);
-     const key=prefix+s.key,file='sprites/'+key+'.png',json='sprites/'+key+'.json';
-     await sharp(result.pixels,{raw:{width:info.width,height:info.height,channels:4}}).png().toFile(path.join(OUT_DIR,file));
-     j.meta.image=path.basename(file);
-     fs.writeFileSync(path.join(OUT_DIR,json),JSON.stringify(j));
-     manifest.sprites.push({...e,key,file,json});
-     if(!result.changed)console.warn('  ⚠ '+key+': no confident yellow garment region; original pixels retained');
-   }
- }
+ // Author each valid animation independently. Missing or invalid artwork falls back
+// to its existing base animation, never blocks all other artwork for that world.
+for(const sheet of wardrobeSheetPlan(SHEETS)){
+  if(!fs.existsSync(path.join(RAW,sheet.src))){
+    console.warn('  ⚠ '+sheet.src+': missing; using base animation');
+    continue;
+  }
+  try{
+    const entry=await processSheet(sheet);
+    if(entry&&entry.frames===sheet.expect)manifest.sprites.push(entry);
+    else console.warn('  ⚠ '+sheet.src+': invalid frame contract; using base animation');
+  }catch(error){
+    console.warn('  ⚠ '+sheet.src+': '+String(error)+'; using base animation');
+  }
+}
 
 // Offline mesh renders: independent sprite keys, never overwrite commissioned artwork.
 for(let i=0;i<ISLAND_SEEDS.length;i++){

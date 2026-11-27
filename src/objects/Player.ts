@@ -365,7 +365,7 @@ export class Player {
       const sx = 1 + (this.squash.x - 1) * 0.4, sy = 1 + (this.squash.y - 1) * 0.4;
       // a pirueta gira em torno do centro do corpo; as demais poses apoiam nos pés
       // poses centradas no corpo (giram ou ficam na horizontal); as demais apoiam nos pés
-      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key.replace(/^w[2-7]_(?:final_)?/,''));
+      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key.replace(/^w[2-7]_/,''));
       const up = this.gdir < 0; // de cabeça para baixo: os pés apoiam no teto
       this.view.setPosition(this.hit.x, spinning ? this.hit.y : up ? b.top - 2 : b.bottom + 2);
       this.view.setScale(this.baseScale * sx, this.baseScale * sy);
@@ -385,9 +385,9 @@ export class Player {
     this.syncProcedural();
   }
 
-  private outfitTexture(key:string){
+  private outfitTexture(key:string,frame=0){
     const candidate=this.outfitPrefix+key;
-    return this.outfitPrefix&&has(this.scene,candidate)?candidate:key;
+    return this.outfitPrefix&&has(this.scene,candidate)&&this.scene.textures.get(candidate).has(String(frame))?candidate:key;
   }
 
   private outfitAnimation(key:string){
@@ -407,7 +407,7 @@ export class Player {
 
   private still(tex: string, frame: number) {
     this.view.anims.stop();
-    this.view.setTexture(this.outfitTexture(tex), String(frame));
+    this.view.setTexture(this.outfitTexture(tex,frame), String(frame));
   }
 
   private pickFrame() {

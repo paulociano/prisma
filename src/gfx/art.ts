@@ -22,7 +22,7 @@ function anim(scene: Phaser.Scene, key: string, tex: string, frames: readonly nu
   };
   register(key,tex);
   if(key.startsWith('iris-')){
-    for(const prefix of ['w2_','w3_','w4_','w5_','w6_','w7_','w7_final_'])register(prefix+key,prefix+tex);
+    for(const prefix of ['w2_','w3_','w4_','w5_','w6_','w7_'])register(prefix+key,prefix+tex);
   }
 }
 

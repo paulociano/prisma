@@ -1,24 +1,24 @@
-# Figurinos de Íris — jornada das sete cores
+# Figurinos ambientais de Íris
 
-## Identidade fixa
-Íris mantém pele morena, sardas, olhos âmbar, cabelo lilás com mecha branca, proporção 3,5 cabeças, echarpe iridescente, luvas sem dedos e silhueta reconhecível. Não alterar hitbox, altura nominal, direção, poses ou timing. A recompensa é cosmética, poderes seguem a história existente.
+O mundo define o traje diretamente. Mundo 1 usa os sprites originais em `assets/raw/personagens/`. Mundos 2–7 usam `assets/raw/personagens/figurinos/stage_N/`, com N igual ao número do mundo. Arenas, subfases e revisitas usam o mesmo traje ambiental. O jogo termina no mundo 7: não existe traje pós-final.
 
-| Mundo concluído | Item | Figurino no próximo mundo (direção para arte autoral) |
+| Mundo | Traje | Recompensa anterior incorporada |
 |---|---|---|
-| 1 Vale do Coração | Broche do Coração | Jaqueta de viajante rubi, broche de cristal no peito |
-| 2 Cânion do Entardecer | Faixa do Entardecer | Casaco curto cobre, faixa laranja no cinto |
-| 3 Cidade Solar | Insígnia Solar | Traje ocre com detalhes solares e ombreira leve |
-| 4 Selva Esmeralda | Manto Esmeralda | Manto curto verde de folhas, preserva echarpe de ataque |
-| 5 Recife Turquesa | Bracelete das Marés | Traje leve turquesa, bracelete cristalino |
-| 6 Ilhas do Céu Anil | Botas Estelares | Casaco índigo e botas de viagem com pequenas estrelas |
-| 7 Cidadela Cinza | Emblema da Plenitude | Traje violeta final com as sete marcas |
+| 1 Vale do Coração | Original | — |
+| 2 Cânion do Entardecer | Expedição desértica | Broche do Coração |
+| 3 Cidade Solar | Parkour urbano | Faixa do Entardecer |
+| 4 Selva Esmeralda | Expedição tropical | Insígnia Solar |
+| 5 Recife Turquesa | Anfíbio | Manto Esmeralda |
+| 6 Ilhas do Céu Anil | Altitude | Bracelete das Marés |
+| 7 Cidadela Cinza | Guardião do Prisma | Botas Estelares |
 
-## Implementação inicial
-A conclusão de cada chefão é derivada do save existente (completed), sem migração. Figurino desbloqueado ao concluir o mundo e usado no seguinte, com recompensa na tela de conclusão. Último traje disponível ao revisitar mundo 7 após final. Revisitas aos mundos anteriores usam o figurino daquela etapa narrativa; itens permanecem conquistados. Acesso de debug sem chefes anteriores completos mantém traje original. Subfases e arenas usam o figurino do mundo pai.
+Os seis presentes anteriores permanecem integrados aos figurinos autorais. A recompensa da conclusão de cada mundo 1–6 aparece no resultado; poderes, saves e câmera não mudam. A seleção por mundo não depende de um save completo (inclui acesso de debug).
 
-O build gera variantes provisórias dos atlas existentes: recolorimento seletivo de regiões amarelas da jaqueta e bordados representando até sete recompensas. Não cria novas silhuetas de botas, mantos ou acessórios; seleção de cor heurística pode não detectar tecido em certas poses ou atingir outra área amarela. Teste sintético preserva alfa, pele de referência e registro; ainda exige inspeção real. Sem alteração dos sprites originais, animações, física ou câmera. Variantes carregam junto do respectivo mundo.
+## Contrato dos arquivos
+Cada stage 2–7 usa 11 sheets: iris_idle.png, iris_run.png, iris_jump.png, iris_attack.png, iris_hurt_win.png, iris_doublejump.png, iris_dash.png, iris_glide.png, iris_wall.png, iris_shoot.png, iris_pound.png. Somente stage 5 também usa iris_swim.png. O mergulho estelar gera dois atlas do mesmo sheet. Total: 67 arquivos autorais. Preservar a grade, poses, escala e pivôs dos originais. Natação original permanece para compatibilidade, sem versões personalizadas fora do mundo 5.
 
-## Arte autoral completa
-Coloque todos os 12 sheets de origem de um estágio na pasta `assets/raw/personagens/figurinos/stage_N/` (N=1..7), com os mesmos nomes originais em personagens/: iris_idle.png, iris_run.png, iris_jump.png, iris_attack.png, iris_hurt_win.png, iris_doublejump.png, iris_dash.png, iris_glide.png, iris_wall.png, iris_swim.png, iris_shoot.png, iris_pound.png. Os dois atlas do mergulho são recortados do mesmo sheet. Preserve grades, ordem, poses, direção e altura do pipeline em scripts/process-assets.mjs. Use o mesmo modelo base da ficha de Íris, com as peças acumuladas. Cada pasta só é adotada se completa e com todos os frame counts iguais aos originais; caso contrário é gerada a variante provisória para todo o estágio. Conferir pivôs e poses visualmente antes de publicar arte autoral. Retratos, HUD e cutscenes continuam originais nesta etapa.
+O build processa cada sheet válido independentemente. Exige região transparente e opaca não trivial e número de frames do contrato original. Arquivo ausente, ilegível, sem alpha útil ou quantidade incorreta de frames usa a animação original correspondente com aviso no log; não bloqueia as demais artes. Não gera recolorimentos procedurais nem atlas pós-final. A validação automática não prova identidade, ordem visual, proporções, direção ou recorte: revisão no navegador é necessária. Retratos, HUD e cutscenes continuam originais.
 
-Teste: npm run test:wardrobe; npm run assets; npm run build; revisão in-game de cada fase e habilidade. Não afirmar que a arte final está aprovada até comparação real.
+Em 27/11/2026 foram localizados 65/67 arquivos; faltavam apenas stage_7/iris_hurt_win.png e stage_7/iris_wall.png. Quando incluídos, entram no próximo build automaticamente se válidos.
+
+Testes: npm run test:wardrobe; npm run assets; npm run build; playtest dos sete mundos.
