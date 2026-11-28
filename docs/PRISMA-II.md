@@ -22,3 +22,15 @@ Pendente: validar build/atlas e playtest real; completar inimigos restantes e ar
 - Cada fase de prévia concluída abre a próxima e salva em `opalPreviewCleared`. A conclusão antiga do piloto é preservada, mas não pula uma fase nova. Mesmo restaurando a Coroa no protótipo, a coleção não recebe insígnia: o encerramento definitivo com guardião e arte oficial ainda não existe.
 - O pipeline aceita bg_mid/bg_near, ground_texture, tiles_kit, props, world_map e boss_arena dos mundos 8–14, sem exigir arquivos ausentes. Opala usa as camadas de fundo, textura do chão, mapa e arena quando disponíveis; tiles/props ainda não são posicionados no gameplay.
 - Todos os controles e os saves da Parte I permanecem independentes. A aderência é um parâmetro por instância do Player, padrão 1.
+
+## Produção de Opala · Niva e Coroa da Geada
+Inventário confirmado em f0294e6f: os 14 inimigos da Parte II estão presentes; Opala contém bg_far, enemy, enemy_alt, insignia e guardian_ref. Ainda não constam na main bg_mid, bg_near, tiles_kit, ground_texture, props, world_map e boss_arena de Opala. A publicação do protótipo de quatro fases (e2301214) passou em Quality e Deploy.
+
+O pipeline registra guardian_ref (8 frames, mesmo layout dos guardiões anteriores), boss_idle (4, 2x2), boss_attack (6, 3x2), boss_end (4, 2x2) e boss_projectiles (6, 3x2) para os sete novos mundos. Ausência não bloqueia o protótipo. Niva está registrada como speaker de DialogueScene; as falas e a substituição do proxy da Coroa serão ligadas ao fluxo definitivo depois de conferir as artes.
+
+### Núcleo narrativo proposto
+Niva congelou o santuário na tentativa de preservar tudo que amava. A Coroa da Geada é uma criatura cervídea de cristal opalino que materializa esse excesso de proteção, não um povo ou identidade. Seu núcleo fica protegido até liberar a rajada. Íris restaura a criatura sem destruí-la. A insígnia da Transformação é um troféu independente, não equipamento.
+
+Antes: Niva: “Eu quis proteger tudo que amo. Mas, quando o medo tomou conta, até os caminhos deixaram de mudar.” Íris: “Cuidar também é deixar que a vida encontre novos caminhos.”
+Depois: Niva: “Aprendi que mudar não significa perder quem somos.” Íris: “Podemos levar nossas memórias conosco, sem deixar que elas nos aprisionem.”
+Legenda da insígnia: “Niva entregou a Íris a Memória da Transformação. O gelo finalmente cedeu, e a vida encontrou um novo caminho.”
