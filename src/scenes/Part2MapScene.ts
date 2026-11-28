@@ -6,17 +6,18 @@ import {playMusic,playSfx} from '../systems/Audio';
 import {loadSave} from '../systems/Save';
 import {ensureWorld} from '../systems/Loader';
 import {applyColorblind} from '../systems/Settings';
-import {REGIONS,loadPart2,hasInsignia,opalPreviewUnlocked,part2Unlocked} from '../world/Part2';
-import {pilotArtReady,opalFinaleReady} from './Part2PilotScene';
+import {REGIONS,loadPart2,hasInsignia,opalPreviewUnlocked,amberPreviewUnlocked,part2Unlocked} from '../world/Part2';
+import {pilotArtReady,opalFinaleReady,amberFinaleReady} from './Part2PilotScene';
 import {OPAL_STAGES} from '../levels/opal';
+import {AMBER_STAGES} from '../levels/amber';
 
 export class Part2MapScene extends Phaser.Scene{
  constructor(){super('Part2Map');}
- create(data:{opal?:boolean}={}){
+ create(data:{opal?:boolean;world?:number}={}){
   if(!part2Unlocked(loadSave())){this.scene.start('Map');return;}
   applyColorblind(this);
   const progress=loadPart2();
-  let selected=0,leaving=false,collection=false,opal=false,stageCursor=0;
+  let selected=0,leaving=false,collection=false,opal=false,stageCursor=0,loading=false;
   this.add.rectangle(0,0,GAME_W,GAME_H,0x17132c).setOrigin(0);
   const art=has(this,'world_map_part2');
   if(art){
@@ -35,7 +36,7 @@ export class Part2MapScene extends Phaser.Scene{
   for(const [i,r] of REGIONS.entries()){
    const x=100+i*180;
    const card=this.add.rectangle(x,465,166,52,0x29233d,.96).setStrokeStyle(2,r.color);
-   card.setInteractive({useHandCursor:true}).on('pointerdown',()=>{if(!collection)select(i);});
+   card.setInteractive({useHandCursor:true}).on('pointerdown',()=>{if(!collection&&!opal&&!loading)select(i);});
    cards.push(card);
    labels.push(this.add.text(x,465,'Mundo '+r.id,textStyle(20)).setOrigin(.5));
   }
@@ -48,10 +49,13 @@ export class Part2MapScene extends Phaser.Scene{
    const r=REGIONS[selected];cards.forEach((c,j)=>c.setFillStyle(j===selected?0x6d518b:0x29233d));
    title.setText(r.id+' · '+r.name);
    const ready=pilotArtReady(this);
-   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Prévia disponível · '+progress.opalPreviewCleared.length+'/4 fases':'Prévia disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):(r.id===9&&hasInsignia(progress,8)?'Próximo mundo · em desenvolvimento · ':'Em desenvolvimento · ')+r.theme);
-   enter.root.setVisible(r.id===8&&ready&&!collection);
+   const amber=r.id===9&&hasInsignia(progress,8);
+   (enter.root.list[1] as Phaser.GameObjects.Text).setText(r.id===9?'Explorar Âmbar':'Explorar Opala');
+   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Prévia disponível · '+progress.opalPreviewCleared.length+'/4 fases':'Prévia disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):amber?'Disponível · '+progress.amberPreviewCleared.length+'/4 fases':r.id===9?'Restaure Opala para desbloquear':'Em desenvolvimento · '+r.theme);
+   enter.root.setVisible(((r.id===8&&ready)||amber)&&!collection);
   };
   const showCollection=(on:boolean)=>{
+   if(loading)return;
    opal=false;collection=on;
    collectionObjects.splice(0).forEach(o=>o.destroy());
    detail.setVisible(!on);title.setVisible(!on);desc.setVisible(!on);
@@ -73,17 +77,19 @@ export class Part2MapScene extends Phaser.Scene{
    }
    collectionObjects.push(this.add.text(GAME_W/2,486,'Insígnias são troféus da restauração de cada mundo. Não modificam o uniforme.',textStyle(20)).setOrigin(.5));
   };
-  const exit=(target:string)=>{if(leaving)return;leaving=true;this.scene.start(target);};
+  const exit=(target:string)=>{if(leaving||loading)return;leaving=true;this.scene.start(target);};
   const showOpal=()=>{
+   const w=selected===1?9:8,stages=w===9?AMBER_STAGES:OPAL_STAGES,cleared=w===9?progress.amberPreviewCleared:progress.opalPreviewCleared;
+   const unlocked=w===9?amberPreviewUnlocked:opalPreviewUnlocked;
    opal=true;collectionObjects.splice(0).forEach(o=>o.destroy());
    detail.setVisible(false);title.setVisible(false);desc.setVisible(false);cards.forEach(c=>c.setVisible(false));labels.forEach(t=>t.setVisible(false));enter.root.setVisible(false);
    collectionObjects.push(this.add.rectangle(GAME_W/2,333,1220,460,0x17132c,.97).setStrokeStyle(2,0xa8ddec));
-   collectionObjects.push(this.add.text(GAME_W/2,130,opalFinaleReady(this)?'Geleiras de Opala':'Geleiras de Opala · prévia jogável',textStyle(32)).setOrigin(.5));
-   if(has(this,'w8_map')){const img=this.add.image(GAME_W/2,326,'w8_map');img.setScale(Math.min(1160/img.width,320/img.height)).setAlpha(.32);collectionObjects.push(img);}
-   for(const [i,s] of OPAL_STAGES.entries()){
-    const x=182+i*305,available=opalPreviewUnlocked(progress,s.id),done=progress.opalPreviewCleared.includes(s.id);
+   collectionObjects.push(this.add.text(GAME_W/2,130,REGIONS[selected].name+((w===9?amberFinaleReady(this):opalFinaleReady(this))?'':' · prévia jogável'),textStyle(32)).setOrigin(.5));
+   if(has(this,'w'+w+'_map')){const img=this.add.image(GAME_W/2,326,'w'+w+'_map');img.setScale(Math.min(1160/img.width,320/img.height)).setAlpha(.32);collectionObjects.push(img);}
+   for(const [i,s] of stages.entries()){
+    const x=182+i*305,available=unlocked(progress,s.id),done=cleared.includes(s.id);
     const bg=this.add.rectangle(x,310,276,206,i===stageCursor?0x594d78:0x30283f,.96).setStrokeStyle(2,available?0xb9e9fa:0x666079);
-    const name=this.add.text(x,262,'8-'+s.id+' · '+s.name,{...textStyle(22),wordWrap:{width:250},align:'center'}).setOrigin(.5);
+    const name=this.add.text(x,262,w+'-'+s.id+' · '+s.name,{...textStyle(22),wordWrap:{width:250},align:'center'}).setOrigin(.5);
     const st=this.add.text(x,352,done?'Concluída':available?'Disponível':'Bloqueada',textStyle(18)).setOrigin(.5);
     if(available)bg.setInteractive({useHandCursor:true}).on('pointerdown',()=>{stageCursor=i;open();});
     collectionObjects.push(bg,name,st);
@@ -92,18 +98,24 @@ export class Part2MapScene extends Phaser.Scene{
    (collect.root.list[1] as Phaser.GameObjects.Text).setText('Voltar ao mapa II');
   };
   const open=()=>{
-   if(collection||selected!==0||!pilotArtReady(this)||leaving)return;
-   if(!opal){showOpal();return;}
-   const stage=OPAL_STAGES[stageCursor].id;
-   if(!opalPreviewUnlocked(progress,stage))return;
-   leaving=true;playSfx(this,'part2_portal',0);this.scene.start('Part2Pilot',{stage});
+   if(collection||selected>1||leaving||loading)return;
+   const world=selected===1?9:8;
+   if(world===9&&!hasInsignia(progress,8))return;
+   if(!opal){
+    if(world===9){loading=true;ensureWorld(this,9,()=>{loading=false;if(pilotArtReady(this,9)){stageCursor=Math.min(3,progress.amberPreviewCleared.length);showOpal();}else desc.setText('Atlas de Âmbar indisponível · verifique os arquivos');});}
+    else if(pilotArtReady(this))showOpal();
+    return;
+   }
+   const stage=(world===9?AMBER_STAGES:OPAL_STAGES)[stageCursor].id;
+   if(!(world===9?amberPreviewUnlocked:opalPreviewUnlocked)(progress,stage)||!pilotArtReady(this,world))return;
+   leaving=true;playSfx(this,'part2_portal',0);this.scene.start('Part2Pilot',{stage,world});
   };
   const move=(d:number)=>{
-   if(collection)return;
+   if(collection||loading)return;
    if(opal){stageCursor=(stageCursor+d+4)%4;showOpal();}
    else select(selected+d);
   };
-  const backAction=()=>{if(collection||opal)showCollection(false);else exit('Map');};
+  const backAction=()=>{if(loading)return;if(collection||opal)showCollection(false);else exit('Map');};
   const kb=this.input.keyboard!;
   kb.on('keydown-LEFT',()=>move(-1));
   kb.on('keydown-RIGHT',()=>move(1));
@@ -117,7 +129,7 @@ export class Part2MapScene extends Phaser.Scene{
   };
   this.input.gamepad?.on('down',pad);
   this.events.once('shutdown',()=>this.input.gamepad?.off('down',pad));
-  select(0);if(data.opal&&pilotArtReady(this)){stageCursor=Math.min(3,progress.opalPreviewCleared.length);showOpal();}playMusic(this,'map_part2');this.cameras.main.fadeIn(300);
+  select(data.world===9&&hasInsignia(progress,8)?1:0);if(data.opal||data.world===8||data.world===9){if(selected===1)open();else if(pilotArtReady(this)){stageCursor=Math.min(3,progress.opalPreviewCleared.length);showOpal();}}playMusic(this,'map_part2');this.cameras.main.fadeIn(300);
  }
 }
 
