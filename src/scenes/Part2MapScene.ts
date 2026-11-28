@@ -7,7 +7,7 @@ import {loadSave} from '../systems/Save';
 import {ensureWorld} from '../systems/Loader';
 import {applyColorblind} from '../systems/Settings';
 import {REGIONS,loadPart2,hasInsignia,opalPreviewUnlocked,part2Unlocked} from '../world/Part2';
-import {pilotArtReady} from './Part2PilotScene';
+import {pilotArtReady,opalFinaleReady} from './Part2PilotScene';
 import {OPAL_STAGES} from '../levels/opal';
 
 export class Part2MapScene extends Phaser.Scene{
@@ -48,7 +48,7 @@ export class Part2MapScene extends Phaser.Scene{
    const r=REGIONS[selected];cards.forEach((c,j)=>c.setFillStyle(j===selected?0x6d518b:0x29233d));
    title.setText(r.id+' · '+r.name);
    const ready=pilotArtReady(this);
-   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Prévia disponível · '+progress.opalPreviewCleared.length+'/4 fases':'Prévia disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):'Em desenvolvimento · '+r.theme);
+   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Prévia disponível · '+progress.opalPreviewCleared.length+'/4 fases':'Prévia disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):(r.id===9&&hasInsignia(progress,8)?'Próximo mundo · em desenvolvimento · ':'Em desenvolvimento · ')+r.theme);
    enter.root.setVisible(r.id===8&&ready&&!collection);
   };
   const showCollection=(on:boolean)=>{
@@ -78,7 +78,7 @@ export class Part2MapScene extends Phaser.Scene{
    opal=true;collectionObjects.splice(0).forEach(o=>o.destroy());
    detail.setVisible(false);title.setVisible(false);desc.setVisible(false);cards.forEach(c=>c.setVisible(false));labels.forEach(t=>t.setVisible(false));enter.root.setVisible(false);
    collectionObjects.push(this.add.rectangle(GAME_W/2,333,1220,460,0x17132c,.97).setStrokeStyle(2,0xa8ddec));
-   collectionObjects.push(this.add.text(GAME_W/2,130,'Geleiras de Opala · prévia jogável',textStyle(32)).setOrigin(.5));
+   collectionObjects.push(this.add.text(GAME_W/2,130,opalFinaleReady(this)?'Geleiras de Opala':'Geleiras de Opala · prévia jogável',textStyle(32)).setOrigin(.5));
    if(has(this,'w8_map')){const img=this.add.image(GAME_W/2,326,'w8_map');img.setScale(Math.min(1160/img.width,320/img.height)).setAlpha(.32);collectionObjects.push(img);}
    for(const [i,s] of OPAL_STAGES.entries()){
     const x=182+i*305,available=opalPreviewUnlocked(progress,s.id),done=progress.opalPreviewCleared.includes(s.id);

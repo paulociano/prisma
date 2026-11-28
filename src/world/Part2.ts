@@ -51,3 +51,10 @@ export function finishOpalPreview(p:Part2Progress,stage:number):Part2Progress{
  if(stage===1&&next.opalPreviewCleared.includes(1))next.pilotCleared=true;
  return next;
 }
+
+/** Only the actual restored boss, after the three routes and with the authored finale, earns Opala. */
+export function finishOpalWorld(progress:Part2Progress,restored:boolean,finaleReady:boolean):Part2Progress{
+ const p=normalizePart2(progress);
+ if(!restored||!finaleReady||![1,2,3].every(n=>p.opalPreviewCleared.includes(n)))return p;
+ return grantWorldInsignia(finishOpalPreview(p,4),8);
+}

@@ -37,6 +37,7 @@ const SHEETS = [
   { key: 'faded', src: '00_estilo/faded_ref_sheet.png', expect: 8, height: 72 },
   { key: 'spark', src: '00_estilo/spark_ref_sheet.png', expect: 6, pick: [0], height: 46, align: 'center' },
   // retratos para os diálogos (bustos das fichas de referência)
+  { key: 'part2_iris_portraits', src: '00_estilo/iris_part2_ref_sheet.png', expect: 8, pick: [4, 5, 6, 7], height: 120, dilate: 1, align: 'center' },
   { key: 'iris_portraits', src: '00_estilo/iris_ref_sheet.png', expect: 8, pick: [4, 5, 6, 7], height: 120, dilate: 1, align: 'center' },
   { key: 'spark_portraits', src: '00_estilo/spark_ref_sheet.png', expect: 6, height: 90, align: 'center' },
   { key: 'citizens', src: '00_estilo/citizens_ref_sheet.png', expect: 6, height: 112, dilate: 1 },
@@ -208,7 +209,7 @@ const SHEETS = [
   ...[1, 2, 3, 4, 5, 6, 7].map((w) => ({ key: `w${w}_map`, src: `w${w}/world_map.png`, type: 'image', height: 853, opaque: true })),
 
   // Cutscenes (abertura e final)
-  ...['intro_1', 'intro_2', 'intro_3', 'intro_4', 'guardians', 'ending_1', 'ending_2', 'ending_true', ...[1, 2, 3, 4, 5, 6, 7].map((w) => `w${w}_outro`), ...[1, 2, 3, 4, 5, 6].map((w) => `w${w}_reward`), ...[1, 2, 3, 4, 5, 6].map((w) => `w${w}_transition`)].map((n) => ({
+  ...['intro_1', 'intro_2', 'intro_3', 'intro_4', 'guardians', 'ending_1', 'ending_2', 'ending_true', ...[1, 2, 3, 4, 5, 6, 7].map((w) => `w${w}_outro`), ...[1, 2, 3, 4, 5, 6].map((w) => `w${w}_reward`), ...[1, 2, 3, 4, 5, 6].map((w) => `w${w}_transition`), 'w8_outro', 'w8_reward', 'w8_transition'].map((n) => ({
     key: `cs_${n}`,
     src: `cutscenes/${n}.png`,
     type: 'image',

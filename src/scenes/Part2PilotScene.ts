@@ -9,12 +9,17 @@ import {playMusic,playSfx,isMuted,toggleMute} from '../systems/Audio';
 import {applyColorblind,getSettings} from '../systems/Settings';
 import {closeCameraZoom} from '../world/CloseCamera';
 import {loadSave} from '../systems/Save';
-import {loadPart2,writePart2,finishOpalPreview,opalPreviewUnlocked,part2Unlocked} from '../world/Part2';
+import {loadPart2,writePart2,finishOpalPreview,finishOpalWorld,hasInsignia,opalPreviewUnlocked,part2Unlocked} from '../world/Part2';
+import {OPAL_BEFORE,OPAL_AFTER,OPAL_FINALE} from '../story/opalStory';
+import type {Line} from './DialogueScene';
 import {opalStage,newCrown,advanceCrown,hitCrown,type OpalStage,type CrownState} from '../levels/opal';
 
 const REQUIRED:Record<string,number>={idle:4,run:6,jump:6,attack:6,hurt_win:6,doublejump:6,dash:6,glide:6,wall:6,swim:6,shoot:6,pound_air:4,pound_land:2};
+const validFrames=(scene:Phaser.Scene,key:string,count:number)=>has(scene,key)&&Array.from({length:count},(_,i)=>String(i)).every(f=>scene.textures.get(key).has(f));
+export function opalBossArtReady(scene:Phaser.Scene){return validFrames(scene,'w8_boss_idle',4)&&validFrames(scene,'w8_boss_attack',6)&&validFrames(scene,'w8_boss_end',4);}
+export function opalFinaleReady(scene:Phaser.Scene){return opalBossArtReady(scene)&&validFrames(scene,'w8_guardian',8)&&validFrames(scene,'w8_boss_projectiles',6)&&validFrames(scene,'w8_tiles',12)&&has(scene,'w8_boss_arena')&&has(scene,'part2_insignia_8')&&OPAL_FINALE.every(s=>has(scene,s.tex));}
 export function pilotArtReady(scene:Phaser.Scene){
- const valid=(key:string,count:number)=>has(scene,key)&&Array.from({length:count},(_,i)=>String(i)).every(f=>scene.textures.get(key).has(f));
+ const valid=(key:string,count:number)=>validFrames(scene,key,count);
  return Object.entries(REQUIRED).every(([n,count])=>valid('part2_iris_'+n,count))&&has(scene,'w8_bg_far')&&valid('w8_enemy',6)&&valid('w8_enemy_alt',6);
 }
 type Foe={view:Phaser.GameObjects.Sprite;x:number;y:number;air:boolean;range:number;restored:boolean;restoring:boolean};
@@ -34,10 +39,15 @@ export class Part2PilotScene extends Phaser.Scene{
  private wasGliding=false;
  private t=0;
  private stage!:OpalStage;
- private slabs:{body:Phaser.Physics.Arcade.Sprite;top:Phaser.GameObjects.Rectangle;ice:boolean;breakable:boolean}[]=[];
+ private slabs:{body:Phaser.Physics.Arcade.Sprite;top:Phaser.GameObjects.GameObject;ice:boolean;breakable:boolean}[]=[];
  private crown?:CrownState;
  private crownView?:Phaser.GameObjects.Container;
  private crownDanger?:Phaser.GameObjects.Rectangle;
+ private crownArt?:Phaser.GameObjects.Sprite;
+ private crownEffect?:Phaser.GameObjects.Image;
+ private talking=false;
+ private finishing=false;
+ private earned=false;
  private crownTarget=0;
  private crownHit=false;
  private mid?:Phaser.GameObjects.TileSprite;
@@ -47,7 +57,8 @@ export class Part2PilotScene extends Phaser.Scene{
   const stage=opalStage(data.stage??1);
   if(!part2Unlocked(loadSave())||!pilotArtReady(this)||!stage||!opalPreviewUnlocked(loadPart2(),stage.id)){this.scene.start('Part2Map');return;}
   this.stage=stage;
-  applyColorblind(this);this.foes=[];this.shots=[];this.slabs=[];this.complete=false;this.checkpoint=false;this.saved=true;this.t=0;this.wasGliding=false;this.crown=undefined;this.crownView=undefined;this.crownDanger=undefined;this.crownHit=false;this.mid=undefined;this.near=undefined;
+  applyColorblind(this);this.foes=[];this.shots=[];this.slabs=[];this.complete=false;this.checkpoint=false;this.saved=true;this.t=0;this.wasGliding=false;this.crown=undefined;this.crownView=undefined;this.crownDanger=undefined;this.crownHit=false;this.mid=undefined;this.near=undefined;this.crownArt=undefined;this.crownEffect=undefined;this.talking=false;this.finishing=false;this.earned=false;
+  this.physics.world.resume();
   const width=stage.width;
   this.physics.world.setBounds(0,0,width,1300);
   this.physics.world.setBoundsCollision(true,true,false,false);
@@ -55,6 +66,7 @@ export class Part2PilotScene extends Phaser.Scene{
   cam.setZoom(zoom).setBounds(0,0,width,GAME_H);
   const bgKey=stage.boss&&has(this,'w8_boss_arena')?'w8_boss_arena':'w8_bg_far';
   this.bg=this.add.tileSprite(GAME_W/2,GAME_H/2,GAME_W,GAME_H,bgKey).setDepth(-5).setScrollFactor(0);
+  if(stage.boss&&bgKey==='w8_boss_arena'){this.bg.setTileScale(GAME_W/this.bg.texture.getSourceImage().width,GAME_H/this.bg.texture.getSourceImage().height);}
   if(!stage.boss&&has(this,'w8_bg_mid'))this.mid=this.add.tileSprite(GAME_W/2,GAME_H/2,GAME_W,GAME_H,'w8_bg_mid').setDepth(-4).setScrollFactor(0);
   if(!stage.boss&&has(this,'w8_bg_near'))this.near=this.add.tileSprite(GAME_W/2,GAME_H/2+160,GAME_W,GAME_H,'w8_bg_near').setDepth(-3).setScrollFactor(0);
   this.terrain=this.physics.add.staticGroup();
@@ -63,9 +75,27 @@ export class Part2PilotScene extends Phaser.Scene{
    const s=this.terrain.create(x+w/2,y+h/2,'pixel') as Phaser.Physics.Arcade.Sprite;
    s.setDisplaySize(w,h).setTint(slab.breakable?0x9fa7dc:slab.ice?0x7fb8cf:0x879cb5).setDepth(1).refreshBody();
    if(has(this,'w8_ground')&&h===80)this.add.tileSprite(x+w/2,y+h/2,w,h,'w8_ground').setDepth(1);
-   const top=this.add.rectangle(x+w/2,y+5,w,10,slab.breakable?0xc8a6ec:slab.ice?0xe5f7ff:0xd2dbea).setDepth(2);
+   let top:Phaser.GameObjects.GameObject;
+   if(validFrames(this,'w8_tiles',12)){
+    const art=this.add.container(x,y).setDepth(2);
+    const count=Math.max(1,Math.ceil(w/64)),piece=w/count;
+    for(let i=0;i<count;i++){
+     const frame=slab.breakable?'10':h===24?'6':count===1?'1':i===0?'0':i===count-1?'2':'1';
+     art.add(this.add.image(i*piece+piece/2,0,'w8_tiles',frame).setOrigin(.5,0).setDisplaySize(piece+1,h===24?h:Math.min(36,h)));
+    }
+    top=art;
+   }else top=this.add.rectangle(x+w/2,y+5,w,10,slab.breakable?0xc8a6ec:slab.ice?0xe5f7ff:0xd2dbea).setDepth(2);
    this.slabs.push({body:s,top,ice:!!slab.ice,breakable:!!slab.breakable});
    if(slab.breakable)s.setData('fragile',true);
+  }
+  if(!stage.boss&&has(this,'w8_props')){
+   const frames=this.textures.get('w8_props').getFrameNames().filter(f=>/^\d+$/.test(f));
+   if(frames.length)stage.slabs.filter(s=>s.y===640&&s.w>=300).forEach((s,i)=>{
+    const x=s.x+Math.min(s.w*.35,270);
+    if(Math.abs(x-stage.checkpoint)<120||Math.abs(x-stage.exit)<150)return;
+    const prop=this.add.image(x,640,'w8_props',frames[i%frames.length]).setOrigin(.5,1).setDepth(0);
+    prop.setScale(Math.min(130/prop.height,145/prop.width));
+   });
   }
   if(!stage.boss){
    this.add.rectangle(stage.checkpoint,565,16,150,0xebe8ff).setDepth(3);
@@ -101,10 +131,15 @@ export class Part2PilotScene extends Phaser.Scene{
    for(const s of this.slabs){if(!s.breakable||!s.body.active)continue;const b=s.body.getBounds();if(p.hit.x>=b.left-24&&p.hit.x<=b.right+24&&Math.abs(p.body.bottom-b.top)<22){s.body.destroy();s.top.destroy();playSfx(this,'break_block',0);}}
    if(this.crown&&Math.abs(p.hit.x-925)<150&&Math.abs(p.hit.y-510)<165)this.hitBoss();
   });
-  this.events.once('shutdown',()=>{this.stopLoops();this.scene.stop('Part2Hud');});
+  this.events.once('shutdown',()=>{this.stopLoops();this.scene.stop('Part2Hud');if(this.talking)this.scene.stop('Dialogue');this.physics.world.resume();});
   this.scene.launch('Part2Hud');
   playMusic(this,stage.boss?'boss_w8':'w8');
   cam.fadeIn(400);
+  if(stage.boss&&validFrames(this,'w8_guardian',8))this.talk(OPAL_BEFORE,()=>{this.crownTarget=this.player.hit.x;});
+ }
+ private talk(lines:Line[],done:()=>void){
+  this.talking=true;this.player.frozen=true;this.player.body.setVelocity(0,0);this.physics.world.pause();
+  this.scene.launch('Dialogue',{lines,onDone:()=>{this.talking=false;this.player.frozen=this.complete||this.finishing;this.physics.world.resume();done();}});
  }
  private foeY(f:Foe){return f.view.y-(f.air?0:32);}
  private restore(f:Foe,kind:'staff'|'shot'|'pound'|'stomp'='staff'){
@@ -125,6 +160,12 @@ export class Part2PilotScene extends Phaser.Scene{
   const label=this.add.text(0,95,'COROA DA GEADA',textStyle(20)).setOrigin(.5);
   this.crownView=this.add.container(925,510,[shield,core,crown,label]).setDepth(5);
   this.crownDanger=this.add.rectangle(280,480,146,320,0xb8e8ff,.18).setStrokeStyle(3,0xdceeff).setDepth(4);
+  if(opalBossArtReady(this)){
+   this.crownView.setVisible(false);
+   this.crownArt=this.add.sprite(925,640,'w8_boss_idle','0').setOrigin(.5,1).setDepth(5);
+   this.crownArt.setScale(260/this.crownArt.height);
+  }
+  if(validFrames(this,'w8_boss_projectiles',6))this.crownEffect=this.add.image(280,640,'w8_boss_projectiles','0').setOrigin(.5,1).setDepth(4);
  }
  private hitBoss(){
   if(!this.crown)return;
@@ -142,12 +183,31 @@ export class Part2PilotScene extends Phaser.Scene{
    this.crownDanger.setX(this.crownTarget).setVisible(true).setFillStyle(s.phase==='strike'?0xa7dfff:0xc5e9ff,s.phase==='strike'?.75:.18);
    if(s.phase==='strike'&&!this.crownHit&&Math.abs(this.player.hit.x-this.crownTarget)<94&&this.player.hit.y>310){this.crownHit=this.player.hurt(this.crownTarget);}
   }else this.crownDanger.setVisible(false);
+  if(this.crownArt){
+   const n=s.phase==='warning'?Math.floor(this.t*4)%4:s.phase==='strike'?2:4+Math.floor(this.t*3)%2;
+   if(s.phase!=='restored')this.crownArt.setTexture(s.phase==='warning'?'w8_boss_idle':'w8_boss_attack',String(n)).setOrigin(.5,1);
+  }
+  if(this.crownEffect){this.crownEffect.setVisible(s.phase==='warning'||s.phase==='strike').setPosition(this.crownTarget,640);if(s.phase==='warning'||s.phase==='strike')this.crownEffect.setFrame(s.phase==='warning'?'0':'1').setDisplaySize(146,s.phase==='warning'?36:320);}
   const core=this.crownView.list[1] as Phaser.GameObjects.Arc;
   core.setFillStyle(s.phase==='restored'?0x8de8bf:s.phase==='exposed'?0xffe5a2:0x8cddf5,.95);
  }
  private finishRoute(){
-  this.complete=true;const p=this.player;p.frozen=true;p.victory=true;p.body.setVelocity(0,0);p.body.setAllowGravity(false);this.stopLoops();
-  this.saved=writePart2(finishOpalPreview(loadPart2(),this.stage.id));playMusic(this,'victory_part2',false);
+  if(this.finishing||this.complete)return;
+  this.finishing=true;const p=this.player;p.frozen=true;p.victory=true;p.body.setVelocity(0,0);p.body.setAllowGravity(false);this.stopLoops();
+  const finish=()=>{
+   const old=loadPart2();let next=finishOpalPreview(old,this.stage.id);
+   if(this.stage.boss)next=finishOpalWorld(next,this.crown?.phase==='restored',opalFinaleReady(this));
+   this.saved=writePart2(next);this.earned=this.saved&&!hasInsignia(old,8)&&hasInsignia(next,8);
+   if(this.earned)playSfx(this,'insignia_collect',0);
+   this.complete=true;this.finishing=false;playMusic(this,'victory_part2',false);
+  };
+  if(!this.stage.boss){finish();return;}
+  this.crownEffect?.setVisible(false);this.crownDanger?.setVisible(false);
+  const after=()=>validFrames(this,'w8_guardian',8)?this.talk(OPAL_AFTER,finish):finish();
+  if(this.crownArt){
+   for(let i=0;i<4;i++)this.time.delayedCall(i*320,()=>this.crownArt?.setTexture('w8_boss_end',String(i)).setOrigin(.5,1));
+   this.time.delayedCall(1450,after);
+  }else after();
  }
  private stopLoops(){for(const s of [this.ambience,this.glide])if(s){s.stop();s.destroy();}this.ambience=this.glide=undefined;}
  private syncLoops(){
@@ -165,7 +225,7 @@ export class Part2PilotScene extends Phaser.Scene{
   if(this.glide)(this.glide as Phaser.Sound.WebAudioSound).setVolume(.22*v);
  }
  update(_time:number,delta:number){
-  if(!this.player||this.complete)return;
+  if(!this.player||this.complete||this.finishing||this.talking)return;
   const dt=Math.min(delta/1000,.04),p=this.player;this.t+=dt;
   this.controls.update();const c=this.controls;
   if(c.pausePressed){this.leave();return;}if(c.restartPressed){this.scene.restart({stage:this.stage.id});return;}if(c.mutePressed)toggleMute(this);
@@ -201,8 +261,8 @@ export class Part2PilotScene extends Phaser.Scene{
   if(this.crown?.phase==='restored'||(!this.stage.boss&&p.hit.x>this.stage.exit-60&&p.onGround&&this.foes.every(f=>f.restored)))this.finishRoute();
   else this.syncLoops();
  }
- get status(){return {stage:this.stage?.id??1,name:this.stage?.name??'Opala',brief:this.stage?.brief??'',crown:this.crown,hp:this.player?.hp??4,restored:this.foes.filter(f=>f.restored).length,total:this.foes.length,complete:this.complete,saved:this.saved,checkpoint:this.checkpoint};}
- leave(){this.scene.stop('Part2Hud');this.scene.start('Part2Map',{opal:true});}
+ get status(){return {stage:this.stage?.id??1,name:this.stage?.name??'Opala',brief:this.stage?.brief??'',crown:this.crown,hp:this.player?.hp??4,restored:this.foes.filter(f=>f.restored).length,total:this.foes.length,complete:this.complete,saved:this.saved,earned:this.earned,finaleReady:opalFinaleReady(this),busy:this.talking||this.finishing,checkpoint:this.checkpoint};}
+ leave(){if(this.talking||this.finishing)return;this.scene.stop('Part2Hud');if(this.complete&&this.stage.boss&&this.saved&&opalFinaleReady(this))this.scene.start('Cutscene',{slides:OPAL_FINALE,next:'Part2Map',nextData:{opal:true},music:'map_part2'});else this.scene.start('Part2Map',{opal:true});}
 }
 
 export class Part2HudScene extends Phaser.Scene{
@@ -220,11 +280,11 @@ export class Part2HudScene extends Phaser.Scene{
  update(){
   this.touch?.update();const pilot=this.scene.get('Part2Pilot') as Part2PilotScene;
   const s=pilot.status;
-  this.label.setText('8-'+s.stage+' · '+s.name+' · PRÉVIA   ♥ '+s.hp+'   '+(s.crown?'Coroa '+s.crown.hp+'/6 · '+({warning:'Aviso',strike:'Rajada',exposed:'Núcleo exposto',restored:'Restaurada'}[s.crown.phase]):'Restaurados '+s.restored+'/'+s.total)+(s.checkpoint?'   ✦ Checkpoint':'')+'\n'+s.brief);
+  this.label.setText('8-'+s.stage+' · '+s.name+(s.finaleReady?'   ♥ ':' · PRÉVIA   ♥ ')+s.hp+'   '+(s.crown?'Coroa '+s.crown.hp+'/6 · '+({warning:'Aviso',strike:'Rajada',exposed:'Núcleo exposto',restored:'Restaurada'}[s.crown.phase]):'Restaurados '+s.restored+'/'+s.total)+(s.checkpoint?'   ✦ Checkpoint':'')+'\n'+s.brief);
   if(s.complete&&!this.win){
    const bg=this.add.rectangle(GAME_W/2,GAME_H/2,700,210,0x211832,.96).setStrokeStyle(3,0xc6ecf9);
-   const title=this.add.text(GAME_W/2,GAME_H/2-55,s.stage===4?'Coroa restaurada na prévia!':'Fase de teste concluída!',textStyle(32)).setOrigin(.5);
-   const text=this.add.text(GAME_W/2,GAME_H/2-7,(s.saved?'Progresso da rota salvo.':'Não foi possível salvar neste navegador.')+(s.stage===4?'\nA insígnia permanece reservada à versão definitiva.':'\nA próxima fase de teste foi desbloqueada.'),textStyle(19)).setOrigin(.5);
+   const title=this.add.text(GAME_W/2,GAME_H/2-55,s.stage===4?(s.finaleReady?'Coroa restaurada!':'Coroa restaurada na prévia!'):'Fase concluída!',textStyle(32)).setOrigin(.5);
+   const text=this.add.text(GAME_W/2,GAME_H/2-7,(s.saved?'Progresso da rota salvo.':'Não foi possível salvar neste navegador.')+(s.stage===4?(s.earned?'\nMemória da Transformação conquistada!':s.finaleReady?'\nAs memórias de Opala estão na coleção.':'\nA insígnia aguarda as cutscenes definitivas.'):'\nA próxima fase foi desbloqueada.'),textStyle(19)).setOrigin(.5);
    const b=button(this,GAME_W/2,GAME_H/2+66,330,'Retornar ao mapa II',()=>pilot.leave());
    this.win=this.add.container(0,0,[bg,title,text,b.root]).setDepth(1000);
    this.input.keyboard!.once('keydown-ENTER',()=>pilot.leave());
