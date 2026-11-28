@@ -57,6 +57,8 @@ export class Player {
   private airDashUsed = false;
   /** Empurrão horizontal externo (vento), em px/s; a cena define a cada quadro. */
   wind = 0;
+  /** Surface grip: 1 on ordinary terrain, lower on ice. Set by the current scene. */
+  groundGrip = 1;
 
   private coyote = 0;
   private jumpBuffer = 0;
@@ -224,7 +226,7 @@ export class Player {
     this.wallLock = Math.max(0, this.wallLock - dt);
     if (this.hurtTimer <= 0 && this.wallLock <= 0) {
       const accel = dir !== 0 || this.wind ? (ground ? PHYS.accelGround : PHYS.accelAir) : ground ? PHYS.decelGround : PHYS.decelAir;
-      b.setVelocityX(approach(b.velocity.x, dir * PHYS.runSpeed * (this.slowTime > 0 ? 0.65 : 1) + this.wind, accel * dt));
+      b.setVelocityX(approach(b.velocity.x, dir * PHYS.runSpeed * (this.slowTime > 0 ? 0.65 : 1) + this.wind, accel * dt * (ground ? this.groundGrip : 1)));
       if (dir !== 0 && this.attackTime <= 0) this.facing = dir;
     }
 

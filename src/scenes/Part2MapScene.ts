@@ -6,16 +6,17 @@ import {playMusic,playSfx} from '../systems/Audio';
 import {loadSave} from '../systems/Save';
 import {ensureWorld} from '../systems/Loader';
 import {applyColorblind} from '../systems/Settings';
-import {REGIONS,loadPart2,hasInsignia,part2Unlocked} from '../world/Part2';
+import {REGIONS,loadPart2,hasInsignia,opalPreviewUnlocked,part2Unlocked} from '../world/Part2';
 import {pilotArtReady} from './Part2PilotScene';
+import {OPAL_STAGES} from '../levels/opal';
 
 export class Part2MapScene extends Phaser.Scene{
  constructor(){super('Part2Map');}
- create(){
+ create(data:{opal?:boolean}={}){
   if(!part2Unlocked(loadSave())){this.scene.start('Map');return;}
   applyColorblind(this);
   const progress=loadPart2();
-  let selected=0,leaving=false,collection=false;
+  let selected=0,leaving=false,collection=false,opal=false,stageCursor=0;
   this.add.rectangle(0,0,GAME_W,GAME_H,0x17132c).setOrigin(0);
   const art=has(this,'world_map_part2');
   if(art){
@@ -39,19 +40,19 @@ export class Part2MapScene extends Phaser.Scene{
    labels.push(this.add.text(x,465,'Mundo '+r.id,textStyle(20)).setOrigin(.5));
   }
   const back=button(this,180,655,290,'Mapa da Parte 1',()=>exit('Map'));
-  const collect=button(this,540,655,350,'Memórias do Espectro',()=>showCollection(!collection));
-  const enter=button(this,1020,655,420,'Explorar rota de teste',()=>open());
+  const collect=button(this,540,655,350,'Memórias do Espectro',()=>showCollection(!(collection||opal)));
+  const enter=button(this,1020,655,420,'Explorar Opala',()=>open());
   const collectionObjects:Phaser.GameObjects.GameObject[]=[];
   const select=(i:number)=>{
    selected=(i+REGIONS.length)%REGIONS.length;
    const r=REGIONS[selected];cards.forEach((c,j)=>c.setFillStyle(j===selected?0x6d518b:0x29233d));
    title.setText(r.id+' · '+r.name);
    const ready=pilotArtReady(this);
-   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Rota de teste concluída · Jogar novamente':'Rota de teste disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):'Em desenvolvimento · '+r.theme);
+   desc.setText(r.id===8?(ready?(progress.pilotCleared?'Prévia disponível · '+progress.opalPreviewCleared.length+'/4 fases':'Prévia disponível · cenário provisório'):'Rota de teste indisponível · faltam atlas válidos'):'Em desenvolvimento · '+r.theme);
    enter.root.setVisible(r.id===8&&ready&&!collection);
   };
   const showCollection=(on:boolean)=>{
-   collection=on;
+   opal=false;collection=on;
    collectionObjects.splice(0).forEach(o=>o.destroy());
    detail.setVisible(!on);title.setVisible(!on);desc.setVisible(!on);
    cards.forEach(c=>c.setVisible(!on));labels.forEach(t=>t.setVisible(!on));
@@ -73,21 +74,50 @@ export class Part2MapScene extends Phaser.Scene{
    collectionObjects.push(this.add.text(GAME_W/2,486,'Insígnias são troféus da restauração de cada mundo. Não modificam o uniforme.',textStyle(20)).setOrigin(.5));
   };
   const exit=(target:string)=>{if(leaving)return;leaving=true;this.scene.start(target);};
-  const open=()=>{if(collection||selected!==0||!pilotArtReady(this))return;playSfx(this,'part2_portal',0);exit('Part2Pilot');};
+  const showOpal=()=>{
+   opal=true;collectionObjects.splice(0).forEach(o=>o.destroy());
+   detail.setVisible(false);title.setVisible(false);desc.setVisible(false);cards.forEach(c=>c.setVisible(false));labels.forEach(t=>t.setVisible(false));enter.root.setVisible(false);
+   collectionObjects.push(this.add.rectangle(GAME_W/2,333,1220,460,0x17132c,.97).setStrokeStyle(2,0xa8ddec));
+   collectionObjects.push(this.add.text(GAME_W/2,130,'Geleiras de Opala · prévia jogável',textStyle(32)).setOrigin(.5));
+   if(has(this,'w8_map')){const img=this.add.image(GAME_W/2,326,'w8_map');img.setScale(Math.min(1160/img.width,320/img.height)).setAlpha(.32);collectionObjects.push(img);}
+   for(const [i,s] of OPAL_STAGES.entries()){
+    const x=182+i*305,available=opalPreviewUnlocked(progress,s.id),done=progress.opalPreviewCleared.includes(s.id);
+    const bg=this.add.rectangle(x,310,276,206,i===stageCursor?0x594d78:0x30283f,.96).setStrokeStyle(2,available?0xb9e9fa:0x666079);
+    const name=this.add.text(x,262,'8-'+s.id+' · '+s.name,{...textStyle(22),wordWrap:{width:250},align:'center'}).setOrigin(.5);
+    const st=this.add.text(x,352,done?'Concluída':available?'Disponível':'Bloqueada',textStyle(18)).setOrigin(.5);
+    if(available)bg.setInteractive({useHandCursor:true}).on('pointerdown',()=>{stageCursor=i;open();});
+    collectionObjects.push(bg,name,st);
+   }
+   collectionObjects.push(this.add.text(GAME_W/2,488,'← → selecionar · ENTER jogar · ESC voltar',textStyle(20)).setOrigin(.5));
+   (collect.root.list[1] as Phaser.GameObjects.Text).setText('Voltar ao mapa II');
+  };
+  const open=()=>{
+   if(collection||selected!==0||!pilotArtReady(this)||leaving)return;
+   if(!opal){showOpal();return;}
+   const stage=OPAL_STAGES[stageCursor].id;
+   if(!opalPreviewUnlocked(progress,stage))return;
+   leaving=true;playSfx(this,'part2_portal',0);this.scene.start('Part2Pilot',{stage});
+  };
+  const move=(d:number)=>{
+   if(collection)return;
+   if(opal){stageCursor=(stageCursor+d+4)%4;showOpal();}
+   else select(selected+d);
+  };
+  const backAction=()=>{if(collection||opal)showCollection(false);else exit('Map');};
   const kb=this.input.keyboard!;
-  kb.on('keydown-LEFT',()=>{if(!collection)select(selected-1);});
-  kb.on('keydown-RIGHT',()=>{if(!collection)select(selected+1);});
+  kb.on('keydown-LEFT',()=>move(-1));
+  kb.on('keydown-RIGHT',()=>move(1));
   kb.on('keydown-ENTER',open);
-  kb.on('keydown-B',()=>showCollection(!collection));
-  kb.on('keydown-ESC',()=>collection?showCollection(false):exit('Map'));
+  kb.on('keydown-B',()=>showCollection(!(collection||opal)));
+  kb.on('keydown-ESC',backAction);
   const pad=(_p:Phaser.Input.Gamepad.Gamepad,b:Phaser.Input.Gamepad.Button)=>{
-   if(b.index===14&&!collection)select(selected-1);
-   if(b.index===15&&!collection)select(selected+1);
-   if(b.index===0)open();if(b.index===1)collection?showCollection(false):exit('Map');if(b.index===2)showCollection(!collection);
+   if(b.index===14)move(-1);
+   if(b.index===15)move(1);
+   if(b.index===0)open();if(b.index===1)backAction();if(b.index===2)showCollection(!(collection||opal));
   };
   this.input.gamepad?.on('down',pad);
   this.events.once('shutdown',()=>this.input.gamepad?.off('down',pad));
-  select(0);playMusic(this,'map_part2');this.cameras.main.fadeIn(300);
+  select(0);if(data.opal&&pilotArtReady(this)){stageCursor=Math.min(3,progress.opalPreviewCleared.length);showOpal();}playMusic(this,'map_part2');this.cameras.main.fadeIn(300);
  }
 }
 

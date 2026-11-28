@@ -13,3 +13,12 @@ Pendente: validar build/atlas e playtest real; completar inimigos restantes e ar
 - A rota só abre se todos os IDs de quadros esperados estiverem no atlas de cada animação e inimigo (não basta arquivo presente).
 - Ao restaurar os quatro inimigos e alcançar a saída, `pilotCleared` persiste sem conceder medalha; voltar ao mapa I não altera o save original.
 - Ao sair/reiniciar, os loops de ambiente e planar param. O HUD mantém o enquadramento fixo e os controles de toque.
+
+## Segunda entrega: prévia de Opala
+- 8-1 Trilhas da Geada: inércia em superfícies geladas, carapaças resistentes e restauração.
+- 8-2 Grutas de Opala: paredes para wall jump, plataformas frágeis rompidas com pound.
+- 8-3 Ponte das Rajadas: vento em sentidos alternados, dash e planar.
+- 8-4 Santuário Congelado: protótipo da Coroa da Geada com aviso de rajada, ataque e janela de núcleo exposto; seis acertos válidos restauram a entidade. Forma geométrica temporária, não é a arte final.
+- Cada fase de prévia concluída abre a próxima e salva em `opalPreviewCleared`. A conclusão antiga do piloto é preservada, mas não pula uma fase nova. Mesmo restaurando a Coroa no protótipo, a coleção não recebe insígnia: o encerramento definitivo com guardião e arte oficial ainda não existe.
+- O pipeline aceita bg_mid/bg_near, ground_texture, tiles_kit, props, world_map e boss_arena dos mundos 8–14, sem exigir arquivos ausentes. Opala usa as camadas de fundo, textura do chão, mapa e arena quando disponíveis; tiles/props ainda não são posicionados no gameplay.
+- Todos os controles e os saves da Parte I permanecem independentes. A aderência é um parâmetro por instância do Player, padrão 1.

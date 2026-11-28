@@ -223,6 +223,12 @@ const SHEETS = [
   { key: 'world_map_part2', src: 'ui/world_map_part2.png', type: 'image', height: 853, opaque: true },
   ...Array.from({length:7},(_,i)=>i+8).flatMap(w=>[
     {key:'w'+w+'_bg_far',src:'w'+w+'/bg_far.png',type:'image',height:720,opaque:true,mirror:true},
+    ...['bg_mid','bg_near'].map(n=>({key:'w'+w+'_'+n,src:'w'+w+'/'+n+'.png',type:'image',height:720,mirror:true})),
+    {key:'w'+w+'_ground',src:'w'+w+'/ground_texture.png',type:'image',width:256,opaque:true},
+    {key:'w'+w+'_tiles',src:'w'+w+'/tiles_kit.png',expect:12,grid:[4,3],surface:true,ref:{frame:1,width:64}},
+    {key:'w'+w+'_props',src:'w'+w+'/props.png',expect:9,height:190},
+    {key:'w'+w+'_map',src:'w'+w+'/world_map.png',type:'image',height:853,opaque:true},
+    {key:'w'+w+'_boss_arena',src:'w'+w+'/boss_arena.png',type:'image',height:720,opaque:true},
     {key:'part2_insignia_'+w,src:'w'+w+'/insignia.png',type:'image',height:256},
     ...['enemy','enemy_alt'].map(n=>({key:'w'+w+'_'+n,src:'w'+w+'/'+n+'.png',expect:6,height:66,grid:[3,2],cut:true,largest:true})),
   ]),
