@@ -11,9 +11,10 @@ import {closeCameraZoom} from '../world/CloseCamera';
 import {loadSave} from '../systems/Save';
 import {loadPart2,writePart2,finishPilot,part2Unlocked} from '../world/Part2';
 
-const REQUIRED=['idle','run','jump','attack','hurt_win','doublejump','dash','glide','wall','swim','shoot','pound_air','pound_land'];
+const REQUIRED:Record<string,number>={idle:4,run:6,jump:6,attack:6,hurt_win:6,doublejump:6,dash:6,glide:6,wall:6,swim:6,shoot:6,pound_air:4,pound_land:2};
 export function pilotArtReady(scene:Phaser.Scene){
- return REQUIRED.every(n=>has(scene,'part2_iris_'+n))&&has(scene,'w8_bg_far')&&has(scene,'w8_enemy')&&has(scene,'w8_enemy_alt');
+ const valid=(key:string,count:number)=>has(scene,key)&&Array.from({length:count},(_,i)=>String(i)).every(f=>scene.textures.get(key).has(f));
+ return Object.entries(REQUIRED).every(([n,count])=>valid('part2_iris_'+n,count))&&has(scene,'w8_bg_far')&&valid('w8_enemy',6)&&valid('w8_enemy_alt',6);
 }
 type Foe={view:Phaser.GameObjects.Sprite;x:number;y:number;air:boolean;restored:boolean};
 type Shot={view:Phaser.GameObjects.Arc;dir:number;life:number};
@@ -40,9 +41,7 @@ export class Part2PilotScene extends Phaser.Scene{
   this.physics.world.setBoundsCollision(true,true,false,false);
   const zoom=closeCameraZoom(GAME_H),cam=this.cameras.main;
   cam.setZoom(zoom).setBounds(0,0,width,GAME_H);
-  this.bg=this.add.tileSprite(width/2,GAME_H/2,width,GAME_H,'w8_bg_far').setDepth(-5).setScrollFactor(0);
-  // Fixed camera background: anchor to the visible world viewport rather than the level width.
-  this.bg.setSize(GAME_W,GAME_H).setPosition(GAME_W/2,GAME_H/2);
+  this.bg=this.add.tileSprite(GAME_W/2,GAME_H/2,GAME_W,GAME_H,'w8_bg_far').setDepth(-5).setScrollFactor(0);
   this.terrain=this.physics.add.staticGroup();
   const slab=(left:number,top:number,w:number,h:number)=>{
    const s=this.terrain.create(left+w/2,top+h/2,'pixel') as Phaser.Physics.Arcade.Sprite;
@@ -93,14 +92,14 @@ export class Part2PilotScene extends Phaser.Scene{
   if(!this.sound.locked&&!this.ambience&&this.cache.audio.exists('sfx_ambient_w8_loop')){
    this.ambience=this.sound.add('sfx_ambient_w8_loop',{loop:true,volume:.16*v});this.ambience.play();
   }
-  if(this.ambience)this.ambience.setVolume(.16*v);
+  if(this.ambience)(this.ambience as Phaser.Sound.WebAudioSound).setVolume(.16*v);
   if(this.player.gliding&&!this.wasGliding){
    playSfx(this,'staff_extend',0);
    if(!this.sound.locked&&this.cache.audio.exists('sfx_staff_glide_loop')){this.glide=this.sound.add('sfx_staff_glide_loop',{loop:true,volume:.22*v});this.glide.play();}
   }
   if(!this.player.gliding&&this.wasGliding){this.glide?.stop();this.glide?.destroy();this.glide=undefined;playSfx(this,'staff_retract',0);}
   this.wasGliding=this.player.gliding;
-  if(this.glide)this.glide.setVolume(.22*v);
+  if(this.glide)(this.glide as Phaser.Sound.WebAudioSound).setVolume(.22*v);
  }
  update(_time:number,delta:number){
   if(!this.player||this.complete)return;

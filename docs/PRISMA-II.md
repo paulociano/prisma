@@ -7,3 +7,9 @@ Sete regiões (8–14), coleção Memórias do Espectro com as artes aprovadas, 
 Pipeline: world_map_part2, part2_insignia_8..14, part2_iris_* e w8..14_bg_far/enemy/enemy_alt. Os assets compartilhados carregam junto de Opala, não no boot da Parte I. O mapa só libera a rota se o pack de sprites de Íris e as duas criaturas estiverem disponíveis. A presença de um atlas não prova a identidade, a continuidade do bastão ou a ordem visual dos quadros. A música map_part2 e w8, efeitos staff_* (ataque, extensão/retração, disparo, dash, planar, impacto), restauração, portal, victory_part2 e ambiente w8 foram ligados à rota; hurt é compartilhado. Trilhas de chefão por mundo registradas na seleção para integração futura. Os demais sons estão no manifest, ainda sem seus eventos finais.
 
 Pendente: validar build/atlas e playtest real; completar inimigos restantes e arte dos cenários, terrenos, props, guardiões e chefões; implementar níveis completos, mecânicas próprias de cada mundo, cutscenes e entrega real das insígnias. A física experimental usa Player e Controls existentes, mas não substitui GameScene nem os saves da Parte I.
+
+### Critérios de verificação
+- No mapa original, o botão II não existe antes de `finished`.
+- A rota só abre se todos os IDs de quadros esperados estiverem no atlas de cada animação e inimigo (não basta arquivo presente).
+- Ao restaurar os quatro inimigos e alcançar a saída, `pilotCleared` persiste sem conceder medalha; voltar ao mapa I não altera o save original.
+- Ao sair/reiniciar, os loops de ambiente e planar param. O HUD mantém o enquadramento fixo e os controles de toque.

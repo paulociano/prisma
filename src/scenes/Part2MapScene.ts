@@ -93,6 +93,8 @@ export class Part2MapScene extends Phaser.Scene{
 
 /** Explicit chapter transition, lazy-loading the shared pack only after consent to enter. */
 export function enterPart2(scene:Phaser.Scene){
- if(!part2Unlocked(loadSave()))return;
+ if(!part2Unlocked(loadSave())||scene.data.get('part2Entering'))return;
+ scene.data.set('part2Entering',true);
+ scene.events.once('shutdown',()=>scene.data.set('part2Entering',false));
  ensureWorld(scene,8,()=>scene.scene.start('Part2Map'));
 }
