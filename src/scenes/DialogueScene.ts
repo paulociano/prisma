@@ -4,7 +4,7 @@ import { GAME_H, GAME_W } from '../config';
 import { has } from '../gfx/art';
 import { playSfx } from '../systems/Audio';
 
-export type Speaker = 'iris' | 'spark' | 'ruby' | 'judge' | 'sol' | 'luna' | 'serpent' | 'aurora' | 'branch' | 'spotlight' | 'thornweed' | 'marina' | 'bix' | 'kraken' | 'eclipse' | 'ace' | 'mono' | 'niva' | 'iris2';
+export type Speaker = 'iris' | 'spark' | 'ruby' | 'judge' | 'sol' | 'luna' | 'serpent' | 'aurora' | 'branch' | 'spotlight' | 'thornweed' | 'marina' | 'bix' | 'kraken' | 'eclipse' | 'ace' | 'mono' | 'niva' | 'iris2' | 'auri';
 
 export interface Line {
   who: Speaker;
@@ -87,6 +87,7 @@ const PORTRAITS: Record<Speaker, { name: string; color: string; moods: Record<st
     scale: 0.6,
   },
   iris2: { name: 'Íris', color: '#c79bff', moods: { happy: ['part2_iris_portraits', 0], determined: ['part2_iris_portraits', 1], surprised: ['part2_iris_portraits', 2], sad: ['part2_iris_portraits', 3] }, scale: 0.5 },
+  auri: { name: 'Auri', color: '#f3c47d', moods: { happy: ['w9_guardian', 3], proud: ['w9_guardian', 4], worried: ['w9_guardian', 5], grateful: ['w9_guardian', 6] }, scale: 0.6 },
   niva: { name: 'Niva', color: '#c4eaf7', moods: { happy: ['w8_guardian', 3], proud: ['w8_guardian', 4], worried: ['w8_guardian', 5], grateful: ['w8_guardian', 6] }, scale: 0.6 },
   mono: { name: 'Monocromo', color: '#d8d8e8', moods: { angry: ['w7_boss_p1_idle', 0], restored: ['w7_boss_p2_end', 3] }, scale: 0.3, originY: 0.3 },
   spotlight: { name: 'Holofote Frio', color: '#d8dcff', moods: { angry: ['w3_boss_idle', 0], restored: ['w3_boss_end', 3] }, scale: 0.3, originY: 0.42 },

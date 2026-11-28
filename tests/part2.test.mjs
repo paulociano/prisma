@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizePart2,finishPilot,grantWorldInsignia,hasInsignia,part2Unlocked,REGIONS,loadPart2,writePart2,PART2_KEY,opalPreviewUnlocked,finishOpalPreview,finishOpalWorld} from '../.debug/part2.mjs';
+import {normalizePart2,finishPilot,grantWorldInsignia,hasInsignia,part2Unlocked,REGIONS,loadPart2,writePart2,PART2_KEY,opalPreviewUnlocked,finishOpalPreview,finishOpalWorld,amberPreviewUnlocked,finishAmberPreview,finishAmberWorld} from '../.debug/part2.mjs';
 test('Chapter II requires the original ending and retains all seven world identities',()=>{
  assert.equal(part2Unlocked({finished:false}),false);assert.equal(part2Unlocked({finished:true}),true);
  assert.deepEqual(REGIONS.map(r=>r.id),[8,9,10,11,12,13,14]);
@@ -37,4 +37,22 @@ test('Opala award requires restored boss, completed routes and authored finale',
  assert.deepEqual(finishOpalWorld(normalizePart2(null),true,true).completedWorlds,[]);
  p=finishOpalWorld(p,true,true);assert.deepEqual(p.completedWorlds,[8]);assert.deepEqual(p.opalPreviewCleared,[1,2,3,4]);
  assert.deepEqual(finishOpalWorld(p,true,true),p);
+});
+
+test('Amber unlocks only after Opala, and earns an independent collectible after its authored finale',()=>{
+ const locked=normalizePart2({amberPreviewCleared:[1,2,3,4]});
+ assert.deepEqual(locked.amberPreviewCleared,[]);
+ assert.equal(amberPreviewUnlocked(locked,1),false);
+ assert.deepEqual(finishAmberPreview(locked,1),locked);
+ let p=normalizePart2({completedWorlds:[8],opalPreviewCleared:[1,2,3,4]});
+ assert.equal(amberPreviewUnlocked(p,1),true);assert.equal(amberPreviewUnlocked(p,2),false);
+ assert.deepEqual(finishAmberPreview(p,2),p);
+ for(let i=1;i<=3;i++)p=finishAmberPreview(p,i);
+ assert.deepEqual(finishAmberWorld(p,false,true),p);
+ assert.deepEqual(finishAmberWorld(p,true,false),p);
+ assert.equal(hasInsignia(finishAmberPreview(p,4),9),false);
+ p=finishAmberWorld(p,true,true);
+ assert.deepEqual(p.completedWorlds,[8,9]);assert.deepEqual(p.amberPreviewCleared,[1,2,3,4]);
+ assert.deepEqual(p.opalPreviewCleared,[1,2,3,4]);
+ assert.deepEqual(finishAmberWorld(p,true,true),p);
 });

@@ -9,7 +9,7 @@ export const REGIONS=[
  {id:13,name:'Deserto de Obsidiana',insignia:'Coragem',color:0x9f8ab8,theme:'Enfrentar o desconhecido'},
  {id:14,name:'Nexus Prismático',insignia:'Harmonia',color:0xe0b7f4,theme:'Coexistência sem uniformidade'},
 ] as const;
-export interface Part2Progress { pilotCleared:boolean; completedWorlds:number[]; opalPreviewCleared:number[] }
+export interface Part2Progress { pilotCleared:boolean; completedWorlds:number[]; opalPreviewCleared:number[]; amberPreviewCleared:number[] }
 export function normalizePart2(raw:unknown):Part2Progress {
  const value=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw as Record<string,unknown>:{};
  const ids=Array.isArray(value.completedWorlds)?value.completedWorlds:[];
@@ -19,7 +19,10 @@ export function normalizePart2(raw:unknown):Part2Progress {
  const stages=Array.isArray(value.opalPreviewCleared)?value.opalPreviewCleared:[];
  const opalPreviewCleared:number[]=[];
  for(let n=1;n<=4;n++){if(!stages.includes(n))break;opalPreviewCleared.push(n);}
- return {pilotCleared:value.pilotCleared===true,completedWorlds,opalPreviewCleared};
+ const amber=Array.isArray(value.amberPreviewCleared)?value.amberPreviewCleared:[];
+ const amberPreviewCleared:number[]=[];
+ if(completedWorlds.includes(8))for(let n=1;n<=4;n++){if(!amber.includes(n))break;amberPreviewCleared.push(n);}
+ return {pilotCleared:value.pilotCleared===true,completedWorlds,opalPreviewCleared,amberPreviewCleared};
 }
 export function part2Unlocked(save:{finished:boolean}):boolean{return save.finished===true;}
 export function loadPart2():Part2Progress{
@@ -57,4 +60,20 @@ export function finishOpalWorld(progress:Part2Progress,restored:boolean,finaleRe
  const p=normalizePart2(progress);
  if(!restored||!finaleReady||![1,2,3].every(n=>p.opalPreviewCleared.includes(n)))return p;
  return grantWorldInsignia(finishOpalPreview(p,4),8);
+}
+
+/** Opala must be restored before the Amber routes become available. */
+export function amberPreviewUnlocked(p:Part2Progress,stage:number):boolean{
+ const next=normalizePart2(p);
+ return next.completedWorlds.includes(8)&&Number.isInteger(stage)&&stage>=1&&stage<=4&&(stage===1||next.amberPreviewCleared.includes(stage-1));
+}
+export function finishAmberPreview(p:Part2Progress,stage:number):Part2Progress{
+ const next=normalizePart2(p);
+ if(amberPreviewUnlocked(next,stage)&&!next.amberPreviewCleared.includes(stage))next.amberPreviewCleared.push(stage);
+ return next;
+}
+export function finishAmberWorld(p:Part2Progress,restored:boolean,finaleReady:boolean):Part2Progress{
+ const next=normalizePart2(p);
+ if(!restored||!finaleReady||!next.completedWorlds.includes(8)||![1,2,3].every(n=>next.amberPreviewCleared.includes(n)))return next;
+ return grantWorldInsignia(finishAmberPreview(next,4),9);
 }
