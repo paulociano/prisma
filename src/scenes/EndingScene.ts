@@ -43,7 +43,7 @@ export class EndingScene extends Phaser.Scene {
       ['w2_luna', '0'],
       ['w3_guardian', '0'],
       ['w4_guardian', '0'],
-      ['iris_hurt_win', '4'],
+      [has(this,'w7_iris_hurt_win')?'w7_iris_hurt_win':'iris_hurt_win', '4'],
       ['w5_guardian', '0'],
       ['w6_guardian', '0'],
       ['w7_guardian', '0'],
@@ -53,7 +53,7 @@ export class EndingScene extends Phaser.Scene {
     const x0 = GAME_W / 2 - ((present.length - 1) * gap) / 2;
     present.forEach(([tex, frame], i) => {
       const img = this.add.image(x0 + i * gap, GAME_H - 40, tex, frame).setOrigin(0.5, 1);
-      img.setScale((tex.startsWith('iris') ? 150 : 165) / img.height).setAlpha(0);
+      img.setScale((tex.includes('iris_hurt_win') ? 150 : 165) / img.height).setAlpha(0);
       this.tweens.add({ targets: img, alpha: 1, y: GAME_H - 30, delay: 400 + i * 250, duration: 500, ease: 'Back.Out' });
       this.tweens.add({ targets: img, y: '-=8', delay: 1400 + i * 120, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     });

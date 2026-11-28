@@ -365,7 +365,7 @@ export class Player {
       const sx = 1 + (this.squash.x - 1) * 0.4, sy = 1 + (this.squash.y - 1) * 0.4;
       // a pirueta gira em torno do centro do corpo; as demais poses apoiam nos pés
       // poses centradas no corpo (giram ou ficam na horizontal); as demais apoiam nos pés
-      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key.replace(/^w[2-7]_/,''));
+      const spinning = ['iris_doublejump', 'iris_swim', 'iris_pound_air'].includes(this.view.texture.key.replace(/^(?:w[2-7]_|part2_)/,''));
       const up = this.gdir < 0; // de cabeça para baixo: os pés apoiam no teto
       this.view.setPosition(this.hit.x, spinning ? this.hit.y : up ? b.top - 2 : b.bottom + 2);
       this.view.setScale(this.baseScale * sx, this.baseScale * sy);

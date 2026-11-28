@@ -22,7 +22,7 @@ function anim(scene: Phaser.Scene, key: string, tex: string, frames: readonly nu
   };
   register(key,tex);
   if(key.startsWith('iris-')){
-    for(const prefix of ['w2_','w3_','w4_','w5_','w6_','w7_'])register(prefix+key,prefix+tex);
+    for(const prefix of ['w2_','w3_','w4_','w5_','w6_','w7_','part2_'])register(prefix+key,prefix+tex);
   }
 }
 
@@ -48,6 +48,10 @@ export function createAnims(scene: Phaser.Scene) {
   anim(scene, 'comet-move', 'w6_enemy', [0, 1, 2, 3], 10);
   anim(scene, 'sentinel-move', 'w7_enemy', [0, 1, 3, 1], 5);
   anim(scene, 'snapper-move', 'w4_enemy', [0, 1], 2, -1, true);
+
+  for(let w=8;w<=14;w++)for(const kind of ['enemy','enemy_alt']){
+    const key='w'+w+'_'+kind;anim(scene,key+'-move',key,[0,1,2,3],8);
+  }
 
   anim(scene, 'coin-spin', 'collectibles', F.collectibles.coin, 8);
   anim(scene, 'fx-dust', 'vfx', F.vfx.dust, 18, 0);

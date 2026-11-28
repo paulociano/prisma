@@ -31,7 +31,8 @@
     "art:packs": "esbuild scripts/export-art-packs.ts --bundle --platform=node --format=esm --packages=external --outfile=.debug/export-art-packs.mjs --log-level=error && node .debug/export-art-packs.mjs",
     "test:prerender": "node --test tests/prerender-islands.test.mjs",
     "test:wardrobe": "esbuild src/world/Wardrobe.ts --bundle --platform=node --format=esm --outfile=.debug/wardrobe.mjs --log-level=error && node --test tests/wardrobe.test.mjs tests/wardrobe-grid.test.mjs",
-    "test:cutscenes": "esbuild src/story/cutsceneWorlds.ts --bundle --platform=node --format=esm --outfile=.debug/cutscene-worlds.mjs --log-level=error && node --test tests/cutscene-worlds.test.mjs"
+    "test:cutscenes": "esbuild src/story/cutsceneWorlds.ts --bundle --platform=node --format=esm --outfile=.debug/cutscene-worlds.mjs --log-level=error && node --test tests/cutscene-worlds.test.mjs",
+    "test:part2": "esbuild src/world/Part2.ts --bundle --platform=node --format=esm --outfile=.debug/part2.mjs --log-level=error && node --test tests/part2.test.mjs"
   },
   "dependencies": {
     "phaser": "3.90.0"

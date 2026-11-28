@@ -17,6 +17,7 @@ jobs:
       - run: npm run test:prerender
       - run: npm run test:camera-director
       - run: npm run test:wardrobe
+      - run: npm run test:part2
       - run: npm run test:cutscenes
       - run: npm run assets
       - run: node scripts/check-wardrobe-assets.mjs

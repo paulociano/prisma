@@ -135,6 +135,6 @@ export function toggleMute(scene: Phaser.Scene) {
 
 /** Música de cada mundo; arena de chefão usa a faixa de chefão. */
 export function musicForLevel(world: number, boss: boolean) {
-  if (boss) return world === 7 ? 'boss_final' : 'boss';
+  if (boss) return world >= 8 && world <= 14 ? 'boss_w'+world : world === 7 ? 'boss_final' : 'boss';
   return `w${world}`;
 }

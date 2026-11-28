@@ -6,7 +6,9 @@ import { button, menuNav, textStyle } from '../gfx/ui';
 import { playMusic } from '../systems/Audio';
 import { isTouchDevice } from '../systems/Touch';
 import { INTRO } from './CutsceneScene';
-import { clearSave, hasSave } from '../systems/Save';
+import { clearPart2 } from '../world/Part2';
+import { enterPart2 } from './Part2MapScene';
+import { clearSave, hasSave, loadSave } from '../systems/Save';
 
 // Tela título: fundo ilustrado, logo flutuando e o menu inicial.
 export class TitleScene extends Phaser.Scene {
@@ -48,11 +50,17 @@ export class TitleScene extends Phaser.Scene {
           return;
         }
         clearSave();
+        clearPart2();
         this.go(true);
       });
       buttons.push(reset);
     }
     buttons.push(button(this, x, saved ? 580 : 500, 360, 'Opções', () => this.scene.start('Options', { from: 'Title' })));
+    if(saved&&loadSave().finished){
+      const go=()=>enterPart2(this);
+      buttons.push(button(this,GAME_W-245,420,400,'PRISMA II',go));
+      this.add.text(GAME_W-245,477,'Além do Espectro',textStyle(21,'#fff3c4')).setOrigin(.5);
+    }
     menuNav(this, buttons);
 
     if (!isTouchDevice()) this.add.text(16, GAME_H - 38, '↑ ↓ escolher · ENTER confirmar', textStyle(22)).setAlpha(0.85);

@@ -15,7 +15,9 @@ interface Manifest {
 
 /** Arte e música que pertencem a um mundo específico (carregados só quando o jogador chega nele). */
 export const worldOf = (key: string): number => {
-  const m = /^(?:cs_)?w([1-7])_/.exec(key) ?? /^music_(?:chamber_)?w([1-7])$/.exec(key);
+  // Shared Chapter II outfit, collection and special tracks load once with Opala.
+  if (/^(?:part2_|world_map_part2$|music_(?:map|intro|chamber|victory|ending)_part2$|sfx_(?:staff_|dissonance_restored$|part2_|insignia_collect$))/.test(key))return 8;
+  const m = /^(?:cs_)?w(1[0-4]|[1-9])_/.exec(key) ?? /^music_(?:chamber_|boss_)?w(1[0-4]|[1-9])$/.exec(key) ?? /^sfx_ambient_w(1[0-4]|[1-9])_loop$/.exec(key);
   return m ? Number(m[1]) : 0;
 };
 

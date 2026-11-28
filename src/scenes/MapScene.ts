@@ -11,6 +11,7 @@ import { PENNANTS } from '../story/pennants';
 import { ensureWorld } from '../systems/Loader';
 import { loadSave, type SaveData } from '../systems/Save';
 import { Ambient } from '../systems/Ambient';
+import { enterPart2 } from './Part2MapScene';
 import { overviewFx } from '../systems/WorldFx';
 
 // Ícones do atlas "map_icons".
@@ -78,6 +79,12 @@ export class MapScene extends Phaser.Scene {
     gal.on('pointerdown', openGallery);
     this.input.keyboard!.on('keydown-B', openGallery);
 
+    if(this.save.finished){
+      let entering=false;
+      const go=()=>{if(entering)return;entering=true;this.input.keyboard!.removeAllListeners();enterPart2(this);};
+      this.add.text(GAME_W/2,70,'PRISMA II · Além do Espectro  [N]',textStyle(26,'#e9d8ff')).setOrigin(.5).setInteractive({useHandCursor:true}).on('pointerdown',go);
+      this.input.keyboard!.on('keydown-N',go);
+    }
     const kb = this.input.keyboard!;
     const step = (d: number) => {
       // pula de mundo em mundo (só os liberados)

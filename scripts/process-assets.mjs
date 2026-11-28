@@ -220,6 +220,12 @@ const SHEETS = [
   { key: 'logo', src: 'ui/logo.png', type: 'image', width: 0, height: 300 },
   { key: 'title_bg', src: 'ui/title_bg.png', type: 'image', height: 853, opaque: true },
   { key: 'world_map', src: 'ui/world_map.png', type: 'image', height: 853, opaque: true },
+  { key: 'world_map_part2', src: 'ui/world_map_part2.png', type: 'image', height: 853, opaque: true },
+  ...Array.from({length:7},(_,i)=>i+8).flatMap(w=>[
+    {key:'w'+w+'_bg_far',src:'w'+w+'/bg_far.png',type:'image',height:720,opaque:true,mirror:true},
+    {key:'part2_insignia_'+w,src:'w'+w+'/insignia.png',type:'image',height:256},
+    ...['enemy','enemy_alt'].map(n=>({key:'w'+w+'_'+n,src:'w'+w+'/'+n+'.png',expect:6,height:66,grid:[3,2],cut:true,largest:true})),
+  ]),
   { key: 'map_icons', src: 'ui/map_icons.png', expect: 9, height: 70, grid: [3, 3], cut: true, largest: true, align: 'center' },
   // painéis de tamanhos diferentes: recortes explícitos (balão, moldura, painel, botão / botão aceso, apertado, chave off, on / slider, caixa, caixa marcada, seta)
   { key: 'ui_panels', src: 'ui/ui_panels.png', expect: 12, height: 180, largest: true, align: 'center', cells: [
@@ -656,7 +662,8 @@ for (const sheet of SHEETS) {
 manifest.sprites.push(...extraImages);
  // Author each valid animation independently. Missing or invalid artwork falls back
 // to its existing base animation, never blocks all other artwork for that world.
-for(const sheet of wardrobeSheetPlan(SHEETS)){
+const part2Sheets=SHEETS.filter(s=>s.key.startsWith('iris_')&&s.key!=='iris_portraits').map(s=>({...s,key:'part2_'+s.key,src:'personagens/figurinos/part2/'+path.basename(s.src),authoredWardrobe:true}));
+for(const sheet of [...wardrobeSheetPlan(SHEETS),...part2Sheets]){
   if(!fs.existsSync(path.join(RAW,sheet.src))){
     console.warn('  ⚠ '+sheet.src+': missing; using base animation');
     continue;
